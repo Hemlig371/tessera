@@ -8,7 +8,7 @@
   "chooseCollection": "Выберите коллекцию", "chooseCollectionHint": "Создайте коллекцию в библиотеке и добавьте первую запись.",
   "local": "На этом устройстве", "offline": "Работает без интернета", "saved": "Запись сохранена",
   "loading": "Открываем базу…", "loadMore": "Показать ещё", "entryCount": "Загружено записей: {{count}}",
-  "back": "Библиотеки", "language": "Язык", "retry": "Повторить запуск", "errorTitle": "Не удалось выполнить действие",
+  "back": "Библиотеки", "language": "Язык", "languageRussian": "Русский", "languageEnglish": "English", "retry": "Повторить запуск", "errorTitle": "Не удалось выполнить действие",
   "errors": {
     "nativeRequired": "Откройте Tessera через desktop-приложение или Android. Хранилище доступно в нативном приложении.",
     "sqliteUnsupported": "SQLite на устройстве не поддерживает необходимые возможности. База не изменена.",

@@ -8,7 +8,7 @@
   "chooseCollection": "Choose a collection", "chooseCollectionHint": "Create a collection in your library and add your first entry.",
   "local": "On this device", "offline": "Works offline", "saved": "Entry saved",
   "loading": "Opening database…", "loadMore": "Load more", "entryCount": "Entries loaded: {{count}}",
-  "back": "Libraries", "language": "Language", "retry": "Restart", "errorTitle": "Could not complete the action",
+  "back": "Libraries", "language": "Language", "languageRussian": "Русский", "languageEnglish": "English", "retry": "Restart", "errorTitle": "Could not complete the action",
   "errors": {
     "nativeRequired": "Open Tessera in the desktop or Android app to access native storage.",
     "sqliteUnsupported": "This SQLite build lacks required features. The database was not changed.",

@@ -94,7 +94,7 @@ export function App({ api }: { api: Repository }) {
       </nav>
       <button className="quiet" disabled={!!ui.editor || busy} onClick={() => ui.openEditor('library')}>+ {t('newLibrary')}</button>
       <footer><span className="local-dot" aria-hidden="true"/>{t('local')}<small>{t('offline')}</small>
-        <label className="language">{t('language')}<select value={i18n.language} onChange={e => { void i18n.changeLanguage(e.target.value); }}><option value="ru">Русский</option><option value="en">English</option></select></label>
+        <label className="language">{t('language')}<select value={i18n.language} onChange={e => { void i18n.changeLanguage(e.target.value); }}><option value="ru">{t('languageRussian')}</option><option value="en">{t('languageEnglish')}</option></select></label>
       </footer>
     </aside>
     <main>

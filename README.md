@@ -42,7 +42,7 @@ npm run build:desktop             # Windows x64 / NSIS
 | `test:native` | Rust/rusqlite: перезапуск, backup, FTS5, rollback, типы bridge |
 | `test:native-api` | тот же TS DB-контракт также через скомпилированный Rust/rusqlite, dev-only stdio driver |
 | `test:e2e` | Playwright/Chromium → общий TS API → тестовый loopback bridge → **нативная Node SQLite**; сохранение/отмена/reload/мобильная ширина/язык. Это не Tauri WebView |
-| `test:all` | unit + DB + HLC + Playwright; Rust отдельно, эмулятор не нужен |
+| `test:all` | unit + DB + HLC + Rust/TS native-контракт + Playwright; эмулятор не нужен |
 | `build` | frontend, проверка лицензий и notices; публичная веб-версия не поставляется |
 | `android:sync` / `dev:android` | frontend → Capacitor / Android Studio |
 | `build:android` | устанавливаемый **debug APK**, обычное приложение без тестового кода |
@@ -92,8 +92,10 @@ Workflow: **любой push (включая tags), pull_request и вручну�
 
 В CI предусмотрены Windows `tauri dev` smoke (WebView должен исполнить TS-миграции в нативной БД), Linux Tauri/WebKit WebDriver E2E с перезапуском процесса и Android WebView/Capacitor-контракт с повторным открытием БД. Merged manifest проверяется отдельно. Acceptance JS собирается только отдельной test-конфигурацией/application ID; обычные APK/desktop этих тестов не содержат.
 
-**Локально проверено в Linux Cloud:** typecheck, lint, frontend build/Capacitor sync; 3 unit, 11 Node DB, 3 HLC/property tests (200 случайных последовательностей), 1 Playwright E2E, 2 Rust tests; полный TS-контракт — 22 проверки Node + Rust. Rust действительно скомпилирован и использует bundled SQLite.
+**Локально проверено в Linux Cloud:** typecheck, lint, production build/Capacitor sync; 3 unit, 11 Node DB, 3 HLC/property tests (200 случайных последовательностей), 1 Playwright E2E, 2 Rust tests; полный TS-контракт — 22 проверки Node + Rust. Собраны обычный Android debug APK (ARM64 SQLite включён) и отдельные acceptance/test APK; merged manifest запрещает backup ОС, обычный APK не содержит acceptance JS.
 
-**Пока не подтверждено:** Windows dev, полная Tauri-сборка/нативный WebView, macOS/Windows/AppImage/APK артефакты, Android Emulator. В Cloud нет GTK/WebKit headers, Android SDK/KVM и Windows/macOS. Наличие workflow не считается успешным CI; результаты первого запуска будут указаны в отчёте. Физический Android/OEM lifecycle и установка подписанных сборок — последующая ручная приёмка.
+**Подтверждено CI:** [run 43627985713](https://github.com/Hemlig371/tessera/actions/runs/43627985713) — checks Windows/Ubuntu, HLC, Windows x64 NSIS и настоящий `tauri dev` smoke, macOS ARM64 DMG, Linux x64 AppImage и Tauri/WebKit E2E с сохранением и перезапуском процесса. Общий статус того запуска — failure: два Android job остановились на `setup-android` до сборки. Workflow теперь использует уже установленный SDK runner без этого шага.
+
+**Пока не подтверждено:** выполнение инструментальных тестов на Android Emulator и Android Actions-артефакт после исправления setup; результаты повторного CI будут указаны в отчёте. В локальном Cloud нет KVM и desktop GTK/WebKit headers; SDK/JDK установлены в рабочем каталоге для сборки APK. Физический Android/OEM lifecycle и установка подписанных сборок — последующая ручная приёмка.
 
 **Далее по §16:** подтвердить платформенный фундамент в CI, затем этап 2 — CRUD структуры со стабильными ID, начальный мобильный конструктор отдельных формы/карточки/списка, ограниченный набор типов, индексы/поиск и CSV. Почта, весь конструктор, все типы, черновики, Top-20, корзина и вложения сейчас не реализованы. HLC-тесты не означают готовую синхронизацию.

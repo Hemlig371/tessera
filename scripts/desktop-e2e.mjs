@@ -53,6 +53,10 @@ try {
   await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
+} catch (error) {
+  // Surface the assertion through the GitHub Checks API as well as runner logs.
+  console.error('::error::' + String(error).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A'));
+  throw error;
 } finally {
   if (session) await request('DELETE', `/session/${session}`).catch(() => {});
   driver.kill(); await delay(500); await rm(directory, { recursive: true, force: true });

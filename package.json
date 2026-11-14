@@ -17,7 +17,7 @@
     "test:integration": "npm run test:db",
     "test:sync": "vitest run tests/sync",
     "test:e2e": "playwright test",
-    "test:all": "npm run test:unit && npm run test:db && npm run test:sync && npm run test:e2e",
+    "test:all": "npm run test:unit && npm run test:db && npm run test:sync && npm run test:native && npm run test:native-api && npm run test:e2e",
     "test:native": "cargo test --manifest-path src-tauri/sqlite-bridge/Cargo.toml --locked",
     "test:native-api": "node scripts/native-contract.mjs",
     "build": "npm run typecheck && npm run licenses && vite build && node scripts/check-production.mjs",

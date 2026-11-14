@@ -90,6 +90,20 @@ describe.each(adapters)('%s native SQLite contract', kind => {
     await expect(migrate(f.db)).rejects.toThrow('unsupportedSchema');
     expect(await api.listLibraries()).toHaveLength(1);
   });
+  it('refuses an unknown future migration without resetting the database', async () => {
+    const { api } = await setup();
+    await f.db.read(s => s.execute('INSERT INTO schema_migrations VALUES(?,?,?)', [2, 'future-checksum', new Date().toISOString()]));
+    await expect(migrate(f.db)).rejects.toThrow('unsupportedSchema');
+    expect(await api.listLibraries()).toHaveLength(1);
+    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(2);
+  });
+  it('accepts Android-owned SQLite locale metadata on first installation', async () => {
+    f = await fixture(kind, false);
+    await f.db.read(s => s.execute('CREATE TABLE android_metadata(locale TEXT)'));
+    await migrate(f.db);
+    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(1);
+    expect(await f.db.read(s => s.query("SELECT name FROM sqlite_master WHERE name='android_metadata'"))).toHaveLength(1);
+  });
   it('rolls the entire first migration back after an injected DDL failure', async () => {
     f = await fixture(kind, false);
     const original = f.db.transaction.bind(f.db);

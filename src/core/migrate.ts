@@ -8,7 +8,8 @@ async function checksum(statements: readonly string[]) {
 }
 export async function migrate(db: DatabaseAdapter): Promise<void> {
   const applied = await db.read(async s => {
-    const tables = await s.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+    // android_metadata belongs to the SQLite Android runtime, not the app schema.
+    const tables = await s.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> 'android_metadata'");
     if (!tables.some(t => t.name === 'schema_migrations')) {
       if (tables.length) throw new AppError('unsupportedSchema');
       return [];

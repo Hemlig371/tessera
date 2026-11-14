@@ -92,7 +92,7 @@ Workflow: **любой push (включая tags), pull_request и вручну�
 
 В CI предусмотрены Windows `tauri dev` smoke (WebView должен исполнить TS-миграции в нативной БД), Linux Tauri/WebKit WebDriver E2E с перезапуском процесса и Android WebView/Capacitor-контракт с повторным открытием БД. Merged manifest проверяется отдельно. Acceptance JS собирается только отдельной test-конфигурацией/application ID; обычные APK/desktop этих тестов не содержат.
 
-**Локально проверено в Linux Cloud:** typecheck, lint, frontend build/Capacitor sync; 3 unit, 9 Node DB, 3 HLC/property tests (200 случайных последовательностей), 1 Playwright E2E, 2 Rust tests; полный TS-контракт — 18 проверок Node + Rust. Rust действительно скомпилирован и использует bundled SQLite.
+**Локально проверено в Linux Cloud:** typecheck, lint, frontend build/Capacitor sync; 3 unit, 11 Node DB, 3 HLC/property tests (200 случайных последовательностей), 1 Playwright E2E, 2 Rust tests; полный TS-контракт — 22 проверки Node + Rust. Rust действительно скомпилирован и использует bundled SQLite.
 
 **Пока не подтверждено:** Windows dev, полная Tauri-сборка/нативный WebView, macOS/Windows/AppImage/APK артефакты, Android Emulator. В Cloud нет GTK/WebKit headers, Android SDK/KVM и Windows/macOS. Наличие workflow не считается успешным CI; результаты первого запуска будут указаны в отчёте. Физический Android/OEM lifecycle и установка подписанных сборок — последующая ручная приёмка.
 

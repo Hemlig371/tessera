@@ -24,8 +24,8 @@
     "build:desktop": "tauri build",
     "android:sync": "npm run build && cap sync android",
     "dev:android": "npm run android:sync && cap open android",
-    "build:android": "npm run android:sync && node scripts/gradle.mjs assembleDebug",
-    "test:android": "npm run android:acceptance && node scripts/gradle.mjs connectedDebugAndroidTest -Pacceptance",
+    "build:android": "npm run android:sync && node scripts/gradle.mjs :app:assembleDebug",
+    "test:android": "npm run android:acceptance && node scripts/run-android-tests.mjs",
     "android:acceptance": "vite build --config vite.android-test.config.ts && cap sync android",
     "licenses": "node scripts/licenses.mjs",
     "tauri": "tauri"

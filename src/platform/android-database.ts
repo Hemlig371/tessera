@@ -8,7 +8,8 @@ export async function openAndroidDatabase(): Promise<SerialDatabase> {
   await db.open();
   await db.execute('PRAGMA foreign_keys=ON;', false);
   await db.query('PRAGMA journal_mode=WAL;');
-  await db.execute('PRAGMA busy_timeout=5000;', false);
+  // This assignment returns a row. Android rejects it through execSQL/execute.
+  await db.query('PRAGMA busy_timeout=5000;');
   await db.execute('PRAGMA synchronous=FULL;', false);
   const { url } = await db.getUrl();
   if (!url) throw new Error('databaseUnavailable');

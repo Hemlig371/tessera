@@ -48,7 +48,7 @@ npm run build:desktop             # Windows x64 / NSIS
 | `build:android` | устанавливаемый **debug APK**, обычное приложение без тестового кода |
 | `test:android` | отдельный `.acceptance` APK и инструментальные тесты, нужен работающий эмулятор |
 
-Все команды вызываются как `npm run <команда>`. В Linux с установленным Chromium можно задать `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium`. E2E имеет отдельную Vite-конфигурацию; test bridge отсутствует в обычной сборке.
+Все команды вызываются как `npm run <команда>`. В Linux с установленным Chromium можно задать `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium`. Для установленного Microsoft Edge — `PLAYWRIGHT_CHANNEL=msedge` (в Windows CI используется Edge из runner image). E2E имеет отдельную Vite-конфигурацию; test bridge отсутствует в обычной сборке.
 
 Android: JDK 21, Android Studio/SDK 36, build-tools 36.0.0. Gradle wrapper включён. Локальный `android/local.properties` с `sdk.dir` не коммитится. Community SQLite использует приватный файл **`databases/appSQLite.db`** по собственной конвенции имени; он соответствует desktop `app.sqlite`. Шифрование отключено. Собственный SQLite-плагин не нужен. Backup — `VACUUM INTO` в приватный соседний файл. Отсутствие JSON/FTS5/WAL/FK блокирует запуск. Полная приёмка проверяет настоящий bridge, bind-параметры, индекс и rollback. Не вводить поля плагина `last_modified`/`sql_deleted`: они включают его неиспользуемые sync-механизмы и переписывание SQL удаления.
 

@@ -34,7 +34,10 @@ jobs:
       - run: npm run test:native
       - run: npm run test:native-api
       - run: npx playwright install --with-deps chromium
+        if: runner.os != 'Windows'
       - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_CHANNEL: ${{ runner.os == 'Windows' && 'msedge' || '' }}
       - run: npm run build
       - uses: actions/upload-artifact@v4
         if: failure()

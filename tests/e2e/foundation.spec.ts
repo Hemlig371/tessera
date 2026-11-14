@@ -1,0 +1,38 @@
+import { expect, test } from '@playwright/test';
+
+test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and reopen', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Моя библиотека');
+  await page.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Заметки');
+  await page.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Несохранённая');
+  const count = async () => page.request.post('/__test-sqlite', { data: { op: 'query', sql: 'SELECT count(*) AS n FROM records' } }).then(r => r.json()) as Promise<{ value: { n: number }[] }>;
+  expect((await count()).value[0]?.n).toBe(0);
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  expect((await count()).value[0]?.n).toBe(0);
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Первая запись');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Запись сохранена');
+  await expect(page.getByRole('button', { name: /Первая запись/ })).toBeVisible();
+  expect((await count()).value[0]?.n).toBe(1);
+  await page.reload();
+  await page.getByRole('button', { name: 'Моя библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+  await page.getByRole('button', { name: /Первая запись/ }).click();
+  await page.getByRole('button', { name: 'Редактировать', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отменённая правка');
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Первая запись', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
+  await expect(page.getByRole('button', { name: '+ New entry', exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

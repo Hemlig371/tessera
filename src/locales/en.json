@@ -1,0 +1,23 @@
+{
+  "brand": "Tessera", "tagline": "Your personal database, close at hand.", "libraries": "Libraries",
+  "newLibrary": "New library", "newCollection": "New collection", "newEntry": "New entry",
+  "libraryName": "Library name", "collectionName": "Collection name", "entryTitle": "Title",
+  "save": "Save", "cancel": "Cancel", "create": "Create", "edit": "Edit",
+  "emptyLibraries": "Start with a library", "emptyLibrariesHint": "Bring your notes, ideas or projects together.",
+  "emptyCollection": "Nothing here yet", "emptyCollectionHint": "Add your first entry. It will be saved on this device.",
+  "chooseCollection": "Choose a collection", "chooseCollectionHint": "Create a collection in your library and add your first entry.",
+  "local": "On this device", "offline": "Works offline", "saved": "Entry saved",
+  "loading": "Opening database…", "loadMore": "Load more", "entryCount": "Entries loaded: {{count}}",
+  "back": "Libraries", "language": "Language", "retry": "Restart", "errorTitle": "Could not complete the action",
+  "errors": {
+    "nativeRequired": "Open Tessera in the desktop or Android app to access native storage.",
+    "sqliteUnsupported": "This SQLite build lacks required features. The database was not changed.",
+    "unsupportedSchema": "Unsupported database version or structure. Your data is preserved; use a compatible Tessera version.",
+    "databaseCorrupt": "Database integrity check failed. Preserve the database files for recovery.",
+    "databaseUnavailable": "Database unavailable. Restart the app.",
+    "requiredText": "Enter an entry title.", "invalidName": "Enter a name between 1 and 200 characters.",
+    "invalidData": "Check the entered values.", "invalidId": "Invalid identifier.",
+    "notFound": "The object was not found or was deleted.", "unsupportedField": "This field type is not supported yet.",
+    "invalidLimit": "Invalid page size.", "generic": "The action failed. Your form is still on screen. Try again."
+  }
+}

@@ -1,0 +1,13 @@
+
+===== Native platform dependencies =====
+Tauri 2 / rusqlite / Capacitor: MIT or Apache-2.0 (licenses distributed with source).
+SQLite: public domain — https://www.sqlite.org/copyright.html
+SQLCipher Community (transitive Android dependency; encryption disabled): BSD-style,
+https://github.com/sqlcipher/sqlcipher/blob/master/LICENSE.md
+AndroidX, Android support libraries and Kotlin: Apache-2.0.
+OpenSSL (SQLCipher transitive dependency): Apache-2.0.
+WebKitGTK: LGPL-2.1-or-later / BSD; system/shared library on Linux (not modified).
+Windows WebView2 and macOS WKWebView: operating-system runtime distribution terms.
+
+No paid database, synchronization service or commercial license is required.
+Native transitive notices should be reviewed again before public signed releases.

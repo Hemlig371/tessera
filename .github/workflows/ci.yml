@@ -1,0 +1,164 @@
+name: Tessera checks and native builds
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tessera-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: 'src-tauri/sqlite-bridge -> target' }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run licenses
+      - run: npm run test:unit
+      - run: npm run test:db
+      - run: npm run test:native
+      - run: npm run test:native-api
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results/
+          if-no-files-found: ignore
+
+  sync-foundation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - run: npm ci
+      # Stage 1 only: real HLC property tests. Mail/chaos tests come with the protocol.
+      - run: npm run test:sync
+
+  desktop:
+    needs: [checks, sync-foundation]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: windows-x64
+            bundles: nsis
+          - os: macos-15
+            target: aarch64-apple-darwin
+            artifact: macos-arm64
+            bundles: dmg
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            artifact: linux-x64
+            bundles: appimage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.target }}' }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: 'src-tauri -> target' }
+      - name: Linux platform dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2 webkit2gtk-driver xvfb
+      - run: npm ci
+      - run: npm run licenses
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - run: npm run build:desktop -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Windows dev uses the actual Rust database
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/windows-dev-smoke.ps1
+      - name: Native Linux WebView E2E
+        if: runner.os == 'Linux'
+        run: |
+          cargo install tauri-driver --locked
+          npm run tauri -- build --debug --no-bundle --config src-tauri/tauri.dev.conf.json
+          xvfb-run -a node scripts/desktop-e2e.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tessera-${{ matrix.artifact }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+          if-no-files-found: error
+
+  android-apk:
+    needs: [checks, sync-foundation]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: npm ci
+      - run: npm run licenses
+      - run: npm run build:android
+      - name: Verify merged manifest backup policy
+        run: python3 scripts/check-android-manifest.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tessera-android-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+  android-emulator:
+    needs: [checks, sync-foundation]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: npm ci
+      - run: npm run licenses
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: true
+          script: npm run test:android
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-instrumentation-results
+          path: android/app/build/reports/androidTests/
+          if-no-files-found: ignore

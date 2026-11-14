@@ -1,0 +1,62 @@
+{
+  "name": "tessera",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "dev:desktop": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test:unit": "vitest run tests/unit",
+    "test:db": "vitest run tests/db",
+    "test:integration": "npm run test:db",
+    "test:sync": "vitest run tests/sync",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test:unit && npm run test:db && npm run test:sync && npm run test:e2e",
+    "test:native": "cargo test --manifest-path src-tauri/sqlite-bridge/Cargo.toml --locked",
+    "test:native-api": "node scripts/native-contract.mjs",
+    "build": "npm run typecheck && npm run licenses && vite build && node scripts/check-production.mjs",
+    "build:desktop": "tauri build",
+    "android:sync": "npm run build && cap sync android",
+    "dev:android": "npm run android:sync && cap open android",
+    "build:android": "npm run android:sync && node scripts/gradle.mjs assembleDebug",
+    "test:android": "npm run android:acceptance && node scripts/gradle.mjs connectedDebugAndroidTest -Pacceptance",
+    "android:acceptance": "vite build --config vite.android-test.config.ts && cap sync android",
+    "licenses": "node scripts/licenses.mjs",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "8.1.1",
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@tanstack/react-virtual": "3.14.26",
+    "@tauri-apps/api": "2.12.4",
+    "i18next": "27.1.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-i18next": "18.0.1",
+    "zustand": "5.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.65.1",
+    "@tauri-apps/cli": "2.12.4",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

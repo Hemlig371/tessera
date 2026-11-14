@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tessera</string>
+    <string name="title_activity_main">Tessera</string>
+    <string name="package_name">app.tessera.personal</string>
+    <string name="custom_url_scheme">app.tessera.personal</string>
+</resources>

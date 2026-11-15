@@ -1,3 +1,4 @@
+import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
 import { inboxMoveDefaults, validateInboxMapping, type InboxMapping } from './inbox-mapping';
 import {
   relationIds,
@@ -617,10 +618,13 @@ export class Repository {
   }
   async previewImport(
     collectionId: string,
-    source: Iterable<RecordData>
+    source: Iterable<RecordData>,
+    progress?: OperationProgress,
+    signal?: AbortSignal
   ): Promise<{ count: number; preview: RecordData[] }> {
-    requireId(collectionId);
+    requireId(collectionId); checkCancelled(signal);
     return this.db.read(async (s) => {
+      checkCancelled(signal);
       const collection = await activeCollection(s, collectionId);
       if (collection.system_kind) throw new AppError('systemContainer');
       const fields = await s.query<Field>(
@@ -639,6 +643,7 @@ export class Repository {
       let count = 0;
       const preview: RecordData[] = [];
       for (const input of source) {
+        checkCancelled(signal);
         try {
           const data = prepareEntryData(input, rules);
           await validateRelationTargets(s, collection, fields, data);
@@ -648,19 +653,21 @@ export class Repository {
           throw e;
         }
         count++;
-        if (count % 500 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+        if (count % 500 === 0) { progress?.(count, 'processing'); await yieldOperation(); }
       }
-      return { count, preview };
+      checkCancelled(signal); progress?.(count, 'processing'); return { count, preview };
     });
   }
   /** One atomic import, bounded bridge batches; identical field/form rules to explicit save. */
   async importEntries(
     collectionId: string,
     source: Iterable<RecordData>,
-    progress?: (count: number) => void
+    progress?: OperationProgress,
+    signal?: AbortSignal
   ): Promise<number> {
-    requireId(collectionId);
+    requireId(collectionId); checkCancelled(signal);
     return this.db.transaction(async (s) => {
+      checkCancelled(signal);
       const collection = await activeCollection(s, collectionId);
       const fields = await s.query<Field>(
         'SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL',
@@ -680,7 +687,7 @@ export class Repository {
         count = 0;
       let batch: StoredEntry[] = [];
       const flush = async () => {
-        if (!batch.length) return;
+        checkCancelled(signal); if (!batch.length) return;
         const versions = batch.map((row) => {
           const entry = decodeEntry(row);
           return {
@@ -736,9 +743,12 @@ export class Repository {
         await this.refreshRecords(s, batch, fields);
         count += batch.length;
         batch = [];
-        progress?.(count);
+        progress?.(count, 'processing');
+        if (progress || signal) await yieldOperation();
+        checkCancelled(signal);
       };
       for (const input of source) {
+        checkCancelled(signal);
         let data: RecordData;
         try {
           data = prepareEntryData(input, rules);
@@ -774,6 +784,7 @@ export class Repository {
           "INSERT INTO local_settings VALUES('hlc',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
           [clock!]
         );
+      checkCancelled(signal); progress?.(count, 'committing'); checkCancelled(signal);
       return count;
     });
   }

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { readCsvDocument } from './csv-file';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { csvRecords, exportCsv, parseCsv, type CsvDocument, type CsvLocale } from '../core/csv';
+import { csvRecords, exportCsv, type CsvDocument, type CsvLocale } from '../core/csv';
 import type { EntryQuery, Field } from '../core/model';
 import { RowError } from '../core/entry-data';
 import type { Repository } from '../core/repository';
@@ -32,54 +33,68 @@ export function CsvPanel({
   const [exportIds, setExportIds] = useState(() => fields.map((f) => f.id)),
     [encoding, setEncoding] = useState('utf-8');
   const [filtered, setFiltered] = useState(false);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const operation = useRef<{ controller: AbortController; committing: boolean } | null>(null);
+  const [operating, setOperating] = useState(false), [cancelling, setCancelling] = useState(false), [committing, setCommitting] = useState(false);
+  async function perform(work: (signal: AbortSignal) => Promise<void>) {
+    await run(async () => {
+      const active = { controller: new AbortController(), committing: false }; operation.current = active;
+      setOperating(true); setCancelling(false); setCommitting(false); setIssue('');
+      try { await work(active.controller.signal); }
+      catch (error) {
+        if (errorKey(error) === 'operationCancelled') setStatus(t('csvCancelled'));
+        else if (error instanceof RowError) {
+          setStatus(''); setIssue(t('csvRowError', { row: error.row, field: error.field,
+            error: t(`errors.${errorKey(error)}`, { defaultValue: t('errors.invalidData') }) }));
+        } else { setStatus(''); throw error; }
+      } finally { operation.current = null; setOperating(false); setCancelling(false); setCommitting(false); }
+    }, false);
+  }
+  function cancelOperation() {
+    const active = operation.current; if (!active || active.committing) return;
+    active.controller.abort(); setCancelling(true); setStatus(t('csvCancelling'));
+  }
   function clearPreview() {
     setPreview([]);
     setIssue('');
     setStatus('');
   }
-  async function readFile(file: File) {
-    await run(async () => {
-      clearPreview();
-      if (file.size > 100 * 1024 * 1024) throw new Error('csvTooLarge');
-      const text = new TextDecoder(encoding, { fatal: true }).decode(await file.arrayBuffer());
-      const parsed = parseCsv(text);
-      setDoc(parsed);
-      setDelimiter(parsed.delimiter);
-      setMapping(
-        parsed.headers.map(
-          (h) =>
-            fields.find(
-              (f) =>
-                f.type !== 'backlink' &&
-                f.name.toLocaleLowerCase(locale) === h.trim().toLocaleLowerCase(locale)
-            )?.id ?? null
-        )
-      );
-    }, false);
+  async function readFile(file: File, selectedEncoding = encoding) {
+    setSourceFile(file);
+    clearPreview(); setDoc(null); setMapping([]);
+    await perform(async signal => {
+      setStatus(t('csvReading', { percent: 0 }));
+      const parsed = await readCsvDocument(file, selectedEncoding, signal, (percent, phase) => {
+        if (!signal.aborted) setStatus(t(phase === 'reading' ? 'csvReading' : phase === 'header' ? 'csvDetecting' : 'csvParsing', { percent }));
+      });
+      setDoc(parsed); setDelimiter(parsed.delimiter);
+      setMapping(parsed.headers.map(header => fields.find(field => field.type !== 'backlink' && field.name.toLocaleLowerCase(locale) === header.trim().toLocaleLowerCase(locale))?.id ?? null));
+      setStatus(t('csvFileReady', { count: parsed.rows.length }));
+    });
   }
   async function check() {
+    if (!doc) return; setPreview([]);
+    await perform(async signal => {
+      if (mapping.every(id => !id)) throw new Error('csvMapping');
+      setStatus(t('csvChecking', { count: 0 }));
+      const result = await api.previewImport(query.collection_id, csvRecords(doc, mapping, fields, locale),
+        count => { if (!signal.aborted) setStatus(t('csvChecking', { count })); }, signal);
+      setPreview(result.preview.map(data => mapping.map(id => id ? String(data[id] ?? '') : '')));
+      setStatus(t('csvPreviewCount', { count: result.count }));
+    });
+  }
+  async function importFile() {
     if (!doc) return;
-    await run(async () => {
-      try {
-        if (mapping.every((id) => !id)) throw new Error('csvMapping');
-        const result = await api.previewImport(query.collection_id, csvRecords(doc, mapping, fields, locale));
-        setPreview(result.preview.map((data) => mapping.map((id) => (id ? String(data[id] ?? '') : ''))));
-        setIssue('');
-        setStatus(t('csvPreviewCount', { count: result.count }));
-      } catch (e) {
-        setPreview([]);
-        setStatus('');
-        setIssue(
-          e instanceof RowError
-            ? t('csvRowError', {
-                row: e.row,
-                field: e.field,
-                error: t(`errors.${errorKey(e)}`, { defaultValue: t('errors.invalidData') }),
-              })
-            : t(`errors.${errorKey(e)}`, { defaultValue: t('errors.generic') })
-        );
-      }
-    }, false);
+    await perform(async signal => {
+      setStatus(t('csvImportProgress', { count: 0 }));
+      const count = await api.importEntries(query.collection_id, csvRecords(doc, mapping, fields, locale), (count, phase) => {
+        if (signal.aborted) return;
+        if (phase === 'committing') { operation.current!.committing = true; setCommitting(true); setStatus(t('csvCommitting')); }
+        else setStatus(t('csvImportProgress', { count }));
+      }, signal);
+      setStatus(t('csvImported', { count })); setPreview([]); setDoc(null); setSourceFile(null); if (fileInput.current) fileInput.current.value = '';
+    });
   }
   return (
     <div className="csv-panel">
@@ -114,13 +129,14 @@ export function CsvPanel({
           </p>
         )}
         {status && <p role="status">{status}</p>}
+        {operating && <button disabled={cancelling || committing} onClick={cancelOperation}>{t('cancelCsvOperation')}</button>}
       </>
       <fieldset disabled={busy}>
         <legend>{t('csvImport')}</legend>
         <p>{t('csvImportHint')}</p>
         <label>
           {t('csvEncoding')}
-          <select value={encoding} onChange={(e) => setEncoding(e.target.value)}>
+          <select value={encoding} onChange={event => { setEncoding(event.target.value); if (sourceFile) void readFile(sourceFile, event.target.value); }}>
             <option value="utf-8">UTF-8</option>
             <option value="windows-1251">Windows-1251</option>
           </select>
@@ -128,13 +144,14 @@ export function CsvPanel({
         <label>
           {t('csvFile')}
           <input
-            type="file"
+            type="file" ref={fileInput}
             accept=".csv,text/csv,text/plain"
             onChange={(e) => {
               if (e.target.files?.[0]) void readFile(e.target.files[0]);
             }}
           />
         </label>
+        {!doc && sourceFile && !busy && <button onClick={() => { void readFile(sourceFile!); }}>{t('csvRetryRead')}</button>}
         {doc && (
           <>
             <h3>{t('csvMapping')}</h3>
@@ -191,20 +208,7 @@ export function CsvPanel({
                 </div>
                 <button
                   className="primary"
-                  onClick={() => {
-                    void run(async () => {
-                      const count = await api.importEntries(
-                        query.collection_id,
-                        csvRecords(doc, mapping, fields, locale),
-                        (count) => {
-                          if (count % 600 === 0) setStatus(t('csvImportProgress', { count }));
-                        }
-                      );
-                      setStatus(t('csvImported', { count }));
-                      setPreview([]);
-                      setDoc(null);
-                    }, false);
-                  }}
+                  onClick={() => { void importFile(); }}
                 >
                   {t('confirmImport')}
                 </button>

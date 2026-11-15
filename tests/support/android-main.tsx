@@ -14,6 +14,7 @@ import { inboxScenario } from './inbox-scenario';
 import { quickScenario } from './quick-scenario';
 import { openDraftStore } from '../../src/platform/local-files';
 import { registerPlugin } from '@capacitor/core';
+import { importCancellationScenario } from './import-cancellation-scenario';
 import { markdownScenario } from './markdown-scenario';
 import { presetsScenario } from './presets-scenario';
 import { profilesScenario } from './profiles-scenario';
@@ -49,6 +50,8 @@ async function run() {
   await profilesScenario(api);
   document.documentElement.dataset.acceptanceStage = 'presets';
   await presetsScenario(api);
+  document.documentElement.dataset.acceptanceStage = 'import-cancellation';
+  await importCancellationScenario(api);
   document.documentElement.dataset.acceptanceStage = 'markdown';
   await markdownScenario(api);
   const external = registerPlugin<{ openUrl(options: { url: string }): Promise<void> }>('ExternalActions');

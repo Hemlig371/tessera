@@ -163,6 +163,19 @@ try {
     script: "const done=arguments[arguments.length-1]; window.__TAURI_INTERNALS__.invoke('external_open_url',{url:'javascript:alert(1)'}).then(()=>done('unexpected'),error=>done(String(error)));", args: [],
   });
   assert.equal(guarded,'invalidUrl');
+  await openLibrary('Native library'); await clickText('Native collection');
+  await clickText('+ Новая коллекция'); await input('Native CSV'); await clickText('Создать');
+  await clickText('CSV');
+  await execute(`const source=new DataTransfer(); source.items.add(new File(['Название\\n'+Array.from({length:5000},(_,i)=>'CSV '+i).join('\\n')],'cancel.csv',{type:'text/csv'})); const field=document.querySelector('input[type=file]'); field.files=source.files; field.dispatchEvent(new Event('change',{bubbles:true}));`);
+  await until("document.querySelector('[role=dialog] [role=status]')?.textContent==='Прочитано строк: 5000'");
+  await clickText('Проверить и показать предосмотр');
+  await until("document.querySelector('[role=dialog] [role=status]')?.textContent.startsWith('Проверено строк: 5000')");
+  await clickText('Подтвердить импорт');
+  await until("/Обработано записей: [1-9]/.test(document.querySelector('[role=dialog] [role=status]')?.textContent)");
+  await clickText('Отменить операцию CSV');
+  await until("document.querySelector('[role=dialog] [role=status]')?.textContent==='Операция отменена. Данные базы не изменены.'");
+  await clickText('Закрыть');
+  await until("!document.querySelector('[role=dialog]') && document.body.innerText.includes('Загружено записей: 0')");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

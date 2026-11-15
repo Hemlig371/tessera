@@ -1,3 +1,4 @@
+import { checkCancelled, yieldOperation } from './operations';
 import { backlinkValues } from './relations';
 import { RowError } from './entry-data';
 import { AppError } from './errors';
@@ -13,18 +14,20 @@ export interface CsvDocument {
 }
 export class CsvError extends RowError {}
 /** RFC4180 quoting, multiline cells, UTF-8 BOM; dialect is explicit or inferred from header. */
-export function parseCsv(text: string, delimiter?: string): CsvDocument {
+function* parseSteps(text: string, delimiter?: string): Generator<{ count: number; phase: 'header' | 'rows' }, CsvDocument> {
+  let budget = 0;
   text = text.replace(/^\uFEFF/, '');
   if (!delimiter) {
-    let quoted = false,
-      header = '';
+    let quoted = false;
+    const counts: Record<string, number> = { ',': 0, ';': 0, '\t': 0 };
     for (let i = 0; i < text.length; i++) {
+      if (++budget === 65536) { budget = 0; yield { count: i, phase: 'header' }; }
       const c = text[i]!;
       if (c === '"') quoted = !quoted;
       if (!quoted && /[\r\n]/.test(c)) break;
-      if (!quoted) header += c;
+      if (!quoted && Object.hasOwn(counts, c)) counts[c]!++;
     }
-    delimiter = [',', ';', '\t'].sort((a, b) => header.split(b).length - header.split(a).length)[0]!;
+    delimiter = [',', ';', '\t'].sort((a, b) => counts[b]! - counts[a]!)[0]!;
   }
   if (![',', ';', '\t'].includes(delimiter)) throw new AppError('invalidCsv');
   const rows: string[][] = [];
@@ -45,6 +48,7 @@ export function parseCsv(text: string, delimiter?: string): CsvDocument {
     row = [];
   };
   for (let i = 0; i < text.length; i++) {
+    if (++budget === 65536) { budget = 0; yield { count: i, phase: 'rows' }; }
     const c = text[i]!;
     if (quoted) {
       if (c === '"') {
@@ -73,10 +77,23 @@ export function parseCsv(text: string, delimiter?: string): CsvDocument {
   if (started || closed || value || row.length) line();
   const headers = rows.shift();
   if (!headers?.length || headers.every((h) => !h.trim())) throw new AppError('invalidCsv');
-  rows.forEach((r, i) => {
-    if (r.length !== headers.length) throw new CsvError(i + 2, '', 'csvColumns');
-  });
+  for (let i = 0; i < rows.length; i++) {
+    if (++budget === 65536) { budget = 0; yield { count: text.length, phase: 'rows' }; }
+    if (rows[i]!.length !== headers.length) throw new CsvError(i + 2, '', 'csvColumns');
+  }
   return { headers, rows, delimiter };
+}
+export function parseCsv(text: string, delimiter?: string): CsvDocument {
+  const steps = parseSteps(text, delimiter);
+  for (;;) { const step = steps.next(); if (step.done) return step.value; }
+}
+export async function parseCsvAsync(text: string, options: { signal?: AbortSignal; progress?: (count: number, phase: 'header' | 'rows') => void } = {}): Promise<CsvDocument> {
+  const steps = parseSteps(text);
+  for (;;) {
+    checkCancelled(options.signal); const step = steps.next();
+    if (step.done) { checkCancelled(options.signal); return step.value; }
+    options.progress?.(step.value.count, step.value.phase); await yieldOperation();
+  }
 }
 export function csvValue(text: string, field: Field, locale: CsvLocale): JsonValue {
   if (field.type === 'backlink') throw new AppError('readOnlyField');

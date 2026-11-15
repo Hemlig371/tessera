@@ -85,7 +85,9 @@
     "invalidPreset": "This preset is unavailable or incompatible with the current fields. Review its settings; no record was created.",
     "invalidInboxMapping": "Inbox text cannot be mapped to these collection fields. Choose available text fields.",
     "invalidUrl": "This link cannot be opened.",
-    "externalOpenFailed": "The external application could not open this link."
+    "externalOpenFailed": "The external application could not open this link.",
+    "operationCancelled": "Operation cancelled. The database was not changed.",
+    "invalidCsvEncoding": "The file could not be decoded. Choose the correct encoding."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -201,7 +203,7 @@
     "empty": "Empty",
     "filled": "Filled"
   },
-  "csvImportProgress": "Imported in transaction: {{count}}…",
+  "csvImportProgress": "Records processed: {{count}}",
   "relationTarget": "Target collection",
   "multipleRelations": "Multiple records",
   "backlinkSource": "Source relation field",
@@ -275,5 +277,15 @@
   "chooseField": "Choose a field",
   "inboxOriginal": "Original Inbox content",
   "inboxMarkdownMapped": "Title and body were mapped to the configured fields. The complete original will also be retained.",
-  "inboxMappingFallback": "The configured mapping is unavailable. All text was placed in the incoming field; the original will also be retained."
+  "inboxMappingFallback": "The configured mapping is unavailable. All text was placed in the incoming field; the original will also be retained.",
+  "csvCancelled": "Operation cancelled. The database was not changed.",
+  "csvCancelling": "Cancelling…",
+  "csvCommitting": "Finishing import…",
+  "cancelCsvOperation": "Cancel CSV operation",
+  "csvReading": "Reading file: {{percent}}%",
+  "csvDetecting": "Reading CSV headers: {{percent}}%",
+  "csvParsing": "Parsing CSV: {{percent}}%",
+  "csvChecking": "Rows checked: {{count}}…",
+  "csvFileReady": "Rows read: {{count}}",
+  "csvRetryRead": "Read again"
 }

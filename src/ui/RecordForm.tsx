@@ -68,7 +68,7 @@ export function RecordForm({
           .filter((item) => item.visible)
           .map((item) => {
             const field = fields.find((f) => f.id === item.field_id)!;
-            const displayField = collection.system_kind === 'inbox' ? { ...field, name: t('inboxContent') } : field;
+            const displayField = collection.system_kind === 'inbox' ? { ...field, name: t('inboxContent'), type: 'markdown' } : field;
             const config = formConfig(field, item),
               required = config.required || field.id === collection.primary_field_id;
             return (

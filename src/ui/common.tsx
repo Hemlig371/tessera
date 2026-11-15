@@ -1,3 +1,5 @@
+import { MarkdownInput } from './MarkdownInput';
+import { markdownPreview } from '../core/markdown';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import type { Field, JsonValue } from '../core/model';
@@ -80,6 +82,7 @@ export function FieldInput({
         <option value="false">{t('no')}</option>
       </select>
     );
+  if (field.type === 'markdown') return <MarkdownInput value={text} label={label ?? field.name} disabled={disabled} required={required} change={change} />;
   if (field.type === 'multiline')
     return (
       <textarea
@@ -110,6 +113,7 @@ export function useFormatValue() {
   const { t, i18n } = useTranslation();
   return (field: Field, value: JsonValue | undefined): string => {
     if (value == null || value === '') return t('unset');
+    if (field.type === 'markdown' && typeof value === 'string') return markdownPreview(value);
     if (typeof value === 'boolean') return t(value ? 'yes' : 'no');
     if (field.type === 'date' && typeof value === 'string') {
       const [year, month, day] = value.split('-').map(Number);

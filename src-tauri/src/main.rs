@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod csv_files;
 mod local_files;
+mod external_actions;
 use csv_files::CsvFiles;
 use serde_json::Value;
 use std::{path::PathBuf, sync::Mutex};
@@ -54,6 +55,6 @@ fn main() {
             app.manage(Storage { db: Mutex::new(Some(db)), backups: root.join("operational/backups") });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, csv_files::csv_open, csv_files::csv_write, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove])
+        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, csv_files::csv_open, csv_files::csv_write, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url])
         .run(tauri::generate_context!()).expect("Tessera startup failed");
 }

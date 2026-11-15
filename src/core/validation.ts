@@ -24,7 +24,7 @@ export function appearanceValue(value: Appearance): Appearance {
   };
 }
 export function isText(type: string): boolean {
-  return type === 'text' || type === 'multiline';
+  return type === 'text' || type === 'multiline' || type === 'markdown';
 }
 export function requireFieldType(type: string): asserts type is FieldType {
   if (!(FIELD_TYPES as readonly string[]).includes(type)) throw new AppError('unsupportedField');

@@ -13,6 +13,8 @@ import { sqliteContract } from './sqlite-contract';
 import { inboxScenario } from './inbox-scenario';
 import { quickScenario } from './quick-scenario';
 import { openDraftStore } from '../../src/platform/local-files';
+import { registerPlugin } from '@capacitor/core';
+import { markdownScenario } from './markdown-scenario';
 import { presetsScenario } from './presets-scenario';
 import { profilesScenario } from './profiles-scenario';
 import { draftFixture } from './draft-fixture';
@@ -47,6 +49,14 @@ async function run() {
   await profilesScenario(api);
   document.documentElement.dataset.acceptanceStage = 'presets';
   await presetsScenario(api);
+  document.documentElement.dataset.acceptanceStage = 'markdown';
+  await markdownScenario(api);
+  const external = registerPlugin<{ openUrl(options: { url: string }): Promise<void> }>('ExternalActions');
+  for (const url of ['javascript:alert(1)', 'file:///private', 'data:text/html,test']) {
+    let rejected = false;
+    try { await external.openUrl({ url }); } catch { rejected = true; }
+    if (!rejected) throw new Error('native external scheme guard failed');
+  }
   document.documentElement.dataset.acceptanceStage = 'reopen';
   await first.close();
   const reopened = await openAndroidDatabase();

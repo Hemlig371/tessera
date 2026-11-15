@@ -1,6 +1,6 @@
 [package]
 name = "tessera"
-version = "0.8.0"
+version = "0.9.0"
 description = "Tessera personal local-first database"
 edition = "2021"
 license = "MIT"
@@ -15,3 +15,5 @@ serde_json = "1"
 tessera-sqlite = { path = "sqlite-bridge" }
 
 tauri-plugin-dialog = "=2.8.4"
+
+url = "=2.5.8"

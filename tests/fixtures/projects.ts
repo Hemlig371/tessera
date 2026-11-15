@@ -1,11 +1,11 @@
 import type { Repository } from '../../src/core/repository';
 
-/** Implemented subset: universal relations, text statuses, presets. Kanban/Markdown arrive later. */
+/** Implemented subset: universal relations, text statuses, presets. Kanban/tree modes arrive later. */
 export async function createProjectsLibrary(api: Repository, name = 'Проекты и задачи (dev/CI)') {
   const library = await api.createLibrary(name);
   const projects = await api.createCollection(library.id, 'Проекты', 'Название');
   const tasks = await api.createCollection(library.id, 'Задачи', 'Название');
-  const description = await api.createField(tasks.id, 'Описание', 'multiline');
+  const description = await api.createField(tasks.id, 'Описание', 'markdown');
   const project = await api.createField(tasks.id, 'Проект', 'relation', { target_collection_id: projects.id });
   const parent = await api.createField(tasks.id, 'Родитель', 'relation', { target_collection_id: tasks.id });
   const status = await api.createField(tasks.id, 'Статус', 'text', { default: 'Новая' });

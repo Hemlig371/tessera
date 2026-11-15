@@ -13,7 +13,7 @@ export function InboxMoveForm({ api, entry, libraries, busy, cancel, save }: {
   const [libraryId, setLibraryId] = useState('');
   const [collectionId, setCollectionId] = useState('');
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [context, setContext] = useState<{ collection: Collection; fields: Field[]; layout: UiDefinition; initial: RecordData } | null>(null);
+  const [context, setContext] = useState<{ collection: Collection; fields: Field[]; layout: UiDefinition; initial: RecordData; original: string; mapping_status: 'split' | 'fallback' | 'none' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -25,9 +25,9 @@ export function InboxMoveForm({ api, entry, libraries, busy, cancel, save }: {
   useEffect(() => {
     let active = true;
     const collection = collections.find(c => c.id === collectionId);
-    if (collection) Promise.all([api.listFields(collectionId), api.getUiConfig(collectionId, 'form'), api.getCollection(entry.collection_id)])
-      .then(([fields, layout, source]) => {
-        if (active) setContext({ collection, fields, layout, initial: { [collection.incoming_field_id]: entry.data[source.incoming_field_id] ?? '' } });
+    if (collection) Promise.all([api.listFields(collectionId), api.getUiConfig(collectionId, 'form'), api.previewInboxMove(entry.id, collectionId, entry.hlc)])
+      .then(([fields, layout, preview]) => {
+        if (active) setContext({ collection, fields, layout, initial: preview.data, original: preview.original, mapping_status: preview.mapping_status });
       }).catch(e => { if (active) setError(errorKey(e)); });
     return () => { active = false; };
   }, [api, collectionId, collections, entry]);
@@ -50,6 +50,10 @@ export function InboxMoveForm({ api, entry, libraries, busy, cancel, save }: {
       </select>
     </label>
     {error && <ErrorMessage code={error} />}
+    {context && <>
+      {context.mapping_status !== 'none' && <p role="status">{t(context.mapping_status === 'split' ? 'inboxMarkdownMapped' : 'inboxMappingFallback')}</p>}
+      <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.original}</pre></details>
+    </>}
     {context ? <RecordForm key={context.collection.id} api={api} collection={context.collection} creating={false}
       fields={context.fields} layout={context.layout} initialData={context.initial} busy={busy} cancel={cancel}
       save={data => save(context.collection.id, data)} />

@@ -3865,7 +3865,7 @@ dependencies = [
 
 [[package]]
 name = "tessera"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "serde_json",
  "tauri",
@@ -3873,6 +3873,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-single-instance",
  "tessera-sqlite",
+ "url",
 ]
 
 [[package]]

@@ -1,3 +1,4 @@
+import { inboxMoveDefaults, validateInboxMapping, type InboxMapping } from './inbox-mapping';
 import {
   relationIds,
   validateRelationDefinition,
@@ -210,6 +211,25 @@ export class Repository {
       return collection;
     });
   }
+  async previewInboxMove(id: string, collectionId: string, expectedHlc: string) {
+    requireId(id); requireId(collectionId);
+    return this.db.read(async s => {
+      const [row] = await s.query<StoredEntry>('SELECT r.* ' + activeRecords + ' AND r.id=?', [id]);
+      if (!row) throw new AppError('notFound');
+      if (row.hlc !== expectedHlc) throw new AppError('staleRecord');
+      const source = await activeCollection(s, row.collection_id), target = await activeCollection(s, collectionId);
+      if (source.system_kind !== 'inbox' || target.system_kind) throw new AppError('invalidInboxMove');
+      const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [collectionId]);
+      return inboxMoveDefaults(source, target, fields, decodeEntry(row).data);
+    });
+  }
+  async inboxOriginal(entry: Entry): Promise<string | null> {
+    return this.db.read(async s => {
+      const [source] = await s.query<Collection>("SELECT * FROM collections WHERE system_kind='inbox'");
+      const value = source && source.id !== entry.collection_id ? entry.data[source.incoming_field_id] : undefined;
+      return typeof value === 'string' ? value : null;
+    });
+  }
   async moveInboxEntry(id: string, collectionId: string, input: RecordData, expectedHlc: string): Promise<Entry> {
     requireId(id);
     requireId(collectionId);
@@ -224,9 +244,8 @@ export class Repository {
       if (source.system_kind !== 'inbox' || target.system_kind) throw new AppError('invalidInboxMove');
       const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,id', [collectionId]);
       const [form] = await s.query<UiConfiguration>("SELECT * FROM ui_configs WHERE collection_id=? AND kind='form' AND deleted_at IS NULL", [collectionId]);
-      const retained = { ...previous.data };
-      delete retained[source.incoming_field_id];
-      const data = prepareEntryData({ ...retained, [target.incoming_field_id]: previous.data[source.incoming_field_id] ?? '', ...input },
+      const preview = inboxMoveDefaults(source, target, fields, previous.data);
+      const data = prepareEntryData({ ...previous.data, ...preview.data, ...input, [source.incoming_field_id]: preview.original },
         entryRules(target, fields, form ? JSON.parse(form.config) as UiDefinition : { fields: [] }));
       await validateRelationTargets(s, target, fields, data);
       const stamp = await this.stamp(s, id);
@@ -285,6 +304,7 @@ export class Repository {
       appearance?: Appearance;
       primary_field_id?: string;
       incoming_field_id?: string;
+      inbox_mapping?: InboxMapping | null;
     }
   ): Promise<Collection> {
     requireId(id);
@@ -297,7 +317,7 @@ export class Repository {
           if (
             !(
               await s.query(
-                "SELECT id FROM fields WHERE id=? AND collection_id=? AND type IN('text','multiline') AND deleted_at IS NULL",
+                "SELECT id FROM fields WHERE id=? AND collection_id=? AND type IN('text','multiline','markdown') AND deleted_at IS NULL",
                 [fieldId, id]
               )
             )[0]
@@ -305,11 +325,13 @@ export class Repository {
             throw new AppError('invalidPrimaryField');
         }
       }
+      if (patch.inbox_mapping) validateInboxMapping(patch.inbox_mapping, await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [id]));
       return this.update(s, 'collections', 'collection', old, {
         ...(patch.name != null ? { name: nameValue(patch.name) } : {}),
         ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
-        ...(patch.appearance != null
-          ? { config: canonical({ ...JSON.parse(old.config), ...appearanceValue(patch.appearance) }) }
+        ...(patch.appearance != null || Object.hasOwn(patch, 'inbox_mapping')
+          ? { config: canonical({ ...JSON.parse(old.config), ...(patch.appearance ? appearanceValue(patch.appearance) : {}),
+            ...(Object.hasOwn(patch, 'inbox_mapping') ? { inbox_mapping: patch.inbox_mapping ?? null } : {}) }) }
           : {}),
         ...(patch.primary_field_id ? { primary_field_id: patch.primary_field_id } : {}),
         ...(patch.incoming_field_id ? { incoming_field_id: patch.incoming_field_id } : {}),
@@ -1084,7 +1106,7 @@ export class Repository {
       `INSERT INTO search_documents(record_id,field_id) SELECT r.id,f.id FROM records r
       JOIN fields f ON f.collection_id=r.collection_id JOIN collections c ON c.id=r.collection_id JOIN libraries l ON l.id=c.library_id
       WHERE r.id IN(${marks}) AND r.deleted_at IS NULL AND r.purged=0 AND f.deleted_at IS NULL AND c.deleted_at IS NULL AND l.deleted_at IS NULL
-      AND f.type IN('text','multiline') AND json_extract(f.config,'$.fts') IS NOT 0 AND json_type(r.data,'$."'||f.id||'"')='text'`,
+      AND f.type IN('text','multiline','markdown') AND json_extract(f.config,'$.fts') IS NOT 0 AND json_type(r.data,'$."'||f.id||'"')='text'`,
       ids
     );
     await s.execute(

@@ -82,7 +82,10 @@
     "draftWrite": "The local draft could not be saved or removed. Your input remains in the form; check available storage and retry.",
     "draftCleanup": "The entry was saved, but its local draft could not be removed. Do not delete application data.",
     "lastProfile": "The last display profile cannot be deleted.",
-    "invalidPreset": "This preset is unavailable or incompatible with the current fields. Review its settings; no record was created."
+    "invalidPreset": "This preset is unavailable or incompatible with the current fields. Review its settings; no record was created.",
+    "invalidInboxMapping": "Inbox text cannot be mapped to these collection fields. Choose available text fields.",
+    "invalidUrl": "This link cannot be opened.",
+    "externalOpenFailed": "The external application could not open this link."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -182,7 +185,8 @@
     "integer": "Integer",
     "date": "Date",
     "relation": "Relation",
-    "backlink": "Backlink"
+    "backlink": "Backlink",
+    "markdown": "Markdown"
   },
   "modes": {
     "rows": "Rows",
@@ -259,5 +263,17 @@
   "savePreset": "Save preset",
   "deletePreset": "Delete preset",
   "defaultCreation": "Short press on +",
-  "saveDefaultCreation": "Save creation action"
+  "saveDefaultCreation": "Save creation action",
+  "showMarkdownPreview": "Preview Markdown",
+  "hideMarkdownPreview": "Hide preview",
+  "markdownImage": "Image: {{alt}}",
+  "markdownTask": "Markdown task",
+  "inboxMarkdownMapping": "Move Markdown from Inbox",
+  "splitInboxMarkdown": "Separate title and body",
+  "markdownTitleField": "Markdown title field",
+  "markdownBodyField": "Markdown body field",
+  "chooseField": "Choose a field",
+  "inboxOriginal": "Original Inbox content",
+  "inboxMarkdownMapped": "Title and body were mapped to the configured fields. The complete original will also be retained.",
+  "inboxMappingFallback": "The configured mapping is unavailable. All text was placed in the incoming field; the original will also be retained."
 }

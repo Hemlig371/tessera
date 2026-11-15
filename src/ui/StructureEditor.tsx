@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isText } from '../core/validation';
+import type { InboxMapping } from '../core/inbox-mapping';
 import type { Appearance, Collection, Field, Library } from '../core/model';
 export function StructureEditor({
   kind,
@@ -13,7 +15,7 @@ export function StructureEditor({
   kind: 'library' | 'collection';
   entity?: Library | Collection;
   fields: Field[];
-  save: (name: string, appearance: Appearance, position: number, primary: string, incoming: string) => void;
+  save: (name: string, appearance: Appearance, position: number, primary: string, incoming: string, mapping: InboxMapping | null) => void;
   remove: () => void;
   cancel: () => void;
   busy: boolean;
@@ -30,11 +32,15 @@ export function StructureEditor({
   const [incoming, setIncoming] = useState(
     entity && 'incoming_field_id' in entity ? entity.incoming_field_id : ''
   );
+  const initialMapping = entity && kind === 'collection' ? (JSON.parse(entity.config) as { inbox_mapping?: InboxMapping | null }).inbox_mapping : null;
+  const [mapEnabled, setMapEnabled] = useState(!!initialMapping),
+    [mapTitle, setMapTitle] = useState(initialMapping?.title_field_id ?? primary),
+    [mapBody, setMapBody] = useState(initialMapping?.body_field_id ?? fields.find(field => isText(field.type) && field.id !== primary)?.id ?? '');
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        save(name, { icon, color }, position, primary, incoming);
+        save(name, { icon, color }, position, primary, incoming, mapEnabled ? { title_field_id: mapTitle, body_field_id: mapBody } : null);
       }}
     >
       <label>
@@ -89,7 +95,7 @@ export function StructureEditor({
             {t('incomingField')}
             <select value={incoming} onChange={(e) => setIncoming(e.target.value)} disabled={busy}>
               {fields
-                .filter((f) => f.type === 'text' || f.type === 'multiline')
+                .filter((f) => isText(f.type))
                 .map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -97,6 +103,17 @@ export function StructureEditor({
                 ))}
             </select>
           </label>
+          <fieldset disabled={busy}><legend>{t('inboxMarkdownMapping')}</legend>
+            <label className="check"><input type="checkbox" checked={mapEnabled} onChange={event => setMapEnabled(event.target.checked)} />{t('splitInboxMarkdown')}</label>
+            {mapEnabled && <>
+              <label>{t('markdownTitleField')}<select required value={mapTitle} onChange={event => setMapTitle(event.target.value)}><option value="">{t('chooseField')}</option>
+                {fields.filter(field => isText(field.type)).map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
+              </select></label>
+              <label>{t('markdownBodyField')}<select required value={mapBody} onChange={event => setMapBody(event.target.value)}><option value="">{t('chooseField')}</option>
+                {fields.filter(field => isText(field.type) && field.id !== mapTitle).map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
+              </select></label>
+            </>}
+          </fieldset>
         </>
       )}
       <div className="actions">

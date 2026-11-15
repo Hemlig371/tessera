@@ -1,3 +1,5 @@
+import { MarkdownView } from './MarkdownView';
+import { splitInboxMarkdown } from '../core/markdown';
 import { CreateButton } from './CreateButton';
 import { PresetsEditor } from './PresetsEditor';
 import { collectionCreationChoice } from '../core/creation-presets';
@@ -40,7 +42,7 @@ const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { field
   UiKind,
   UiDefinition
 >;
-type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition> };
+type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition>; inboxOriginal?: string | null };
 export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const { t, i18n } = useTranslation(),
     format = useFormatValue(),
@@ -374,15 +376,16 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       const entry = await api.getEntry(id);
       if (!entry) throw new Error('notFound');
       const parent = await api.getCollection(entry.collection_id);
-      const [entryFields, form, card, list] = await Promise.all([
+      const [entryFields, form, card, list, original] = await Promise.all([
         api.listFields(parent.id),
         api.getUiConfig(parent.id, 'form'),
         api.getUiConfig(parent.id, 'card'),
         api.getUiConfig(parent.id, 'list'),
+        api.inboxOriginal(entry),
       ]);
       if (request === selectionRequest.current) {
         setSelected(entry);
-        setContext({ collection: parent, fields: entryFields, layouts: { form, card, list } });
+        setContext({ collection: parent, fields: entryFields, layouts: { form, card, list }, inboxOriginal: original });
         if (!preserveSaved) setSaved(false);
       }
     } catch (e) {
@@ -776,7 +779,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                     {t('backToRecord')}
                   </button>
                 )}
-                <h2>{String(selected.data[context.collection.primary_field_id] ?? '')}</h2>
+                <h2>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h2>
               </div>
               <button aria-label={t('closeCard')} onClick={() => setSelected(null)}>
                 ×
@@ -807,14 +810,15 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                               void createRelated(f.id);
                             }}
                           />
-                        ) : (
-                          format(f, selected.data[f.id])
-                        )}
+                        ) : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
+                          <MarkdownView key={selected.id + f.id} source={String(selected.data[f.id])} />
+                        ) : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );
                 })}
             </div>
+            {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
             <div className="actions">
               {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
               <button disabled={busy} onClick={() => open('entry', selected.id)}>
@@ -844,7 +848,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 if (ui.editingId && (ui.editor === 'library' || ui.editor === 'collection'))
                   remove(ui.editor, ui.editingId);
               }}
-              save={(name, appearance, position, primary, incoming) => {
+              save={(name, appearance, position, primary, incoming, mapping) => {
                 void run(async () => {
                   if (ui.editor === 'library') {
                     if (ui.editingId) await api.updateLibrary(ui.editingId, { name, appearance, position });
@@ -860,6 +864,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                         position,
                         primary_field_id: primary,
                         incoming_field_id: incoming,
+                        inbox_mapping: mapping,
                       });
                     else {
                       const row = await api.createCollection(ui.libraryId, name, t('entryTitle'));

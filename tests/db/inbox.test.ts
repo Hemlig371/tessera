@@ -51,7 +51,7 @@ describe.each(adapters)('%s inbox', kind => {
     expect(moved).toMatchObject({ id: entry.id, created_at: entry.created_at, updated_at: entry.updated_at,
       created_local: entry.created_local, updated_local: entry.updated_local, collection_id: collection.id, deleted_at: null });
     expect(moved.hlc > entry.hlc).toBe(true);
-    expect(moved.data).toEqual({ [content.id]: entry.data[inbox.incoming_field_id], [collection.primary_field_id]: 'Идея',
+    expect(moved.data).toEqual({ [inbox.incoming_field_id]: entry.data[inbox.incoming_field_id], [content.id]: entry.data[inbox.incoming_field_id], [collection.primary_field_id]: 'Идея',
       [unknown]: { zero: 0, no: false }, [required.id]: 0, [relation.id]: target.id });
     expect((await api.queryEntries({ collection_id: inbox.id })).items).toEqual([]);
     expect((await api.queryEntries({ collection_id: collection.id, search: 'текст' })).items.map(r => r.id)).toEqual([entry.id]);

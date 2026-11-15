@@ -8,6 +8,7 @@ import { Repository } from '../../src/core/repository';
 import { stage3Scenario } from './stage3-scenario';
 import { scaleScenario } from './scale';
 import { quickFormFixture } from './quick-scenario';
+import { markdownScenario } from './markdown-scenario';
 import { presetsScenario } from './presets-scenario';
 import { profilesScenario } from './profiles-scenario';
 import { draftFixture } from './draft-fixture';
@@ -28,6 +29,7 @@ export function e2ePlugin(): Plugin {
     name: 'tessera-e2e-native-sqlite',
     enforce: 'pre',
     resolveId(source, importer) {
+      if (source === '../platform/external-actions' && importer?.endsWith('/src/ui/MarkdownView.tsx')) return resolve('tests/support/external-actions-e2e.ts');
       if (source === '../platform/csv-files' && importer?.endsWith('/src/ui/CsvPanel.tsx'))
         return resolve('tests/support/csv-files-e2e.ts');
       if (source === './platform/open' && importer?.endsWith('/src/main.tsx'))
@@ -97,6 +99,10 @@ export function e2ePlugin(): Plugin {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;
+          }
+          if (op === 'markdown-seed') {
+            const value = await markdownScenario(await Repository.open(db));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'inbox-context') {
             const value = await (await Repository.open(db)).getInbox();

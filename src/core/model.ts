@@ -59,6 +59,7 @@ export interface Page<T> {
 export const FIELD_TYPES = [
   'text',
   'multiline',
+  'markdown',
   'boolean',
   'integer',
   'date',

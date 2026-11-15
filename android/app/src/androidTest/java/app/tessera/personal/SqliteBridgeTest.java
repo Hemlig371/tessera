@@ -134,6 +134,22 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
         }
     }
+    @Test public void markdownRendersAsSafeNodesAndRetainsOriginalAfterMove() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(button=>button.textContent.includes('Заметки: Markdown (dev/CI)'))");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(button=>button.textContent.includes('Заметки: Markdown (dev/CI)')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(button=>button.getAttribute('aria-label')==='Заметки')");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(button=>button.getAttribute('aria-label')==='Заметки').click()");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native Markdown'))");
+            js(scenario, "Reflect.set(window,'nativeMarkdownXss',false); [...document.querySelectorAll('.entry')].find(row=>row.textContent.includes('Native Markdown')).click()");
+            awaitJs(scenario, "!!document.querySelector('.detail .markdown strong')");
+            assertEquals("\"Безопасно\"", js(scenario, "document.querySelector('.detail .markdown strong').textContent"));
+            assertEquals("false", js(scenario, "Reflect.get(window,'nativeMarkdownXss')"));
+            assertEquals("0", js(scenario, "document.querySelectorAll('.detail .markdown script,.detail .markdown img').length"));
+            assertEquals("true", js(scenario, "document.querySelector('.detail .original-content').textContent.startsWith('# Native Markdown **ёж**')"));
+        }
+    }
     private String js(ActivityScenario<MainActivity> scenario, String script) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>();

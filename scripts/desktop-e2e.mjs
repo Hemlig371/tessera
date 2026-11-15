@@ -141,6 +141,28 @@ try {
   await request('DELETE', `/session/${session}`); session=undefined; await start();
   await openLibrary('Native library'); await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native preset entry'))");
+  await clickText('Поля'); await clickText('+ Новое поле'); await input('Native Markdown');
+  await selectOption('Тип поля', 'Markdown'); await clickText('Сохранить поле');
+  await until("[...document.querySelectorAll('.field-list b')].some(element=>element.textContent==='Native Markdown')");
+  await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('Настройки коллекции');
+  await selectOption('Поле для входящих', 'Native Markdown');
+  await execute("document.querySelector('[role=dialog] fieldset input[type=checkbox]').click()");
+  await selectOption('Поле заголовка Markdown', 'Название'); await selectOption('Поле текста Markdown', 'Native Markdown');
+  await clickText('Сохранить'); await until("!document.querySelector('[role=dialog]')");
+  const markdown = '# Native mapped **ёж**\n\n**Native body**';
+  await clickText('+ Во входящие'); await input(markdown); await clickText('Сохранить');
+  await until("[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native mapped'))");
+  await execute("[...document.querySelectorAll('.entry')].find(row=>row.textContent.includes('Native mapped')).click()");
+  await clickText('Перенести в коллекцию'); await selectOption('Библиотека назначения', 'Native library'); await selectOption('Коллекция назначения', 'Native collection');
+  await until("document.querySelector('[role=dialog] input')?.value==='Native mapped ёж'");
+  await clickText('Сохранить'); await until("!document.querySelector('[role=dialog]') && !!document.querySelector('.detail .markdown strong')");
+  assert.equal(await execute("return document.querySelector('.detail .markdown strong').textContent"),'Native body');
+  assert.equal(await execute("return document.querySelector('.detail .original-content').textContent"),markdown);
+  const guarded = await request('POST', `/session/${session}/execute/async`, {
+    script: "const done=arguments[arguments.length-1]; window.__TAURI_INTERNALS__.invoke('external_open_url',{url:'javascript:alert(1)'}).then(()=>done('unexpected'),error=>done(String(error)));", args: [],
+  });
+  assert.equal(guarded,'invalidUrl');
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

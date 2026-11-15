@@ -10,16 +10,18 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
-import java.io.OutputStream
+import java.io.File
 
 /** Storage Access Framework only; no database or CSV business logic. */
 @CapacitorPlugin(name = "CsvFiles")
 class CsvFilesPlugin : Plugin() {
-    private var stream: OutputStream? = null
+    private var staged: StagedCsv? = null
     private var uri: Uri? = null
     private var picking = false
+    private val stagingDirectory get() = File(context.cacheDir, "csv-export")
+    override fun load() { StagedCsv.removeInterrupted(stagingDirectory) }
     @PluginMethod fun begin(call: PluginCall) {
-        if (picking || stream != null) { call.reject("fileBusy"); return }
+        if (picking || staged != null) { call.reject("fileBusy"); return }
         picking = true
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -35,34 +37,34 @@ class CsvFilesPlugin : Plugin() {
         if (result.resultCode != Activity.RESULT_OK) { call.resolve(JSObject().put("cancelled", true)); return }
         try {
             val selected = result.data?.data ?: throw IllegalStateException()
-            stream = context.contentResolver.openOutputStream(selected, "wt") ?: throw IllegalStateException()
             uri = selected
+            staged = StagedCsv(stagingDirectory)
             call.resolve(JSObject().put("cancelled", false))
-        } catch (_: Exception) { call.reject("fileError") }
+        } catch (_: Exception) { discard(); call.reject("fileError") }
     }
     @PluginMethod fun write(call: PluginCall) {
         try {
             val text = call.getString("text") ?: throw IllegalArgumentException()
-            if (text.length > 32000) throw IllegalArgumentException()
-            (stream ?: throw IllegalStateException()).write(text.toByteArray(Charsets.UTF_8))
+            (staged ?: throw IllegalStateException()).write(text)
             call.resolve()
         } catch (_: Exception) { call.reject("fileError") }
     }
     @PluginMethod fun finish(call: PluginCall) {
         try {
-            val output = stream ?: throw IllegalStateException()
-            output.flush(); output.close(); stream = null; uri = null; call.resolve()
-        } catch (_: Exception) { call.reject("fileError") }
+            val selected = uri ?: throw IllegalStateException()
+            (staged ?: throw IllegalStateException()).finish {
+                context.contentResolver.openOutputStream(selected, "wt") ?: throw IllegalStateException()
+            }
+            staged = null; uri = null; call.resolve()
+        } catch (_: Exception) { discard(); call.reject("fileError") }
     }
-    @PluginMethod fun abort(call: PluginCall) {
-        try { stream?.close() } catch (_: Exception) { }
-        stream = null
+    private fun discard() {
+        try { staged?.abort() } catch (_: Exception) { }
+        staged = null
         try { uri?.let { android.provider.DocumentsContract.deleteDocument(context.contentResolver, it) } }
         catch (_: Exception) { }
-        uri = null; call.resolve()
+        uri = null
     }
-    override fun handleOnDestroy() {
-        try { stream?.close() } catch (_: Exception) { }
-        stream = null
-    }
+    @PluginMethod fun abort(call: PluginCall) { discard(); call.resolve() }
+    override fun handleOnDestroy() { discard() }
 }

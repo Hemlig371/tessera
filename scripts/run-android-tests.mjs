@@ -34,11 +34,14 @@ if (code !== 0) {
   if (!runner) throw new Error('Acceptance instrumentation runner not found');
   let report = '';
   try {
-    for (const phase of ['preparePersistentDraft', 'verifyPersistentDraft']) {
+    for (const [testClass, phase] of [
+      ['SqliteBridgeTest', 'preparePersistentDraft'], ['SqliteBridgeTest', 'verifyPersistentDraft'],
+      ['CsvStagingTest', 'prepareInterruptedCsv'], ['CsvStagingTest', 'verifyInterruptedCsv'],
+    ]) {
       adb(['shell', 'am', 'force-stop', target]);
-      const output = adb(['shell', 'am', 'instrument', '-w', '-e', 'class', `app.tessera.personal.SqliteBridgeTest#${phase}`, runner]);
+      const output = adb(['shell', 'am', 'instrument', '-w', '-e', 'class', `app.tessera.personal.${testClass}#${phase}`, runner]);
       report += `\n${phase}\n${output}\n`; process.stdout.write(output);
-      if (!/OK \(1 test\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED/.test(output)) throw new Error('Draft process acceptance failed: ' + phase);
+      if (!/OK \(1 test\)/.test(output) || /FAILURES!!!|INSTRUMENTATION_FAILED/.test(output)) throw new Error('Native process acceptance failed: ' + phase);
     }
   } catch (error) {
     report += '\n' + String(error);

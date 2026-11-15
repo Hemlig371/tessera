@@ -1547,7 +1547,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 
 
-===== @tauri-apps/plugin-dialog@2.6.0 (MIT OR Apache-2.0) =====
+===== @tauri-apps/plugin-dialog@2.8.4 (MIT OR Apache-2.0) =====
 
 SPDXVersion: SPDX-2.1
 DataLicense: CC0-1.0

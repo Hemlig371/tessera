@@ -41,6 +41,7 @@ npm run build:desktop             # Windows x64 / NSIS
 
 | Команда | Проверка |
 | --- | --- |
+| `check:platforms` | совпадение major/minor установленных JS и Rust Tauri/API/dialog по Cargo.lock |
 | `typecheck`, `lint` | строгий TypeScript / ESLint |
 | `test:unit` | модель, типы полей, даты, Unicode-ключи, CSV-парсер, локализация |
 | `test:db` / `test:integration` | файловая SQLite Node 24: API, миграции, FK, JSON, FTS5, expression index/query plan, WAL/checkpoint, rollback, версии/журнал |

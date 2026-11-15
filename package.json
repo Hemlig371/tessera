@@ -20,7 +20,7 @@
     "test:all": "npm run test:unit && npm run test:db && npm run test:sync && npm run test:native && npm run test:native-api && npm run test:e2e",
     "test:native": "cargo test --manifest-path src-tauri/sqlite-bridge/Cargo.toml --locked",
     "test:native-api": "node scripts/native-contract.mjs",
-    "build": "npm run typecheck && npm run licenses && vite build && node scripts/check-production.mjs",
+    "build": "npm run typecheck && npm run check:platforms && npm run licenses && vite build && node scripts/check-production.mjs",
     "build:desktop": "tauri build",
     "android:sync": "npm run build && cap sync android",
     "dev:android": "npm run android:sync && cap open android",
@@ -29,7 +29,8 @@
     "android:acceptance": "vite build --config vite.android-test.config.ts && cap sync android",
     "licenses": "node scripts/licenses.mjs",
     "tauri": "tauri",
-    "test:scale": "vitest run tests/db/scale.test.ts --reporter=verbose"
+    "test:scale": "vitest run tests/db/scale.test.ts --reporter=verbose",
+    "check:platforms": "node scripts/check-platform-versions.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",
@@ -37,7 +38,7 @@
     "@capacitor/core": "8.6.2",
     "@tanstack/react-virtual": "3.14.26",
     "@tauri-apps/api": "2.12.4",
-    "@tauri-apps/plugin-dialog": "2.6.0",
+    "@tauri-apps/plugin-dialog": "2.8.4",
     "i18next": "27.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",

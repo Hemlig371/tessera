@@ -27,6 +27,7 @@ jobs:
         with: { workspaces: 'src-tauri/sqlite-bridge -> target' }
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run check:platforms
       - run: npm run lint
       - run: npm run licenses
       - run: npm run test:unit

@@ -134,6 +134,32 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
         }
     }
+    @Test public void deviceAppearancePersistsAcrossRecreationAndFollowsNativeNightMode() throws Exception {
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        String original = device.executeShellCommand("cmd uimode night");
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='Оформление' && !b.disabled)");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Оформление').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
+            js(scenario, "(()=>{const controls=document.querySelectorAll('[role=dialog] select'); for(const [i,value] of ['dark','compact','1.5'].entries()){controls[i].value=value;controls[i].dispatchEvent(new Event('change',{bubbles:true}));}})()");
+            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить оформление').click()");
+            awaitJs(scenario, "!document.querySelector('[role=dialog]') && document.documentElement.dataset.theme==='dark'");
+            scenario.recreate();
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact' && parseFloat(getComputedStyle(document.documentElement).fontSize)>=22.4");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Оформление').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
+            js(scenario, "(()=>{const select=document.querySelector('[role=dialog] select');select.value='system';select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить оформление').click()");
+            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            device.executeShellCommand("cmd uimode night yes");
+            awaitJs(scenario, "document.documentElement.dataset.theme==='dark'");
+            device.executeShellCommand("cmd uimode night no");
+            awaitJs(scenario, "document.documentElement.dataset.theme==='light'");
+            assertEquals("true", js(scenario, "document.documentElement.scrollWidth<=innerWidth"));
+        } finally { device.executeShellCommand("cmd uimode night " + (original.contains("yes") ? "yes" : original.contains("no") ? "no" : "auto")); }
+    }
     @Test public void markdownRendersAsSafeNodesAndRetainsOriginalAfterMove() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);

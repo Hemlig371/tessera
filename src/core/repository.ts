@@ -1,4 +1,5 @@
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
+import { defaultAppearance, validateAppearance, type DeviceAppearance } from './device-appearance';
 import { inboxMoveDefaults, validateInboxMapping, type InboxMapping } from './inbox-mapping';
 import {
   relationIds,
@@ -86,6 +87,17 @@ export class Repository {
     await repository.rebuildDerived();
     await repository.rebuildRelationIndex(false);
     return repository;
+  }
+  getDeviceAppearance(): Promise<DeviceAppearance> {
+    return this.db.read(async s => {
+      const [row] = await s.query<{ value: string }>("SELECT value FROM local_settings WHERE key='device_appearance'");
+      return row ? validateAppearance(JSON.parse(row.value)) : { ...defaultAppearance };
+    });
+  }
+  async saveDeviceAppearance(value: DeviceAppearance): Promise<DeviceAppearance> {
+    const valid = validateAppearance(value);
+    await this.db.transaction(s => s.execute("INSERT INTO local_settings VALUES('device_appearance',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [canonical({ ...valid })]));
+    return valid;
   }
   private async stamp(s: SqlSession, id: string = crypto.randomUUID()): Promise<Stamp> {
     const [last] = await s.query<{ value: string }>("SELECT value FROM local_settings WHERE key='hlc'");

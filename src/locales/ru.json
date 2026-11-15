@@ -287,5 +287,18 @@
   "csvParsing": "Разбор CSV: {{percent}}%",
   "csvChecking": "Проверено строк: {{count}}…",
   "csvFileReady": "Прочитано строк: {{count}}",
-  "csvRetryRead": "Повторить чтение"
+  "csvRetryRead": "Повторить чтение",
+  "deviceAppearance": "Оформление",
+  "deviceAppearanceHint": "Тема, плотность и размер текста сохраняются только на этом устройстве.",
+  "theme": "Тема",
+  "themes": {
+    "system": "Системная",
+    "light": "Светлая",
+    "dark": "Тёмная"
+  },
+  "density": "Плотность",
+  "densityComfortable": "Обычная",
+  "densityCompact": "Компактная",
+  "fontScale": "Размер текста",
+  "saveDeviceAppearance": "Сохранить оформление"
 }

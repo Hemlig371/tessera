@@ -177,6 +177,13 @@ try {
   await until("document.querySelector('[role=dialog] [role=status]')?.textContent==='Операция отменена. Данные базы не изменены.'");
   await clickText('Закрыть');
   await until("!document.querySelector('[role=dialog]') && document.body.innerText.includes('Загружено записей: 0')");
+  await clickText('Оформление'); await selectOption('Тема', 'Тёмная');
+  await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%');
+  await clickText('Сохранить оформление');
+  await until("!document.querySelector('[role=dialog]') && document.documentElement.dataset.theme==='dark'");
+  await request('DELETE', `/session/${session}`); session = undefined; await start();
+  await until("document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact'");
+  assert.equal(await execute("return getComputedStyle(document.documentElement).fontSize"),'22.5px');
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

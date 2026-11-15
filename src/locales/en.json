@@ -287,5 +287,18 @@
   "csvParsing": "Parsing CSV: {{percent}}%",
   "csvChecking": "Rows checked: {{count}}…",
   "csvFileReady": "Rows read: {{count}}",
-  "csvRetryRead": "Read again"
+  "csvRetryRead": "Read again",
+  "deviceAppearance": "Appearance",
+  "deviceAppearanceHint": "Theme, density and text size are saved only on this device.",
+  "theme": "Theme",
+  "themes": {
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "density": "Density",
+  "densityComfortable": "Comfortable",
+  "densityCompact": "Compact",
+  "fontScale": "Text size",
+  "saveDeviceAppearance": "Save appearance"
 }

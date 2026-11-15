@@ -1,3 +1,6 @@
+import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
+import { useAppearance } from './use-appearance';
+import { defaultAppearance } from '../core/device-appearance';
 import { MarkdownView } from './MarkdownView';
 import { splitInboxMarkdown } from '../core/markdown';
 import { CreateButton } from './CreateButton';
@@ -47,6 +50,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const { t, i18n } = useTranslation(),
     format = useFormatValue(),
     ui = useUi();
+  const [appearance, setAppearance] = useState(defaultAppearance);
+  const [appearanceReady, setAppearanceReady] = useState(false);
+  useAppearance(appearance);
+  useEffect(() => { let active = true; void api.getDeviceAppearance().then(value => { if (active) setAppearance(value); }).catch(error => { if (active) setError(errorKey(error)); }).finally(() => { if (active) setAppearanceReady(true); }); return () => { active = false; }; }, [api]);
   const [libraries, setLibraries] = useState<Library[]>([]),
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
@@ -110,15 +117,16 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   const listItems = layoutItems(layouts.list, fields).filter((item) => item.visible),
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
-  const rowHeight =
+  const compact = appearance.density === 'compact';
+  const rowHeight = appearance.font_scale * (
     ui.scope === 'collection'
       ? Math.max(
-          76,
-          38 +
-            listFields.length * (layouts.list.list?.mode === 'table' ? 0 : 26) +
+          compact ? 64 : 76,
+          (compact ? 30 : 38) +
+            listFields.length * (layouts.list.list?.mode === 'table' ? 0 : compact ? 22 : 26) +
             (layouts.list.list?.group_field ? 22 : 0)
         )
-      : 90;
+      : compact ? 76 : 90);
   // React Compiler is disabled; Virtual's imperative measurement API is intentional.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtual = useVirtualizer({
@@ -429,7 +437,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const disabled = busy || !!ui.editor;
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -526,6 +534,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           </button>
           <span className="quiet-label">{t('offline')}</span>
           <button disabled={disabled} onClick={() => showInbox(true)}>+ {t('captureInbox')}</button>
+          <button disabled={disabled || !appearanceReady} onClick={() => open('appearance')}>{t('deviceAppearance')}</button>
           <label className="language">
             {t('language')}
             <select
@@ -693,12 +702,14 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                       return (
                         <button
                           key={row.id}
+                          data-index={v.index}
+                          ref={virtual.measureElement}
                           className={
                             'entry ' +
                             (collectionMode ? (layouts.list.list?.mode ?? 'rows') : 'rows') +
                             (selected?.id === row.id ? ' active' : '')
                           }
-                          style={{ height: v.size, transform: `translateY(${v.start}px)` }}
+                          style={{ minHeight: rowHeight, transform: `translateY(${v.start}px)` }}
                           disabled={disabled}
                           onClick={() => {
                             void selectEntry(row.id);
@@ -834,6 +845,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       {ui.editor && (
         <Modal title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
+          {ui.editor === 'appearance' && <DeviceAppearanceEditor value={appearance} busy={busy} cancel={close} save={value => { void run(async () => { setAppearance(await api.saveDeviceAppearance(value)); }); }} />}
           {ui.editor === 'move' && selected && <InboxMoveForm api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}
             save={(collectionId, data) => { void run(async () => { await api.moveInboxEntry(selected.id, collectionId, data, selected.hlc); setSaved(true); }); }} />}
           {(ui.editor === 'library' || ui.editor === 'collection') && (

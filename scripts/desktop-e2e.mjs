@@ -1,6 +1,6 @@
 // Real Tauri WebView via tauri-driver (Linux CI). No mock IPC or database.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import assert from 'node:assert/strict';
@@ -84,6 +84,32 @@ try {
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
   await clickText('+ Быстрая запись'); await input('Native quick entry'); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native quick entry'))");
+  await clickText('+ Новая запись'); await input('Native draft survives restart');
+  let nativeDraft;
+  for (let n=0; n<100 && !nativeDraft; n++) {
+    for (const file of await readdir(directory,{recursive:true})) {
+      if (file.includes('operational/drafts/') && file.endsWith('.json') && (await readFile(join(directory,file),'utf8')).includes('Native draft survives restart')) nativeDraft=join(directory,file);
+    }
+    if (!nativeDraft) await delay(200);
+  }
+  assert.ok(nativeDraft,'Debounced draft was not written through native file IPC');
+  await request('DELETE', `/session/${session}`); session=undefined;
+  await start();
+  assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
+  await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
+  await clickText('Native collection');
+  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
+  assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
+  await clickText('+ Новая запись');
+  await until("document.querySelector('[role=dialog] input')?.value==='Native draft survives restart'");
+  await clickText('Закрыть');
+  await until("!document.querySelector('[role=dialog]')");
+  assert.ok((await readFile(nativeDraft,'utf8')).includes('Native draft survives restart'));
+  await clickText('+ Новая запись');
+  await until("document.querySelector('[role=dialog] input')?.value==='Native draft survives restart'");
+  await clickText('Сохранить');
+  await until("!document.querySelector('[role=dialog]')");
+  await assert.rejects(readFile(nativeDraft),{code:'ENOENT'});
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

@@ -12,6 +12,8 @@ import { scaleScenario } from './scale';
 import { sqliteContract } from './sqlite-contract';
 import { inboxScenario } from './inbox-scenario';
 import { quickScenario } from './quick-scenario';
+import { openDraftStore } from '../../src/platform/local-files';
+import { draftFixture } from './draft-fixture';
 
 async function run() {
   const first = await openAndroidDatabase();
@@ -43,10 +45,11 @@ async function run() {
   await first.close();
   const reopened = await openAndroidDatabase();
   const again = await Repository.open(reopened);
+  document.documentElement.dataset.draftFixture = JSON.stringify(await draftFixture(again));
   if ((await again.getEntry(record.id))?.data[collection.primary_field_id] !== 'Bridge roundtrip') throw new Error('native reopen failed');
   document.documentElement.dataset.acceptanceStage = 'render';
   document.documentElement.dataset.acceptance = 'passed';
-  createRoot(document.getElementById('root')!).render(<App api={again}/>);
+  createRoot(document.getElementById('root')!).render(<App api={again} drafts={await openDraftStore()}/>);
 }
 void run().catch((error: unknown) => {
   document.documentElement.dataset.acceptance = 'failed';

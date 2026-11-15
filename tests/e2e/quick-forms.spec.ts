@@ -23,7 +23,7 @@ test('mobile quick form inherits hidden defaults, cancels without writes and has
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отмена');
   await expect(page.getByRole('spinbutton', { name: 'Количество' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Заметка' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   expect(await rows('SELECT * FROM records WHERE collection_id=?', [collectionId])).toEqual([]);
   expect(await rows('SELECT * FROM change_log ORDER BY seq')).toEqual(before);
   await page.getByRole('button', { name: '+ Быстрая запись', exact: true }).click();
@@ -41,9 +41,9 @@ test('mobile quick form inherits hidden defaults, cancels without writes and has
   expect(await rows("SELECT * FROM ui_configs WHERE collection_id=? AND kind='form'", [collectionId])).toEqual(form);
   await page.getByRole('button', { name: '+ Быстрая запись', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Заметка' })).toBeVisible();
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.getByRole('spinbutton', { name: 'Количество' })).toHaveValue('7');
   await expect(page.getByRole('textbox', { name: 'Заметка' })).toBeVisible();
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
 });

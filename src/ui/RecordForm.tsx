@@ -1,5 +1,5 @@
 import { relationIds } from '../core/relations';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Collection, Entry, Field, RecordData, UiDefinition } from '../core/model';
 import { formConfig, layoutItems } from '../core/ui-definition';
@@ -17,6 +17,9 @@ export function RecordForm({
   save,
   cancel,
   busy,
+  change,
+  creating = !entry,
+  pinnedData,
 }: {
   api: Repository;
   initialData?: RecordData;
@@ -27,6 +30,9 @@ export function RecordForm({
   save: (data: RecordData) => void;
   cancel: () => void;
   busy: boolean;
+  change?: (data: RecordData) => void;
+  creating?: boolean;
+  pinnedData?: RecordData;
 }) {
   const { t } = useTranslation();
   const items = layoutItems(layout, fields);
@@ -42,6 +48,14 @@ export function RecordForm({
     });
     return { ...values, ...initialData };
   });
+  // Capture creation defaults for close/pause, without writing any database object.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { change?.(data); }, []);
+  function update(id: string, value: RecordData[string]) {
+    const next = { ...data, [id]: value };
+    setData(next);
+    change?.(next);
+  }
   return (
     <form
       onSubmit={(e) => {
@@ -71,12 +85,12 @@ export function RecordForm({
                     )
                   ) : field.type === 'relation' ? (
                     <RelationInput
-                      pinnedIds={relationIds(initialData?.[field.id])}
+                      pinnedIds={relationIds(pinnedData?.[field.id])}
                       api={api}
                       field={displayField}
                       value={data[field.id]}
                       disabled={busy}
-                      change={(value) => setData((old) => ({ ...old, [field.id]: value }))}
+                      change={(value) => update(field.id, value)}
                     />
                   ) : (
                     <FieldInput
@@ -84,7 +98,7 @@ export function RecordForm({
                       value={data[field.id]}
                       disabled={busy}
                       required={required}
-                      change={(value) => setData((old) => ({ ...old, [field.id]: value }))}
+                      change={(value) => update(field.id, value)}
                     />
                   )}
                 </div>
@@ -95,7 +109,7 @@ export function RecordForm({
       </div>
       <div className="actions">
         <button type="button" disabled={busy} onClick={cancel}>
-          {t('cancel')}
+          {t(creating ? 'close' : 'cancel')}
         </button>
         <button className="primary" disabled={busy}>
           {t('save')}

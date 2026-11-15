@@ -129,7 +129,7 @@ describe.each(adapters)('%s v2 → v3 migration', (kind) => {
     const relation = await api.createField(collection, 'Своя запись', 'relation', {
       target_collection_id: collection,
     });
-    await api.saveEntry(collection, { [relation.id]: id }, id);
+    await api.saveEntry(collection, { [relation.id]: id }, id, (await api.getEntry(id))!.hlc);
     expect((await api.getRelationPage(id, relation.id)).items[0]?.id).toBe(id);
     expect((await api.getEntry(id))?.data[unknown]).toEqual({ keep: [false, 0] });
   });

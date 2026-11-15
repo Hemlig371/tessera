@@ -25,7 +25,7 @@ export async function stage3Scenario(api: Repository) {
   )
     throw new Error('native reverse relation failed');
   await api.setDeleted('record', parent.id, true);
-  await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'Правка со ссылкой' }, child.id);
+  await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'Правка со ссылкой' }, child.id, (await api.getEntry(child.id))!.hlc);
   if ((await api.getRelationPage(child.id, forward.id)).items[0]?.status !== 'deleted')
     throw new Error('native deleted target failed');
   await api.setDeleted('record', parent.id, false);

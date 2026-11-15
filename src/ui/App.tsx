@@ -1,5 +1,5 @@
 import { fieldConfig } from '../core/validation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type {
@@ -18,20 +18,23 @@ import type { Repository } from '../core/repository';
 import { layoutItems } from '../core/ui-definition';
 import { useUi } from './store';
 import { ErrorMessage, errorKey, Modal, useFormatValue } from './common';
-import { RecordForm } from './RecordForm';
 import { StructureEditor } from './StructureEditor';
 import { FieldsEditor } from './FieldsEditor';
 import { LayoutEditor } from './LayoutEditor';
 import { RelationBlock } from './RelationBlock';
 import { CsvPanel } from './CsvPanel';
 import { InboxMoveForm } from './InboxMoveForm';
+import { DraftRecordForm } from './DraftRecordForm';
+import { RecordForm } from './RecordForm';
+import type { Draft, DraftAction, DraftStore } from '../core/drafts';
+import { bindSystemBack } from '../platform/local-files';
 export { ErrorMessage } from './common';
 const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { fields: [] } } as Record<
   UiKind,
   UiDefinition
 >;
 type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition> };
-export function App({ api }: { api: Repository }) {
+export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const { t, i18n } = useTranslation(),
     format = useFormatValue(),
     ui = useUi();
@@ -40,6 +43,11 @@ export function App({ api }: { api: Repository }) {
   const [fields, setFields] = useState<Field[]>([]),
     [layouts, setLayouts] = useState(emptyLayouts);
   const [quickDefinition, setQuickDefinition] = useState<UiDefinition>({ fields: [] });
+  const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
+  const [staleEdit, setStaleEdit] = useState<{ data: RecordData; current: Entry } | null>(null);
+  const creationClose = useRef<(() => Promise<void>) | null>(null);
+  const registerCreationClose = useCallback((cancel: (() => Promise<void>) | null) => { creationClose.current = cancel; }, []);
+  const warnDraftCleanup = () => setError('draftCleanup');
   const [page, setPage] = useState<Page<EntryListItem>>({ items: [], next: null }),
     [selected, setSelected] = useState<Entry | null>(null);
   const [context, setContext] = useState<Context | null>(null),
@@ -242,6 +250,7 @@ export function App({ api }: { api: Repository }) {
       if (close) {
         ui.openEditor(null);
         setLinked(null);
+        setOpeningDraft(null);
       }
       refresh((n) => n + 1);
     } catch (e) {
@@ -258,19 +267,54 @@ export function App({ api }: { api: Repository }) {
       setContext(null);
       setLinked(null);
       setSaved(false);
+      setOpeningDraft(capture ? await loadCreationDraft(inbox) : null);
       if (capture) ui.openEditor('entry');
     }, !capture, false);
   }
-  function open(editor: typeof ui.editor, editingId?: string) {
-    setLinked(null);
-    setError(null);
-    setSaved(false);
-    ui.openEditor(editor, '', editingId);
+  async function loadCreationDraft(parent: Collection): Promise<Draft | null> {
+    const scope = { dataset_id: api.datasetId, library_id: parent.library_id, collection_id: parent.id };
+    const draft = await drafts.load(scope);
+    if (draft && await api.getDraftTarget(draft.action.create_id)) { await drafts.remove(scope); return null; }
+    return draft;
   }
-  function close() {
-    setLinked(null);
-    ui.openEditor(null);
-    setError(null);
+  function open(editor: typeof ui.editor, editingId?: string) {
+    setLinked(null); setOpeningDraft(null); setStaleEdit(null); setError(null); setSaved(false);
+    if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) {
+      setBusy(true);
+      void loadCreationDraft(collection).then(draft => {
+        setOpeningDraft(draft); ui.openEditor(draft ? 'entry' : editor);
+      }).catch(error => setError(errorKey(error))).finally(() => setBusy(false));
+    } else ui.openEditor(editor, '', editingId);
+  }
+  const close = useCallback(() => {
+    if (busy) return;
+    setBusy(true);
+    void (async () => {
+      try { await creationClose.current?.(); setLinked(null); setOpeningDraft(null); setStaleEdit(null); ui.openEditor(null); setError(null); }
+      catch { setError('draftWrite'); }
+      finally { setBusy(false); }
+    })();
+  }, [busy, ui]);
+  useEffect(() => {
+    if (ui.editor) return bindSystemBack(close, () => setError('fileError'));
+  }, [ui.editor, close]);
+  async function saveDraftAction(action: DraftAction, collectionId: string, data: RecordData): Promise<Entry> {
+    if (action.kind === 'linked') return api.createLinkedEntry(action.parent_id, action.field_id, data, action.create_id);
+    return api.saveNewEntry(collectionId, data, action.create_id);
+  }
+  function saveEdited(data: RecordData, expectedHlc = selected?.hlc) {
+    if (!selected || !context || !expectedHlc) return;
+    const id = selected.id, collectionId = context.collection.id;
+    void run(async () => {
+      try { await api.saveEntry(collectionId, data, id, expectedHlc); setStaleEdit(null); setSaved(true); }
+      catch (error) {
+        if (errorKey(error) === 'staleRecord') {
+          const current = await api.getEntry(id);
+          if (current) setStaleEdit({ data, current });
+        }
+        throw error;
+      }
+    });
   }
   function remove(kind: NonNullable<typeof undo>['kind'], id: string) {
     void run(async () => {
@@ -332,11 +376,13 @@ export function App({ api }: { api: Repository }) {
           origin?.type === 'backlink'
             ? targetFields.find((f) => f.id === fieldConfig(origin).source_field_id)
             : undefined;
+      const draft = await loadCreationDraft(target);
+      setOpeningDraft(draft);
       setLinked({
         parentId: selected.id,
         fieldId,
         context: { collection: target, fields: targetFields, layouts: { form, card, list } },
-        initial: source ? { [source.id]: fieldConfig(source).multiple ? [selected.id] : selected.id } : {},
+        initial: !draft && source ? { [source.id]: fieldConfig(source).multiple ? [selected.id] : selected.id } : {},
       });
       ui.openEditor('entry');
     } catch (e) {
@@ -787,32 +833,50 @@ export function App({ api }: { api: Repository }) {
               }}
             />
           )}
-          {ui.editor === 'entry' && recordContext && (
-            <RecordForm
+          {ui.editor === 'entry' && !ui.editingId && recordContext && (
+            <DraftRecordForm
               api={api}
+              store={drafts}
+              action={openingDraft?.action ?? (linked ? { kind: 'linked', parent_id: linked.parentId, field_id: linked.fieldId, create_id: crypto.randomUUID() } : { kind: 'save', create_id: crypto.randomUUID() })}
+              restored={openingDraft ?? undefined}
+              registerClose={registerCreationClose} warn={warnDraftCleanup}
               key={ui.editingId ?? 'new'}
               collection={recordContext.collection}
               fields={recordContext.fields}
               layout={recordContext.layouts.form}
               initialData={linked?.initial}
-              entry={ui.editingId ? (selected ?? undefined) : undefined}
+              pinnedData={!openingDraft ? linked?.initial : undefined}
               busy={busy}
               cancel={close}
-              save={(data) => {
+              save={(data, action, complete) => {
                 void run(async () => {
-                  const row = linked
-                    ? await api.createLinkedEntry(linked.parentId, linked.fieldId, data)
-                    : await api.saveEntry(recordContext.collection.id, data, ui.editingId ?? undefined);
+                  const row = await saveDraftAction(action, recordContext.collection.id, data);
                   if (!(await api.getEntry(row.id))) throw new Error('notFound');
+                  await complete();
                   setSaved(true);
                 });
               }}
             />
           )}
-          {ui.editor === 'quick-entry' && collection && <RecordForm api={api} collection={collection}
-            fields={fields.filter(field => quickDefinition.fields.some(item => item.visible && item.field_id === field.id))}
-            layout={{ fields: quickDefinition.fields.map(item => ({ ...layouts.form.fields.find(base => base.field_id === item.field_id), ...item })) }}
-            busy={busy} cancel={close} save={data => { void run(async () => { await api.saveQuickEntry(collection.id, data); setSaved(true); }); }} />}
+          {ui.editor === 'entry' && ui.editingId && selected && context && <>
+            {staleEdit && <section className="error"><p>{t('staleFormChoice')}</p>
+              <button disabled={busy} onClick={() => saveEdited(staleEdit.data, staleEdit.current.hlc)}>{t('saveMyRevision')}</button>
+              <button disabled={busy} onClick={() => { setSelected(staleEdit.current); setStaleEdit(null); setError(null); }}>{t('loadCurrentRevision')}</button>
+            </section>}
+            <RecordForm key={selected.id + ':' + selected.hlc} api={api} collection={context.collection} fields={context.fields}
+              layout={context.layouts.form} entry={selected} busy={busy} cancel={close}
+              change={data => setStaleEdit(old => old ? { ...old, data } : null)} save={data => saveEdited(data)} />
+          </>}
+          {ui.editor === 'quick-entry' && collection && <DraftRecordForm api={api} collection={collection} store={drafts}
+            action={{ kind: 'save', create_id: crypto.randomUUID() }} registerClose={registerCreationClose} warn={warnDraftCleanup}
+            fields={fields}
+            layout={{ fields: fields.map(field => ({ ...layouts.form.fields.find(base => base.field_id === field.id),
+              ...(quickDefinition.fields.find(item => item.field_id === field.id) ?? { field_id: field.id, visible: false }) })) }}
+            busy={busy} cancel={close} save={(data, action, complete) => { void run(async () => {
+              if (action.kind === 'save') await api.saveQuickEntry(collection.id, data, action.create_id);
+              else await saveDraftAction(action, collection.id, data);
+              await complete(); setSaved(true);
+            }); }} />}
           {ui.editor === 'quick' && collection && <><p>{t('quickFormHint')}</p><LayoutEditor api={api} kind="card" fields={fields.filter(field => field.type !== 'backlink')}
             definition={quickDefinition} busy={busy} cancel={close} save={definition => { void run(() => api.saveQuickForm(collection.id, definition)); }} /></>}
           {ui.editor === 'fields' && collection && (

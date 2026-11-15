@@ -14,7 +14,7 @@ test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Несохранённая');
   const count = async () => page.request.post('/__test-sqlite', { data: { op: 'query', sql: 'SELECT count(*) AS n FROM records' } }).then(r => r.json()) as Promise<{ value: { n: number }[] }>;
   expect((await count()).value[0]?.n).toBe(0);
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   expect((await count()).value[0]?.n).toBe(0);
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Первая запись');

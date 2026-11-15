@@ -18,3 +18,7 @@ it('preserves the migration checksum shipped in Tessera 0.3.0', () => {
 it('preserves the migration checksum shipped in Tessera 0.4.0', () => {
   expect(createHash('sha256').update(migrations[3].statements.join('\n')).digest('hex')).toBe('45f54f2259cfd075a516666bb0e6faefd8ca6144e36f5ecc724affe0bd632129');
 });
+
+it('preserves the migration checksum shipped in Tessera 0.5.0', () => {
+  expect(createHash('sha256').update(migrations[4].statements.join('\n')).digest('hex')).toBe('3fc585ab04ee8e141712f5f420a3591ca9de659c1ac5a84463eef07a0de58658');
+});

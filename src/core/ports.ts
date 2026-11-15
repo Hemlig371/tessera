@@ -16,9 +16,9 @@ export interface DatabaseAdapter {
   close(): Promise<void>;
 }
 
-// Future platform boundaries. No default implementations or successful no-ops.
+// Platform boundaries. No browser storage fallback or successful no-ops.
 export interface FileAdapter {
-  read(relativeId: string): Promise<Uint8Array>;
+  read(relativeId: string): Promise<Uint8Array | null>;
   writeAtomic(relativeId: string, bytes: Uint8Array): Promise<void>;
   remove(relativeId: string): Promise<void>;
 }

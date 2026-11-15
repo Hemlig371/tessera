@@ -40,7 +40,7 @@ describe.each(adapters)('%s relations', (kind) => {
       status: 'available',
     });
     expect((await api.getRelationPage(project.id, backlink.id)).items[0]?.id).toBe(task.id);
-    await api.saveEntry(projects.id, { [projects.primary_field_id]: 'Новое имя' }, project.id);
+    await api.saveEntry(projects.id, { [projects.primary_field_id]: 'Новое имя' }, project.id, (await api.getEntry(project.id))!.hlc);
     expect((await api.getRelationPage(task.id, relation.id)).items[0]?.title).toBe('Новое имя');
     expect(await api.getEntry(task.id)).toEqual(task);
     expect((await api.getEntry(project.id))?.data).not.toHaveProperty(backlink.id);
@@ -88,7 +88,7 @@ describe.each(adapters)('%s relations', (kind) => {
     const task = await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'A', [relation.id]: project.id });
     await api.setDeleted('record', project.id, true);
     expect((await api.getRelationPage(task.id, relation.id)).items[0]?.status).toBe('deleted');
-    await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'B' }, task.id);
+    await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'B' }, task.id, (await api.getEntry(task.id))!.hlc);
     await expect(
       api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'New', [relation.id]: project.id })
     ).rejects.toThrow('relationUnavailable');
@@ -108,10 +108,10 @@ describe.each(adapters)('%s relations', (kind) => {
       id: missing,
       status: 'missing',
     });
-    await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'C' }, task.id);
+    await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'C' }, task.id, (await api.getEntry(task.id))!.hlc);
     expect((await api.getEntry(task.id))?.data[relation.id]).toBe(missing);
     await api.setDeleted('collection', projects.id, true);
-    await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'D' }, task.id);
+    await api.saveEntry(tasks.id, { [tasks.primary_field_id]: 'D' }, task.id, (await api.getEntry(task.id))!.hlc);
   });
   it('preserves multi-value order, pages both directions and maintains membership filters', async () => {
     const { api, projects, tasks, relation, many, backlink, project } = await setup();
@@ -208,7 +208,7 @@ describe.each(adapters)('%s relations', (kind) => {
         "CREATE TRIGGER reject_edges BEFORE INSERT ON relation_index BEGIN SELECT RAISE(ABORT,'edge failure'); END"
       )
     );
-    await expect(api.saveEntry(tasks.id, { [relation.id]: project.id }, row.id)).rejects.toThrow(
+    await expect(api.saveEntry(tasks.id, { [relation.id]: project.id }, row.id, (await api.getEntry(row.id))!.hlc)).rejects.toThrow(
       'edge failure'
     );
     expect(await counts()).toEqual(before);

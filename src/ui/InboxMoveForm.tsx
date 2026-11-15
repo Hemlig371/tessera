@@ -50,7 +50,7 @@ export function InboxMoveForm({ api, entry, libraries, busy, cancel, save }: {
       </select>
     </label>
     {error && <ErrorMessage code={error} />}
-    {context ? <RecordForm key={context.collection.id} api={api} collection={context.collection}
+    {context ? <RecordForm key={context.collection.id} api={api} collection={context.collection} creating={false}
       fields={context.fields} layout={context.layout} initialData={context.initial} busy={busy} cancel={cancel}
       save={data => save(context.collection.id, data)} />
       : <button type="button" disabled={busy} onClick={cancel}>{t('cancel')}</button>}

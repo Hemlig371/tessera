@@ -10,7 +10,7 @@ test('global capture and inbox move preserve one record; cancel never writes', a
   const before = await rows('SELECT * FROM records ORDER BY id');
   await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Отменённый ввод');
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   expect(await rows('SELECT * FROM records ORDER BY id')).toEqual(before);
   await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Ссылка https://example.org/ 🦔');

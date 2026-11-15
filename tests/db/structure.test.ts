@@ -62,7 +62,7 @@ describe.each(adapters)('%s stage 2 structure', (kind) => {
       [count.id, 6, 'outOfRange'],
       [day.id, '2023-02-29', 'invalidDate'],
     ] as const) {
-      await expect(api.saveEntry(collection.id, { [fieldId]: value }, entry.id)).rejects.toThrow(error);
+      await expect(api.saveEntry(collection.id, { [fieldId]: value }, entry.id, (await api.getEntry(entry.id))!.hlc)).rejects.toThrow(error);
     }
     await expect(
       api.createField(collection.id, 'Сломано', 'date', { default: '2026-13-01' })
@@ -82,7 +82,7 @@ describe.each(adapters)('%s stage 2 structure', (kind) => {
     );
     await api.setDeleted('field', field.id, true);
     expect((await api.listFields(collection.id)).some((x) => x.id === field.id)).toBe(false);
-    const changed = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'B' }, entry.id);
+    const changed = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'B' }, entry.id, (await api.getEntry(entry.id))!.hlc);
     expect(changed.data[field.id]).toBe('00123');
     await api.setDeleted('field', field.id, false);
     expect((await api.listFields(collection.id)).some((x) => x.id === field.id)).toBe(true);
@@ -117,7 +117,7 @@ describe.each(adapters)('%s stage 2 structure', (kind) => {
     expect(await api.getUiConfig(collection.id, 'list')).toEqual({ fields: [] });
     const entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'A' });
     expect(entry.data[field.id]).toBe(3);
-    await expect(api.saveEntry(collection.id, { [field.id]: null }, entry.id)).rejects.toThrow(
+    await expect(api.saveEntry(collection.id, { [field.id]: null }, entry.id, (await api.getEntry(entry.id))!.hlc)).rejects.toThrow(
       'requiredField'
     );
     await expect(

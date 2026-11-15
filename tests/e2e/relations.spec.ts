@@ -63,7 +63,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await expect(page.locator('.detail h2')).toHaveText('Проект Tessera');
   await block.getByRole('button', { name: 'Создать связанную запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отмена связанной');
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   await expect(block.getByRole('button', { name: /Отмена связанной/ })).toHaveCount(0);
   await block.getByRole('button', { name: 'Создать связанную запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Создана из проекта');

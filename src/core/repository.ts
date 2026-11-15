@@ -461,20 +461,43 @@ export class Repository {
     await this.rebuildRelationIndex(false);
     if (collectionId) await this.reconcileIndexes(collectionId);
   }
-  async saveEntry(collectionId: string, data: RecordData, id?: string): Promise<Entry> {
+  async saveEntry(collectionId: string, data: RecordData): Promise<Entry>;
+  async saveEntry(collectionId: string, data: RecordData, id: string, expectedHlc: string): Promise<Entry>;
+  async saveEntry(collectionId: string, data: RecordData, id?: string, expectedHlc?: string): Promise<Entry> {
     requireId(collectionId);
     if (id) requireId(id);
+    if (id && !expectedHlc) throw new AppError('staleRecord');
     validateData(data);
-    return this.db.transaction((s) => this.saveEntryInSession(s, collectionId, data, id));
+    return this.db.transaction((s) => this.saveEntryInSession(s, collectionId, data, id, undefined, expectedHlc));
+  }
+  /** A draft may reserve a UUID without inserting anything. Retrying a completed create never duplicates it. */
+  async saveNewEntry(collectionId: string, data: RecordData, createId: string): Promise<Entry> {
+    requireId(collectionId); requireId(createId); validateData(data);
+    return this.db.transaction(s => this.newEntryInSession(s, collectionId, data, createId));
+  }
+  private async newEntryInSession(s: SqlSession, collectionId: string, data: RecordData, createId?: string): Promise<Entry> {
+    await activeCollection(s, collectionId);
+    if (createId) {
+      requireId(createId);
+      const [old] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [createId]);
+      if (old) {
+        if (old.collection_id !== collectionId || old.deleted_at || old.purged) throw new AppError('staleRecord');
+        return decodeEntry(old);
+      }
+    }
+    return this.saveEntryInSession(s, collectionId, data, undefined, createId);
   }
   async saveEntryInSession(
     s: SqlSession,
     collectionId: string,
     data: RecordData,
-    id?: string
+    id?: string,
+    createId?: string,
+    expectedHlc?: string
   ): Promise<Entry> {
     requireId(collectionId);
     if (id) requireId(id);
+    if (createId) requireId(createId);
     validateData(data);
     const collection = await activeCollection(s, collectionId);
     const [stored] = id
@@ -485,6 +508,7 @@ export class Repository {
       : [];
     if (id && !stored) throw new AppError('notFound');
     const previous = stored ? decodeEntry(stored) : undefined;
+    if (previous && expectedHlc !== undefined && previous.hlc !== expectedHlc) throw new AppError('staleRecord');
     const fields = await s.query<Field>(
       'SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,id',
       [collectionId]
@@ -502,7 +526,7 @@ export class Repository {
     await validateRelationTargets(s, collection, fields, merged, previous?.data);
     const encoded = canonical(merged);
     if (previous && encoded === canonical(previous.data)) return previous;
-    const stamp = await this.stamp(s, id),
+    const stamp = await this.stamp(s, id ?? createId),
       local = localTimestamp(new Date(stamp.updated_at));
     const row: Entry = {
       ...stamp,
@@ -727,6 +751,13 @@ export class Repository {
       return row ? decodeEntry(row) : null;
     });
   }
+  async getDraftTarget(id: string): Promise<Entry | null> {
+    requireId(id);
+    return this.db.read(async s => {
+      const [row] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [id]);
+      return row ? decodeEntry(row) : null;
+    });
+  }
   async listEntries(collectionId: string, cursor?: Page<Entry>['next'], limit = 100): Promise<Page<Entry>> {
     requireId(collectionId);
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
@@ -833,13 +864,13 @@ export class Repository {
       }
     });
   }
-  async saveQuickEntry(collectionId: string, data: RecordData): Promise<Entry> {
+  async saveQuickEntry(collectionId: string, data: RecordData, createId?: string): Promise<Entry> {
     requireId(collectionId);
     validateData(data);
     return this.db.transaction(async s => {
       const { collection, fields, form } = await this.quickContext(s, collectionId);
       validateQuickForm(await readQuickForm(s, collection, fields, form), collection, fields, form);
-      return this.saveEntryInSession(s, collectionId, data);
+      return this.newEntryInSession(s, collectionId, data, createId);
     });
   }
   /** Resumable local cache rebuild; each transaction handles at most 200 records. */
@@ -970,7 +1001,7 @@ export class Repository {
       );
     });
   }
-  async createLinkedEntry(recordId: string, fieldId: string, data: RecordData): Promise<Entry> {
+  async createLinkedEntry(recordId: string, fieldId: string, data: RecordData, createId?: string): Promise<Entry> {
     requireId(recordId);
     validateData(data);
     return this.db.transaction(async (s) => {
@@ -984,15 +1015,24 @@ export class Repository {
       const parent = decodeEntry(stored);
       if (field.type === 'backlink') {
         const config = fieldConfig(forward);
-        return this.saveEntryInSession(s, forward.collection_id, {
+        return this.newEntryInSession(s, forward.collection_id, {
           ...data,
           [forward.id]: config.multiple
             ? [...new Set([...relationIds(data[forward.id]), recordId])]
             : recordId,
-        });
+        }, createId);
       }
       const config = fieldConfig(field);
-      const created = await this.saveEntryInSession(s, config.target_collection_id!, data);
+      await activeCollection(s, config.target_collection_id!);
+      if (createId) {
+        requireId(createId);
+        const [old] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [createId]);
+        if (old) {
+          if (old.collection_id !== config.target_collection_id || old.deleted_at || old.purged) throw new AppError('staleRecord');
+          return decodeEntry(old);
+        }
+      }
+      const created = await this.newEntryInSession(s, config.target_collection_id!, data, createId);
       await this.saveEntryInSession(
         s,
         collection.id,

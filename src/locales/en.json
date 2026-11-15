@@ -77,7 +77,10 @@
     "relationsUpdating": "The relation index is updating. Retry when it finishes.",
     "systemContainer": "This system container cannot be changed or deleted.",
     "invalidInboxMove": "Only an Inbox entry can be moved to a regular collection.",
-    "staleRecord": "This entry has changed. Close and reopen the form; your input remains on screen for now."
+    "staleRecord": "This entry changed after the form was opened. Your input remains on screen.",
+    "invalidDraft": "The local draft is damaged or has an unsupported format. It has not replaced database contents.",
+    "draftWrite": "The local draft could not be saved or removed. Your input remains in the form; check available storage and retry.",
+    "draftCleanup": "The entry was saved, but its local draft could not be removed. Do not delete application data."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -223,5 +226,9 @@
   "targetCollection": "Destination collection",
   "chooseLibrary": "Choose a library",
   "quickEntry": "Quick entry",
-  "quickFormHint": "Choose fields for quick entry. Validation, required fields and defaults come from the regular form. Hidden required fields must have valid defaults."
+  "quickFormHint": "Choose fields for quick entry. Validation, required fields and defaults come from the regular form. Hidden required fields must have valid defaults.",
+  "draftSchemaChanged": "Fields changed after this draft was saved. Review the values; unknown fields are retained.",
+  "staleFormChoice": "The entry changed after you opened it. Load its current data instead of your input, or explicitly save your own revision.",
+  "saveMyRevision": "Save my revision",
+  "loadCurrentRevision": "Load current revision"
 }

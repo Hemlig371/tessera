@@ -55,9 +55,9 @@ describe.each(adapters)('%s native SQLite contract', kind => {
   it('keeps unknown field values and avoids a version/journal entry for unchanged saves', async () => {
     const { api, collection } = await setup(), unknown = crypto.randomUUID();
     const row = await api.saveEntry(collection.id, { [unknown]: { keep: true }, [collection.primary_field_id]: 'Первое' });
-    const unchanged = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Первое' }, row.id);
+    const unchanged = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Первое' }, row.id, (await api.getEntry(row.id))!.hlc);
     expect(unchanged.hlc).toBe(row.hlc);
-    const changed = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Второе' }, row.id);
+    const changed = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Второе' }, row.id, (await api.getEntry(row.id))!.hlc);
     expect(changed.created_at).toBe(row.created_at); expect(changed.data[unknown]).toEqual({ keep: true });
     expect(changed.hlc > row.hlc).toBe(true);
     expect((await f.db.read(s => s.query<{ n: number }>('SELECT count(*) AS n FROM record_versions')))[0]?.n).toBe(2);

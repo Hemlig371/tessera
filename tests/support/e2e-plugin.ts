@@ -8,6 +8,7 @@ import { Repository } from '../../src/core/repository';
 import { stage3Scenario } from './stage3-scenario';
 import { scaleScenario } from './scale';
 import { quickFormFixture } from './quick-scenario';
+import { profilesScenario } from './profiles-scenario';
 import { draftFixture } from './draft-fixture';
 import type { SqlValue } from '../../src/core/ports';
 
@@ -95,6 +96,10 @@ export function e2ePlugin(): Plugin {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;
+          }
+          if (op === 'profiles-seed') {
+            const value = await profilesScenario(await Repository.open(db));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'draft-seed') {
             const value = await draftFixture(await Repository.open(db));

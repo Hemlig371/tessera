@@ -17,6 +17,7 @@ import { canonical, localTimestamp } from './model';
 import type {
   Appearance,
   Collection,
+  DisplayProfile,
   Entry,
   EntryListItem,
   EntryQuery,
@@ -49,7 +50,7 @@ import { fieldExpression, fieldIndexName, sortData } from './search-keys';
 import { validateUiDefinition } from './ui-definition';
 import { readQuickForm, validateQuickForm } from './quick-forms';
 
-type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms';
+type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms' | 'display_profiles';
 export class Repository {
   private constructor(
     readonly db: DatabaseAdapter,
@@ -241,13 +242,14 @@ export class Repository {
         'SELECT coalesce(max(position),-1)+1 AS n FROM collections WHERE library_id=?',
         [libraryId]
       );
-      const fieldId = crypto.randomUUID();
+      const fieldId = crypto.randomUUID(), profileId = crypto.randomUUID();
       const row: Collection = {
         ...(await this.stamp(s)),
         library_id: libraryId,
         name,
         primary_field_id: fieldId,
         incoming_field_id: fieldId,
+        default_profile_id: profileId,
         config: '{}',
         position: order!.n,
       };
@@ -261,8 +263,12 @@ export class Repository {
       };
       await this.insert(s, 'collections', row);
       await this.insert(s, 'fields', field);
+      const profile: DisplayProfile = { ...(await this.stamp(s, profileId)), collection_id: row.id,
+        name: 'Список', position: 0, config: '{"fields":[],"list":{"mode":"rows"}}' };
+      await this.insert(s, 'display_profiles', profile);
       await this.log(s, 'collection', row, row);
       await this.log(s, 'field', field, field);
+      await this.log(s, 'display_profile', profile, profile);
       return row;
     });
   }
@@ -778,14 +784,70 @@ export class Repository {
       };
     });
   }
-  async getUiConfig(collectionId: string, kind: UiKind): Promise<UiDefinition> {
+  async listDisplayProfiles(collectionId: string): Promise<DisplayProfile[]> {
+    requireId(collectionId);
+    return this.db.read(async s => {
+      await activeCollection(s, collectionId);
+      return s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,created_at,id', [collectionId]);
+    });
+  }
+  async createDisplayProfile(collectionId: string, value: string, definition: UiDefinition = { fields: [], list: { mode: 'rows' } }): Promise<DisplayProfile> {
+    requireId(collectionId); const name = nameValue(value);
+    return this.db.transaction(async s => {
+      const parent = await activeCollection(s, collectionId);
+      if (parent.system_kind) throw new AppError('systemContainer');
+      const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [collectionId]);
+      validateUiDefinition(definition, 'list', fields, parent.primary_field_id);
+      const [order] = await s.query<{ n: number }>('SELECT coalesce(max(position),-1)+1 AS n FROM display_profiles WHERE collection_id=?', [collectionId]);
+      const row: DisplayProfile = { ...(await this.stamp(s)), collection_id: collectionId, name, position: order!.n, config: canonical(definition as unknown as JsonValue) };
+      await this.insert(s, 'display_profiles', row); await this.log(s, 'display_profile', row, row);
+      await this.indexesInSession(s, collectionId); return row;
+    });
+  }
+  async updateDisplayProfile(id: string, patch: { name?: string; position?: number; definition?: UiDefinition; make_default?: boolean }): Promise<DisplayProfile> {
+    requireId(id);
+    return this.db.transaction(async s => {
+      const [old] = await s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE id=? AND deleted_at IS NULL', [id]);
+      if (!old) throw new AppError('notFound');
+      const parent = await activeCollection(s, old.collection_id);
+      if (parent.system_kind) throw new AppError('systemContainer');
+      if (patch.definition) {
+        const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [parent.id]);
+        validateUiDefinition(patch.definition, 'list', fields, parent.primary_field_id);
+      }
+      const row = await this.update(s, 'display_profiles', 'display_profile', old, {
+        ...(patch.name != null ? { name: nameValue(patch.name) } : {}),
+        ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
+        ...(patch.definition ? { config: canonical(patch.definition as unknown as JsonValue) } : {}),
+      });
+      if (patch.make_default) await this.update(s, 'collections', 'collection', parent, { default_profile_id: id });
+      await this.indexesInSession(s, parent.id); return row;
+    });
+  }
+  async deleteDisplayProfile(id: string): Promise<void> {
+    requireId(id);
+    await this.db.transaction(async s => {
+      const [old] = await s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE id=? AND deleted_at IS NULL', [id]);
+      if (!old) throw new AppError('notFound');
+      const parent = await activeCollection(s, old.collection_id);
+      if (parent.system_kind) throw new AppError('systemContainer');
+      const [next] = await s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE collection_id=? AND id<>? AND deleted_at IS NULL ORDER BY position,created_at,id LIMIT 1', [parent.id, id]);
+      if (!next) throw new AppError('lastProfile');
+      if (parent.default_profile_id === id) await this.update(s, 'collections', 'collection', parent, { default_profile_id: next.id });
+      await this.update(s, 'display_profiles', 'display_profile', old, { deleted_at: new Date().toISOString() });
+      await this.indexesInSession(s, parent.id);
+    });
+  }
+  async getUiConfig(collectionId: string, kind: UiKind, profileId?: string): Promise<UiDefinition> {
     requireId(collectionId);
     return this.db.read(async (s) => {
       await activeCollection(s, collectionId);
-      const [row] = await s.query<UiConfiguration>(
-        'SELECT * FROM ui_configs WHERE collection_id=? AND kind=? AND deleted_at IS NULL',
-        [collectionId, kind]
-      );
+      if (profileId) requireId(profileId);
+      const [row] = kind === 'list'
+        ? await s.query<DisplayProfile>(`SELECT p.* FROM display_profiles p JOIN collections c ON c.id=p.collection_id
+          WHERE p.collection_id=? AND p.deleted_at IS NULL AND p.id=coalesce(?,c.default_profile_id)`, [collectionId, profileId ?? null])
+        : await s.query<UiConfiguration>('SELECT * FROM ui_configs WHERE collection_id=? AND kind=? AND deleted_at IS NULL', [collectionId, kind]);
+      if (profileId && !row) throw new AppError('notFound');
       const definition = row ? (JSON.parse(row.config) as UiDefinition) : { fields: [] };
       const fields = await s.query<{ id: string }>(
         'SELECT id FROM fields WHERE collection_id=? AND deleted_at IS NULL',
@@ -811,6 +873,11 @@ export class Repository {
   async saveUiConfig(collectionId: string, kind: UiKind, definition: UiDefinition): Promise<void> {
     requireId(collectionId);
     if (!['form', 'card', 'list'].includes(kind)) throw new AppError('invalidData');
+    if (kind === 'list') {
+      const parent = await this.getCollection(collectionId);
+      if (!parent.default_profile_id) throw new AppError('notFound');
+      await this.updateDisplayProfile(parent.default_profile_id, { definition }); return;
+    }
     await this.db.transaction(async (s) => {
       const collection = await activeCollection(s, collectionId);
       if (collection.system_kind) throw new AppError('systemContainer');
@@ -1064,16 +1131,11 @@ export class Repository {
   }
   private async indexesInSession(s: SqlSession, collectionId: string): Promise<void> {
     const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=?', [collectionId]);
-    const [layout] = await s.query<UiConfiguration>(
-      "SELECT * FROM ui_configs WHERE collection_id=? AND kind='list' AND deleted_at IS NULL",
-      [collectionId]
-    );
-    const list = layout ? (JSON.parse(layout.config) as UiDefinition).list : undefined;
-    const automatic = new Set([
-      list?.sort_field,
-      list?.group_field,
-      ...(list?.filters?.map((f) => f.field_id) ?? []),
-    ]);
+    const profiles = await s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE collection_id=? AND deleted_at IS NULL', [collectionId]);
+    const automatic = new Set(profiles.flatMap(profile => {
+      const list = (JSON.parse(profile.config) as UiDefinition).list;
+      return [list?.sort_field, list?.group_field, ...(list?.filters?.map(filter => filter.field_id) ?? [])];
+    }));
     for (const field of fields) {
       if (
         !field.deleted_at &&

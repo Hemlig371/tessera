@@ -12,12 +12,15 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   for (const id of [input.collection_id, input.library_id]) if (id) requireId(id);
   const limit = input.limit ?? 100;
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
+  if (input.profile_id) { requireId(input.profile_id); if (!input.collection_id) throw new AppError('invalidFilter'); }
   const [saved] = input.collection_id
     ? await s.query<{ config: string }>(
-        "SELECT config FROM ui_configs WHERE collection_id=? AND kind='list' AND deleted_at IS NULL",
-        [input.collection_id]
+        `SELECT p.config FROM display_profiles p JOIN collections c ON c.id=p.collection_id
+          WHERE p.collection_id=? AND p.deleted_at IS NULL AND p.id=coalesce(?,c.default_profile_id)`,
+        [input.collection_id, input.profile_id ?? null]
       )
     : [];
+  if (input.profile_id && !saved) throw new AppError('notFound');
   const q = { ...(saved ? (JSON.parse(saved.config) as UiDefinition).list : {}), ...input };
   const params: SqlValue[] = [],
     where: string[] = [];
@@ -107,6 +110,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   }
   const queryKey = canonical({
     collection_id: q.collection_id ?? null,
+    profile_id: q.profile_id ?? null,
     library_id: q.library_id ?? null,
     search: terms,
     filters: q.filters ?? [],

@@ -13,6 +13,7 @@ import { sqliteContract } from './sqlite-contract';
 import { inboxScenario } from './inbox-scenario';
 import { quickScenario } from './quick-scenario';
 import { openDraftStore } from '../../src/platform/local-files';
+import { profilesScenario } from './profiles-scenario';
 import { draftFixture } from './draft-fixture';
 
 async function run() {
@@ -41,6 +42,8 @@ async function run() {
   await inboxScenario(api);
   document.documentElement.dataset.acceptanceStage = 'quick';
   await quickScenario(api);
+  document.documentElement.dataset.acceptanceStage = 'profiles';
+  await profilesScenario(api);
   document.documentElement.dataset.acceptanceStage = 'reopen';
   await first.close();
   const reopened = await openAndroidDatabase();

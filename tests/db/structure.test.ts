@@ -114,7 +114,7 @@ describe.each(adapters)('%s stage 2 structure', (kind) => {
     await api.saveUiConfig(collection.id, 'form', form);
     await api.saveUiConfig(collection.id, 'card', { fields: [{ field_id: field.id, visible: false }] });
     expect(await api.getUiConfig(collection.id, 'form')).toEqual(form);
-    expect(await api.getUiConfig(collection.id, 'list')).toEqual({ fields: [] });
+    expect(await api.getUiConfig(collection.id, 'list')).toEqual({ fields: [], list: { mode: 'rows' } });
     const entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'A' });
     expect(entry.data[field.id]).toBe(3);
     await expect(api.saveEntry(collection.id, { [field.id]: null }, entry.id, (await api.getEntry(entry.id))!.hlc)).rejects.toThrow(

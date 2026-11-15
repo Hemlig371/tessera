@@ -114,6 +114,20 @@ try {
   await clickText('Сохранить');
   await until("!document.querySelector('[role=dialog]')");
   await assert.rejects(readFile(nativeDraft),{code:'ENOENT'});
+  await clickText('Представления');
+  await execute("const input=document.querySelector('[role=dialog] form:last-of-type input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native profile'); input.dispatchEvent(new Event('input',{bubbles:true}));");
+  await clickText('Создать представление');
+  await until("!document.querySelector('[role=dialog]') && document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
+  await clickText('Представления');
+  await execute("const select=document.querySelector('[role=dialog] select'); select.value=[...select.options].find(option=>option.text==='Native profile').value; select.dispatchEvent(new Event('change',{bubbles:true}));");
+  await until("!!document.querySelector('[role=dialog] input[type=checkbox]:not(:disabled)')");
+  await execute("document.querySelector('[role=dialog] input[type=checkbox]').click()");
+  await clickText('Сохранить представление');
+  await until("!!document.querySelector('[role=dialog] input[type=checkbox]:disabled:checked')");
+  await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await request('DELETE', `/session/${session}`); session=undefined; await start();
+  await openLibrary('Native library'); await clickText('Native collection');
+  await until("document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

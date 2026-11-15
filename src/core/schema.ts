@@ -81,4 +81,23 @@ export const migrations = [
         kind TEXT NOT NULL DEFAULT 'quick' CHECK(kind='quick'), config TEXT NOT NULL ${jsonObject('config')})`,
     ],
   },
+  {
+    version: 6,
+    statements: [
+      `CREATE TABLE display_profiles(${stamp}, collection_id TEXT NOT NULL REFERENCES collections(id),
+        name TEXT NOT NULL CHECK(length(trim(name))>0), position INTEGER NOT NULL DEFAULT 0,
+        config TEXT NOT NULL ${jsonObject('config')})`,
+      'CREATE INDEX profiles_collection ON display_profiles(collection_id,deleted_at,position,id)',
+      'ALTER TABLE collections ADD COLUMN default_profile_id TEXT REFERENCES display_profiles(id) DEFERRABLE INITIALLY DEFERRED',
+      `INSERT INTO display_profiles(id,hlc,device_id,deleted_at,created_at,updated_at,collection_id,name,position,config)
+        SELECT id,hlc,device_id,NULL,created_at,updated_at,collection_id,'Список',0,config
+        FROM ui_configs WHERE kind='list' AND deleted_at IS NULL`,
+      `INSERT INTO display_profiles(id,hlc,device_id,deleted_at,created_at,updated_at,collection_id,name,position,config)
+        SELECT lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-4'||substr(lower(hex(randomblob(2))),2)||'-'||
+          substr('89ab',(random() & 3)+1,1)||substr(lower(hex(randomblob(2))),2)||'-'||lower(hex(randomblob(6))),
+          c.hlc,c.device_id,NULL,c.created_at,c.updated_at,c.id,'Список',0,'{"fields":[],"list":{"mode":"rows"}}'
+        FROM collections c WHERE NOT EXISTS(SELECT 1 FROM display_profiles p WHERE p.collection_id=c.id)`,
+      'UPDATE collections SET default_profile_id=(SELECT id FROM display_profiles p WHERE p.collection_id=collections.id)',
+    ],
+  },
 ] as const;

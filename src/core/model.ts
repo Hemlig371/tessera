@@ -15,6 +15,7 @@ export interface Library extends Stamp {
   position: number;
 }
 export interface Collection extends Stamp {
+  default_profile_id?: string | null;
   system_kind?: 'inbox' | null;
   library_id: string;
   name: string;
@@ -112,7 +113,14 @@ export interface UiConfiguration extends Stamp {
   kind: UiKind;
   config: string;
 }
+export interface DisplayProfile extends Stamp {
+  collection_id: string;
+  name: string;
+  position: number;
+  config: string;
+}
 export interface EntryQuery extends ListOptions {
+  profile_id?: string;
   collection_id?: string;
   library_id?: string;
   search?: string;

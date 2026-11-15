@@ -742,3 +742,9 @@ td {
 .relation-block .relation-actions button {
   font-size: 12px;
 }
+
+header > div { min-width: 0; }
+.profile-switcher { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; margin-top: 8px; }
+.profile-switcher label { min-width: 0; max-width: 100%; margin: 0; font-size: 12px; }
+.profile-switcher select { max-width: 100%; min-width: 0; }
+.profile-switcher button { font-size: 12px; padding: 8px; }

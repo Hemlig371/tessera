@@ -2,7 +2,8 @@ import { create } from 'zustand';
 interface UiState {
   libraryId: string | null;
   collectionId: string | null;
-  editor: 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | null;
+  profileId: string | null;
+  editor: 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | null;
   editingId: string | null;
   text: string;
   search: string;
@@ -17,6 +18,7 @@ interface UiState {
 export const useUi = create<UiState>((set) => ({
   libraryId: null,
   collectionId: null,
+  profileId: null,
   editor: null,
   editingId: null,
   text: '',
@@ -27,6 +29,7 @@ export const useUi = create<UiState>((set) => ({
     set({
       libraryId,
       collectionId: collectionId ?? null,
+      profileId: null,
       scope: 'collection',
       search: '',
       ...(collectionId ? { navOpen: false } : {}),

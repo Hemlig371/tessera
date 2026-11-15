@@ -1,9 +1,11 @@
+import { ProfilesEditor } from './ProfilesEditor';
 import { fieldConfig } from '../core/validation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type {
   Collection,
+  DisplayProfile,
   Entry,
   EntryListItem,
   EntryQuery,
@@ -42,6 +44,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
     [layouts, setLayouts] = useState(emptyLayouts);
+  const [profiles, setProfiles] = useState<DisplayProfile[]>([]);
   const [quickDefinition, setQuickDefinition] = useState<UiDefinition>({ fields: [] });
   const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
   const [staleEdit, setStaleEdit] = useState<{ data: RecordData; current: Entry } | null>(null);
@@ -75,9 +78,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const collection = collections.find((c) => c.id === ui.collectionId),
     library = libraries.find((l) => l.id === ui.libraryId);
   const browsing = ui.scope === 'all' || (ui.scope === 'library' && !!library) || !!collection;
+  const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
   const query: EntryQuery = {
     ...(ui.scope === 'collection'
-      ? { collection_id: collection?.id }
+      ? { collection_id: collection?.id, ...(activeProfileId ? { profile_id: activeProfileId } : {}) }
       : ui.scope === 'library'
         ? { library_id: library?.id }
         : {}),
@@ -159,12 +163,14 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     if (ui.collectionId)
       Promise.all([
         api.listFields(ui.collectionId),
-        ...(['form', 'card', 'list'] as const).map((kind) => api.getUiConfig(ui.collectionId!, kind)),
+        ...(['form', 'card', 'list'] as const).map((kind) => api.getUiConfig(ui.collectionId!, kind, kind === 'list' ? ui.profileId ?? undefined : undefined)),
         api.getQuickForm(ui.collectionId),
+        api.listDisplayProfiles(ui.collectionId),
       ])
-        .then(([rows, form, card, list, quick]) => {
+        .then(([rows, form, card, list, quick, profileRows]) => {
           if (active) {
             setFields(rows as Field[]);
+            setProfiles(profileRows as DisplayProfile[]);
             setQuickDefinition(quick as UiDefinition);
             setLayouts({
               form: form as UiDefinition,
@@ -179,7 +185,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     return () => {
       active = false;
     };
-  }, [api, ui.collectionId]);
+  }, [api, ui.collectionId, ui.profileId]);
   useEffect(() => {
     const request = ++queryRequest.current;
     let active = true;
@@ -222,18 +228,21 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       const nextCollections = current.libraryId ? await api.listCollections(current.libraryId) : [];
       const currentCollection = nextCollections.find((c) => c.id === current.collectionId);
       if (currentCollection) {
-        const [nextFields, form, card, list, quick] = await Promise.all([
+        const [nextFields, form, card, list, quick, profileRows] = await Promise.all([
           api.listFields(currentCollection.id),
           api.getUiConfig(currentCollection.id, 'form'),
           api.getUiConfig(currentCollection.id, 'card'),
-          api.getUiConfig(currentCollection.id, 'list'),
+          api.getUiConfig(currentCollection.id, 'list', current.profileId ?? undefined),
           api.getQuickForm(currentCollection.id),
+          api.listDisplayProfiles(currentCollection.id),
         ]);
         setFields(nextFields);
+        setProfiles(profileRows);
         setLayouts({ form, card, list });
         setQuickDefinition(quick);
       } else {
         setFields([]);
+        setProfiles([]);
         setLayouts(emptyLayouts);
         setQuickDefinition({ fields: [] });
       }
@@ -396,7 +405,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const disabled = busy || !!ui.editor;
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'library'
+    ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -516,6 +525,12 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                   ? library?.name
                   : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
             </h1>
+          {collection && !collection.system_kind && profiles.some(profile => profile.collection_id === collection.id) &&
+            <div className="profile-switcher"><label>{t('displayProfile')}
+              <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
+                {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+              </select>
+            </label><button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button></div>}
           </div>
           {collection && !collection.system_kind && (
             <button className="primary" disabled={disabled || !fieldsReady} onClick={() => open('entry')}>
@@ -898,6 +913,13 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               }}
             />
           )}
+          {ui.editor === 'profiles' && collection && <ProfilesEditor profiles={profiles} defaultId={collection.default_profile_id ?? null}
+            busy={busy} cancel={close} create={name => { void run(async () => {
+              const profile = await api.createDisplayProfile(collection.id, name, layouts.list);
+              useUi.setState({ profileId: profile.id });
+            }); }}
+            update={(id, patch) => { void run(async () => { await api.updateDisplayProfile(id, patch); }, false); }}
+            remove={id => { void run(async () => { await api.deleteDisplayProfile(id); useUi.setState({ profileId: null }); }, false); }} />}
           {(ui.editor === 'form' || ui.editor === 'card' || ui.editor === 'list') && collection && (
             <LayoutEditor
               api={api}
@@ -909,7 +931,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               cancel={close}
               save={(definition) => {
                 const kind = ui.editor as UiKind;
-                void run(() => api.saveUiConfig(collection.id, kind, definition));
+                void run(async () => {
+                  if (kind === 'list' && activeProfileId) await api.updateDisplayProfile(activeProfileId, { definition });
+                  else await api.saveUiConfig(collection.id, kind, definition);
+                });
               }}
             />
           )}

@@ -1593,7 +1593,7 @@ dependencies = [
 
 [[package]]
 name = "ico"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75e94d66081e4d8dcd098bd8dc5254800fea14a26389b298410158d834de167"
 dependencies = [
@@ -2137,7 +2137,7 @@ checksum = "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b"
 
 [[package]]
 name = "ndk-sys"
-version = "0.6.0+11769913"
+version = "0.7.0+11769913"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
@@ -3865,7 +3865,7 @@ dependencies = [
 
 [[package]]
 name = "tessera"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "serde_json",
  "tauri",
@@ -4246,7 +4246,7 @@ dependencies = [
 
 [[package]]
 name = "urlpattern"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df16f50ef4cc145211879a3867ba757076b25dfee812040dcb0658bd9ae7904b"
 dependencies = [

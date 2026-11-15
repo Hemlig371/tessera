@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { adapters, fixture } from '../support/fixture';
 import { Repository } from '../../src/core/repository';
 import { migrate } from '../../src/core/migrate';
+import { migrations } from '../../src/core/schema';
 import { sqliteContract } from '../support/sqlite-contract';
 import { openNodeDatabase } from '../support/node-database';
 
@@ -26,7 +27,7 @@ describe.each(adapters)('%s native SQLite contract', kind => {
     expect((await api.listLibraries())[0]?.id).toBe(library.id);
     expect((await api.listCollections(library.id))[0]?.id).toBe(collection.id);
     const [counts] = await f.db.read(s => s.query<{ versions: number; changes: number }>('SELECT (SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log) AS changes'));
-    expect(counts).toMatchObject({ versions: 1, changes: 5 });
+    expect(counts).toMatchObject({ versions: 1, changes: 6 });
     await f.db.close();
     const reopened = await f.reopen();
     try {
@@ -77,7 +78,7 @@ describe.each(adapters)('%s native SQLite contract', kind => {
   });
   it('applies migration exactly once and preserves recovery copies', async () => {
     f = await fixture(kind); await migrate(f.db);
-    expect((await f.db.read(s => s.query('SELECT * FROM schema_migrations')))).toHaveLength(5);
+    expect((await f.db.read(s => s.query('SELECT * FROM schema_migrations')))).toHaveLength(migrations.length);
     const backups = (await readdir(f.directory)).filter(n => n.includes('backup-'));
     expect(backups).toHaveLength(1);
     const backup = await openNodeDatabase(join(f.directory, backups[0]!));
@@ -92,16 +93,16 @@ describe.each(adapters)('%s native SQLite contract', kind => {
   });
   it('refuses an unknown future migration without resetting the database', async () => {
     const { api } = await setup();
-    await f.db.read(s => s.execute('INSERT INTO schema_migrations VALUES(?,?,?)', [6, 'future-checksum', new Date().toISOString()]));
+    await f.db.read(s => s.execute('INSERT INTO schema_migrations VALUES(?,?,?)', [migrations.length + 1, 'future-checksum', new Date().toISOString()]));
     await expect(migrate(f.db)).rejects.toThrow('unsupportedSchema');
     expect(await api.listLibraries()).toHaveLength(1);
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(6);
+    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(migrations.length + 1);
   });
   it('accepts Android-owned SQLite locale metadata on first installation', async () => {
     f = await fixture(kind, false);
     await f.db.read(s => s.execute('CREATE TABLE android_metadata(locale TEXT)'));
     await migrate(f.db);
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(5);
+    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(migrations.length);
     expect(await f.db.read(s => s.query("SELECT name FROM sqlite_master WHERE name='android_metadata'"))).toHaveLength(1);
   });
   it('rolls the entire first migration back after an injected DDL failure', async () => {
@@ -114,6 +115,6 @@ describe.each(adapters)('%s native SQLite contract', kind => {
     await expect(migrate(f.db)).rejects.toThrow('injected DDL failure');
     expect(await f.db.read(s => s.query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"))).toEqual([]);
     f.db.transaction = original; await migrate(f.db);
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(5);
+    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(migrations.length);
   });
 });

@@ -78,6 +78,35 @@ public class SqliteBridgeTest {
             System.out.println("DRAFT_PROCESS passed: native file survived force-stop and was restored only on creation and removed only by Save");
         }
     }
+    private void openProfileCollection(ActivityScenario<MainActivity> scenario) throws Exception {
+        awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.textContent.includes('Заметки: профили (dev/CI)'))");
+        js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Заметки: профили (dev/CI)')).click()");
+        awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Заметки')");
+        js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Заметки').click()");
+        awaitJs(scenario, "!!document.querySelector('.profile-switcher select') && document.querySelectorAll('.entry').length>0");
+    }
+    @Test public void namedProfilesShareRecordsAndPersistDefaultAfterRecreation() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            openProfileCollection(scenario);
+            js(scenario, "(()=>{const select=document.querySelector('.profile-switcher select'); select.value=[...select.options].find(option=>option.text==='Только Бета').value; select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            awaitJs(scenario, "document.querySelectorAll('.entry').length===1 && document.querySelector('.entry').textContent.includes('Бета')");
+            js(scenario, "[...document.querySelectorAll('button')].find(button=>button.textContent==='Представления').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
+            js(scenario, "(()=>{const select=document.querySelector('[role=dialog] select'); select.value=[...select.options].find(option=>option.text==='Только Бета').value; select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:not(:disabled)')");
+            js(scenario, "document.querySelector('[role=dialog] input[type=checkbox]').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:checked')");
+            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(button=>button.textContent==='Сохранить представление').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:disabled:checked')");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            scenario.recreate();
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            openProfileCollection(scenario);
+            awaitJs(scenario, "document.querySelector('.profile-switcher option:checked')?.textContent==='Только Бета' && document.querySelectorAll('.entry').length===1");
+        }
+    }
     private String js(ActivityScenario<MainActivity> scenario, String script) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>();

@@ -80,7 +80,8 @@
     "staleRecord": "This entry changed after the form was opened. Your input remains on screen.",
     "invalidDraft": "The local draft is damaged or has an unsupported format. It has not replaced database contents.",
     "draftWrite": "The local draft could not be saved or removed. Your input remains in the form; check available storage and retry.",
-    "draftCleanup": "The entry was saved, but its local draft could not be removed. Do not delete application data."
+    "draftCleanup": "The entry was saved, but its local draft could not be removed. Do not delete application data.",
+    "lastProfile": "The last display profile cannot be deleted."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -230,5 +231,15 @@
   "draftSchemaChanged": "Fields changed after this draft was saved. Review the values; unknown fields are retained.",
   "staleFormChoice": "The entry changed after you opened it. Load its current data instead of your input, or explicitly save your own revision.",
   "saveMyRevision": "Save my revision",
-  "loadCurrentRevision": "Load current revision"
+  "loadCurrentRevision": "Load current revision",
+  "displayProfile": "Display profile",
+  "displayProfiles": "Display profiles",
+  "profileToConfigure": "Profile to configure",
+  "newDisplayProfile": "New display profile",
+  "profileCopyHint": "Creates an independent copy of the current display settings. Records stay shared.",
+  "profileName": "Profile name",
+  "createDisplayProfile": "Create display profile",
+  "saveDisplayProfile": "Save display profile",
+  "deleteDisplayProfile": "Delete display profile",
+  "defaultDisplayProfile": "Default profile"
 }

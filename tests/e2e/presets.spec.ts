@@ -32,7 +32,9 @@ test('creation choices, quick/standard presets and defaults respect one shared c
   await page.getByRole('button', { name: 'Пресеты создания', exact: true }).click();
   await page.getByRole('combobox', { name: 'Короткое нажатие +', exact: true }).selectOption({ label: 'Новый баг' });
   await page.getByRole('button', { name: 'Сохранить действие создания', exact: true }).click();
-  await page.getByRole('dialog').press('Escape'); await page.reload(); await navigate();
+  await expect(page.getByRole('button', { name: 'Сохранить действие создания', exact: true })).toBeEnabled();
+  await page.getByRole('dialog').press('Escape'); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.reload(); await navigate();
   await primary.click(); await expect(page.getByRole('textbox', { name: 'Описание', exact: true })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Назначенный пресет');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);

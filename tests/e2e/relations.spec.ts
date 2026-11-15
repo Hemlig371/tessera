@@ -100,6 +100,8 @@ test('relation target selector pages backwards and searches in SQLite', async ({
   await expect(picker.locator('.relation-options button')).toHaveCount(50);
   await picker.getByRole('searchbox', { name: 'Поиск связанных записей', exact: true }).fill('Цель 50');
   await expect(picker.locator('.relation-options button')).toHaveCount(1);
+  await picker.getByRole('searchbox',{name:'Поиск связанных записей',exact:true}).press('Enter');
+  await expect(page.getByRole('dialog').getByRole('button',{name:'Сохранить',exact:true})).toBeEnabled();
   await picker.getByRole('button', { name: 'Цель 50', exact: true }).click();
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('.entry').filter({ hasText: 'Выбрана после страницы' })).toContainText('Цель 50');

@@ -161,6 +161,7 @@ export function RelationInput({
         <input
           type="search"
           value={search}
+          onKeyDown={e=>{if(e.key==='Enter')e.preventDefault();}}
           disabled={disabled}
           onChange={(e) => {
             setLoading(true);

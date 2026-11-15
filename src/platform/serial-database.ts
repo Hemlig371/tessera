@@ -4,9 +4,11 @@ import type { DatabaseAdapter, SqlSession } from '../core/ports';
 export class SerialDatabase implements DatabaseAdapter {
   private tail: Promise<unknown> = Promise.resolve();
   private closed = false;
+  private closing?: Promise<void>;
   private poisoned = false;
   constructor(private readonly session: SqlSession) {}
   private enqueue<T>(work: () => Promise<T>): Promise<T> {
+    if (this.closed || this.closing || this.poisoned) return Promise.reject(new Error('databaseUnavailable'));
     const result = this.tail.then(async () => {
       if (this.closed || this.poisoned) throw new Error('databaseUnavailable');
       return work();
@@ -32,8 +34,13 @@ export class SerialDatabase implements DatabaseAdapter {
     });
   }
   backup(): Promise<void> { return this.enqueue(() => this.session.backup()); }
-  async close(): Promise<void> {
-    await this.tail;
-    if (!this.closed) { this.closed = true; await this.session.close(); }
+  close(): Promise<void> {
+    if (!this.closing) {
+      this.closing = this.tail.then(async () => {
+        this.closed = true;
+        await this.session.close();
+      });
+    }
+    return this.closing;
   }
 }

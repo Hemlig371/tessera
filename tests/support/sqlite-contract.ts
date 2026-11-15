@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from '../../src/core/ports';
-import { checkSqlite } from '../../src/core/sqlite-check';
+import { checkDatabaseIntegrity, checkSqlite } from '../../src/core/sqlite-check';
 const assert = (condition: boolean, message: string) => { if (!condition) throw new Error(message); };
 
 /** Shared dev-only acceptance, also executed inside Android WebView over the real bridge. */
@@ -35,4 +35,5 @@ export async function sqliteContract(db: DatabaseAdapter) {
   await db.transaction(async s => {
     await s.execute('DROP TABLE acceptance_probe'); await s.execute('DROP TABLE acceptance_fts');
   });
+  await checkDatabaseIntegrity(db, true);
 }

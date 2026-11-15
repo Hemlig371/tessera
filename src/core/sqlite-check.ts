@@ -16,3 +16,12 @@ export async function checkSqlite(db: DatabaseAdapter): Promise<string> {
     return info.version;
   });
 }
+
+/** Explicit diagnostics/import acceptance. Startup retains the inexpensive quick probe. */
+export async function checkDatabaseIntegrity(db: DatabaseAdapter, full = false): Promise<void> {
+  await db.read(async s => {
+    const rows = await s.query<Record<string, string>>(full ? 'PRAGMA integrity_check' : 'PRAGMA quick_check');
+    if (rows.length !== 1 || Object.values(rows[0]!)[0] !== 'ok') throw new AppError('databaseCorrupt');
+    if ((await s.query('PRAGMA foreign_key_check')).length) throw new AppError('databaseCorrupt');
+  });
+}

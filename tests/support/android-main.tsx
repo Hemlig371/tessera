@@ -13,7 +13,10 @@ import { sqliteContract } from './sqlite-contract';
 
 async function run() {
   const first = await openAndroidDatabase();
-  await sqliteContract(first); await migrate(first);
+  document.documentElement.dataset.acceptanceStage = 'sqlite-contract';
+  await sqliteContract(first);
+  document.documentElement.dataset.acceptanceStage = 'migration';
+  await migrate(first);
   const api = await Repository.open(first);
   const library = (await api.listLibraries()).find(l => l.name === 'Контракт') ?? await api.createLibrary('Контракт');
   const collection = (await api.listCollections(library.id))[0] ?? await api.createCollection(library.id, 'Записи', 'Название');
@@ -21,16 +24,21 @@ async function run() {
   const record = old ?? await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Bridge roundtrip' });
   const [complete] = await first.read(s => s.query("SELECT value FROM local_settings WHERE key='acceptance.stage3'"));
   if (!complete) {
+    document.documentElement.dataset.acceptanceStage = 'stage2';
     await stage2Scenario(api);
+    document.documentElement.dataset.acceptanceStage = 'relations';
     await stage3Scenario(api);
+    document.documentElement.dataset.acceptanceStage = 'scale';
     const result = await scaleScenario(api);
     document.documentElement.dataset.scale = JSON.stringify({ importMs: result.importMs, queryMs: result.queryMs });
     await first.transaction(s => s.execute("INSERT INTO local_settings VALUES('acceptance.stage3',?)", [JSON.stringify({ collection: result.collection.id, importMs: result.importMs, queryMs: result.queryMs })]));
   } else document.documentElement.dataset.scale = String(complete.value);
+  document.documentElement.dataset.acceptanceStage = 'reopen';
   await first.close();
   const reopened = await openAndroidDatabase();
   const again = await Repository.open(reopened);
   if ((await again.getEntry(record.id))?.data[collection.primary_field_id] !== 'Bridge roundtrip') throw new Error('native reopen failed');
+  document.documentElement.dataset.acceptanceStage = 'render';
   document.documentElement.dataset.acceptance = 'passed';
   createRoot(document.getElementById('root')!).render(<App api={again}/>);
 }

@@ -26,19 +26,24 @@ public class SqliteBridgeTest {
         return result.get();
     }
     private void awaitJs(ActivityScenario<MainActivity> scenario, String script) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(15);
+        awaitJs(scenario, script, 30);
+    }
+    private void awaitJs(ActivityScenario<MainActivity> scenario, String script, long timeoutSeconds) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
         while (System.nanoTime() < deadline) {
+            String startupFailure = js(scenario, "document.documentElement.dataset.acceptance === 'failed' ? (document.documentElement.dataset.acceptanceStage + ': ' + document.documentElement.dataset.acceptanceError) : null");
+            if (!"null".equals(startupFailure)) fail("Native acceptance failed: " + startupFailure);
             if ("true".equals(js(scenario, script))) return;
             Thread.sleep(200);
         }
-        fail("WebView assertion timed out: " + script + "; body=" + js(scenario, "document.body.innerText"));
+        fail("WebView assertion timed out: " + script + "; stage=" + js(scenario, "document.documentElement.dataset.acceptanceStage") + "; body=" + js(scenario, "document.body.innerText"));
     }
     @Test public void sqliteContractAndRealUiSurviveWebViewRecreation() throws Exception {
         var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals(0, context.getApplicationInfo().flags & ApplicationInfo.FLAG_ALLOW_BACKUP);
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             // This value is set only after all SQL assertions and reopen have passed.
-            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'");
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             System.out.println("STAGE3_SCALE " + js(scenario, "document.documentElement.dataset.scale"));
             assertEquals("null", js(scenario, "document.documentElement.dataset.acceptanceError || null"));
             awaitJs(scenario, "!!document.querySelector('nav button')");
@@ -64,7 +69,11 @@ public class SqliteBridgeTest {
             String csv = device.executeShellCommand("cat /sdcard/Download/Tessera-acceptance.csv");
             assertTrue("Actual SAF CSV did not contain the record: " + csv, csv.contains("Bridge roundtrip"));
             assertTrue("CSV header missing", csv.contains("Название"));
+            // Export status appears before run() finishes reloading metadata and enabling controls.
+            awaitJs(scenario, "[...document.querySelectorAll('[role=dialog] button')].some(b=>b.getAttribute('aria-label')==='Закрыть' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.getAttribute('aria-label')==='Закрыть').click()");
+            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+
             // A real reverse relation block opens its source record in the mobile WebView.
             js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Связи этапа 3')).click()");
             awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Проекты')");
@@ -75,7 +84,7 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('.relation-row')].find(b=>b.textContent.includes('Правка со ссылкой')).click()");
             awaitJs(scenario, "document.querySelector('.detail h2')?.textContent==='Правка со ссылкой'");
             scenario.recreate();
-            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'");
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
         }
     }
 }

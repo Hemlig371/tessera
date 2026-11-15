@@ -32,7 +32,8 @@ async function openLibrary(name) {
 async function input(text) {
   await until("!!document.querySelector('[role=dialog] input, [role=dialog] textarea')");
   const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: '[role=dialog] input, [role=dialog] textarea' });
-  await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/value`, { text });
+  await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/value`, { text: text.replaceAll('\n', '\uE007') });
+  assert.equal(await execute("return document.querySelector('[role=dialog] input, [role=dialog] textarea').value"), text);
 }
 async function start() {
   const result = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: resolve('src-tauri/target/debug/tessera') } } } });

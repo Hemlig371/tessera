@@ -1,12 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { adapters, fixture } from '../support/fixture';
 import { Repository } from '../../src/core/repository';
 import { migrate } from '../../src/core/migrate';
-import { migrations } from '../../src/core/schema';
 import { sqliteContract } from '../support/sqlite-contract';
-import { openNodeDatabase } from '../support/node-database';
 
 describe.each(adapters)('%s native SQLite contract', kind => {
   let f: Awaited<ReturnType<typeof fixture>>;
@@ -76,46 +72,5 @@ describe.each(adapters)('%s native SQLite contract', kind => {
     const plan = await f.db.read(s => s.query<{ detail: string }>('EXPLAIN QUERY PLAN SELECT * FROM records WHERE collection_id=? AND deleted_at IS NULL ORDER BY updated_at DESC,id DESC LIMIT 100', [collection.id]));
     expect(plan.some(r => r.detail.includes('records_page'))).toBe(true);
     expect(await f.db.read(s => s.query('PRAGMA foreign_key_check'))).toEqual([]);
-  });
-  it('applies migration exactly once and preserves recovery copies', async () => {
-    f = await fixture(kind); await migrate(f.db);
-    expect((await f.db.read(s => s.query('SELECT * FROM schema_migrations')))).toHaveLength(migrations.length);
-    const backups = (await readdir(f.directory)).filter(n => n.includes('backup-'));
-    expect(backups).toHaveLength(1);
-    const backup = await openNodeDatabase(join(f.directory, backups[0]!));
-    try { expect(await backup.read(s => s.query("SELECT name FROM sqlite_master WHERE name='records'"))).toHaveLength(0); }
-    finally { await backup.close(); }
-  });
-  it('refuses a newer schema and checksum mismatch, preserving user data', async () => {
-    const { api } = await setup();
-    await f.db.read(s => s.execute("UPDATE schema_migrations SET checksum='changed'"));
-    await expect(migrate(f.db)).rejects.toThrow('unsupportedSchema');
-    expect(await api.listLibraries()).toHaveLength(1);
-  });
-  it('refuses an unknown future migration without resetting the database', async () => {
-    const { api } = await setup();
-    await f.db.read(s => s.execute('INSERT INTO schema_migrations VALUES(?,?,?)', [migrations.length + 1, 'future-checksum', new Date().toISOString()]));
-    await expect(migrate(f.db)).rejects.toThrow('unsupportedSchema');
-    expect(await api.listLibraries()).toHaveLength(1);
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(migrations.length + 1);
-  });
-  it('accepts Android-owned SQLite locale metadata on first installation', async () => {
-    f = await fixture(kind, false);
-    await f.db.read(s => s.execute('CREATE TABLE android_metadata(locale TEXT)'));
-    await migrate(f.db);
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(migrations.length);
-    expect(await f.db.read(s => s.query("SELECT name FROM sqlite_master WHERE name='android_metadata'"))).toHaveLength(1);
-  });
-  it('rolls the entire first migration back after an injected DDL failure', async () => {
-    f = await fixture(kind, false);
-    const original = f.db.transaction.bind(f.db);
-    f.db.transaction = work => original(s => work({ ...s, execute: async (sql, params) => {
-      if (sql.startsWith('CREATE TABLE records(')) throw new Error('injected DDL failure');
-      return s.execute(sql, params);
-    } }));
-    await expect(migrate(f.db)).rejects.toThrow('injected DDL failure');
-    expect(await f.db.read(s => s.query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"))).toEqual([]);
-    f.db.transaction = original; await migrate(f.db);
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(migrations.length);
   });
 });

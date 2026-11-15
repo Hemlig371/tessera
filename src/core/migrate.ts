@@ -1,35 +1,30 @@
 import type { DatabaseAdapter } from './ports';
 import { AppError } from './errors';
-import { migrations } from './schema';
+import { bootstrapStatements, schemaId } from './schema';
 
-async function checksum(statements: readonly string[]) {
-  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(statements.join('\n')));
+async function checksum(): Promise<string> {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bootstrapStatements.join('\n')));
   return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
 }
+/** Pre-release bootstrap only. Existing unsupported databases are never upgraded or replaced. */
 export async function migrate(db: DatabaseAdapter): Promise<void> {
-  const applied = await db.read(async s => {
-    // android_metadata belongs to the SQLite Android runtime, not the app schema.
-    const tables = await s.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> 'android_metadata'");
-    if (!tables.some(t => t.name === 'schema_migrations')) {
-      if (tables.length) throw new AppError('unsupportedSchema');
-      return [];
-    }
-    return s.query<{ version: number; checksum: string }>('SELECT version, checksum FROM schema_migrations ORDER BY version');
-  });
-  for (const [index, row] of applied.entries()) {
-    const known = migrations[index];
-    if (!known || row.version !== known.version || row.checksum !== await checksum(known.statements)) throw new AppError('unsupportedSchema');
-  }
-  const pending = migrations.filter(m => !applied.some(a => a.version === m.version));
-  if (!pending.length) return;
-  // VACUUM INTO / native backup uses a separate, consistent file, including WAL contents.
-  await db.backup();
+  const expected = await checksum();
   await db.transaction(async s => {
-    await s.execute('CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL)');
-    for (const m of pending) {
-      for (const statement of m.statements) await s.execute(statement);
-      await s.execute('INSERT INTO schema_migrations VALUES(?,?,?)', [m.version, await checksum(m.statements), new Date().toISOString()]);
+    // android_metadata is owned by Android's SQLite runtime.
+    const objects = await s.query<{ name: string; type: string }>(
+      "SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name<>'android_metadata'");
+    if (objects.length) {
+      if (!objects.some(row => row.name === 'app_meta' && row.type === 'table') ||
+          objects.some(row => row.name === 'schema_migrations')) throw new AppError('unsupportedSchema');
+      let metadata;
+      try { metadata = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key IN ('schema_id','schema_checksum','format_version')"); }
+      catch { throw new AppError('unsupportedSchema'); }
+      const values = new Map(metadata.map(row => [row.key, row.value]));
+      if (values.get('schema_id') !== schemaId || values.get('schema_checksum') !== expected || values.get('format_version') !== '1')
+        throw new AppError('unsupportedSchema');
+      return;
     }
-    await s.execute("INSERT INTO app_meta(key,value) VALUES('format_version','1') ON CONFLICT(key) DO UPDATE SET value=excluded.value");
+    for (const statement of bootstrapStatements) await s.execute(statement);
+    await s.execute("INSERT INTO app_meta VALUES('schema_id',?),('schema_checksum',?),('format_version','1')", [schemaId, expected]);
   });
 }

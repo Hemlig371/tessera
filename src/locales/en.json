@@ -33,7 +33,7 @@
   "errors": {
     "nativeRequired": "Open Tessera in the desktop or Android app to access native storage.",
     "sqliteUnsupported": "This SQLite build lacks required features. The database was not changed.",
-    "unsupportedSchema": "Unsupported database version or structure. Your data is preserved; use a compatible Tessera version.",
+    "unsupportedSchema": "Unsupported database version or structure. The database is preserved unchanged. Open it in a compatible Tessera build and export your data before switching. Keep the original database: full Database Export is not yet implemented in this dev build.",
     "databaseCorrupt": "Database integrity check failed. Preserve the database files for recovery.",
     "databaseUnavailable": "Database unavailable. Restart the app.",
     "requiredText": "Enter an entry title.",

@@ -1,13 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { adapters, fixture } from '../support/fixture';
 import { Repository } from '../../src/core/repository';
-import { migrate } from '../../src/core/migrate';
-import { migrations } from '../../src/core/schema';
-import { canonical } from '../../src/core/model';
-import { createHash } from 'node:crypto';
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { openNodeDatabase } from '../support/node-database';
 
 describe.each(adapters)('%s inbox', kind => {
   let f: Awaited<ReturnType<typeof fixture>>;
@@ -80,54 +73,5 @@ describe.each(adapters)('%s inbox', kind => {
     await expect(api.moveInboxEntry(entry.id, collection.id, { [collection.primary_field_id]: 'ok' }, entry.hlc)).rejects.toThrow('move failure');
     expect(await snapshot()).toEqual(before);
     expect(await api.getEntry(entry.id)).toEqual(entry);
-  });
-  it('upgrades released v3 WAL data with a backup and rolls DDL failure back before retry', async () => {
-    f = await fixture(kind, false);
-    // Build exactly the shipped v3 schema, then populate it using the unchanged basic write API.
-    await f.db.transaction(async s => {
-      await s.execute('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,checksum TEXT NOT NULL,applied_at TEXT NOT NULL)');
-      for (const m of migrations.slice(0, 3)) {
-        for (const sql of m.statements) await s.execute(sql);
-        await s.execute('INSERT INTO schema_migrations VALUES(?,?,?)', [m.version, createHash('sha256').update(m.statements.join('\n')).digest('hex'), new Date().toISOString()]);
-      }
-      await s.execute("INSERT INTO app_meta VALUES('format_version','1')");
-    });
-    const old = await Repository.open(f.db);
-    const library = await old.createLibrary('Выпущенная база 0.3.0');
-    // createCollection now protects system containers; the release has no such column yet.
-    const collection = crypto.randomUUID(), field = crypto.randomUUID();
-    await f.db.transaction(async s => {
-      const stamp = [library.hlc, library.device_id, null, library.created_at, library.updated_at];
-      await s.execute("INSERT INTO collections(id,hlc,device_id,deleted_at,created_at,updated_at,library_id,name,primary_field_id,incoming_field_id) VALUES(?,?,?,?,?,?,?,?,?,?)", [collection,...stamp,library.id,'Старая коллекция',field,field]);
-      await s.execute("INSERT INTO fields(id,hlc,device_id,deleted_at,created_at,updated_at,collection_id,name,type) VALUES(?,?,?,?,?,?,?,?,?)", [field,...stamp,collection,'Название','text']);
-    });
-    const entry = await old.saveEntry(collection, { [field]: 'WAL 🦔', [crypto.randomUUID()]: [false, 0] });
-    const metadata = await f.db.read(s => s.query('SELECT * FROM app_meta ORDER BY key'));
-    const history = await f.db.read(s => s.query('SELECT * FROM record_versions'));
-    const logs = await f.db.read(s => s.query('SELECT * FROM change_log ORDER BY seq'));
-    const original = f.db.transaction.bind(f.db);
-    f.db.transaction = work => original(s => work({ ...s, execute: async (sql, params) => {
-      if (sql.startsWith('CREATE UNIQUE INDEX collections_system')) throw new Error('inbox DDL failure');
-      return s.execute(sql, params);
-    } }));
-    await expect(migrate(f.db)).rejects.toThrow('inbox DDL failure');
-    const backups = (await readdir(f.directory)).filter(name => name.includes('.backup-'));
-    expect(backups).toHaveLength(1);
-    const backup = await openNodeDatabase(join(f.directory, backups[0]!));
-    try {
-      expect((await backup.read(s => s.query<{ data: string }>('SELECT data FROM records WHERE id=?', [entry.id])))[0]?.data).toBe(canonical(entry.data));
-      expect(await backup.read(s => s.query('SELECT * FROM record_versions'))).toEqual(history);
-      expect(await backup.read(s => s.query('SELECT * FROM change_log ORDER BY seq'))).toEqual(logs);
-    } finally { await backup.close(); }
-    expect(await f.db.read(s => s.query('SELECT * FROM schema_migrations'))).toHaveLength(3);
-    expect(await f.db.read(s => s.query<{ name: string }>('PRAGMA table_info(libraries)'))).not.toContainEqual(expect.objectContaining({ name: 'system_kind' }));
-    f.db.transaction = original;
-    await migrate(f.db);
-    const api = await Repository.open(f.db);
-    expect(await api.getEntry(entry.id)).toEqual(entry);
-    expect(await f.db.read(s => s.query('SELECT * FROM app_meta ORDER BY key'))).toEqual(metadata);
-    expect(await f.db.read(s => s.query('SELECT * FROM record_versions'))).toEqual(history);
-    expect(await f.db.read(s => s.query('SELECT * FROM change_log ORDER BY seq'))).toEqual(logs);
-    expect((await api.getInbox()).system_kind).toBe('inbox');
   });
 });

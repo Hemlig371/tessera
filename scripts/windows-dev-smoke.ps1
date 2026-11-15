@@ -20,4 +20,4 @@ try {
   try { Stop-SmokeProcessTree $process }
   finally { Remove-Item Env:TESSERA_SMOKE_DB -ErrorAction SilentlyContinue }
 }
-Write-Output 'PASS: Windows tauri dev launched, WebView executed TS migrations and opened native SQLite; process tree stopped.'
+Write-Output 'PASS: Windows tauri dev launched, WebView executed TS bootstrap and opened native SQLite; process tree stopped.'

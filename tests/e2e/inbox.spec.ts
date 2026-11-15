@@ -2,20 +2,22 @@ import { test, expect } from '@playwright/test';
 
 test('global capture and inbox move preserve one record; cancel never writes', async ({ page }) => {
   await page.goto('/');
-  const rows = async (sql: string) => {
-    const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql } });
+  await expect(page.locator('aside')).toBeVisible();
+  const rows = async (sql: string, params: (string | number | null)[] = []) => {
+    const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql, params } });
     return (await response.json()).value as Record<string, string | number | null>[];
   };
+  const before = await rows('SELECT * FROM records ORDER BY id');
   await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Отменённый ввод');
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
-  expect(await rows('SELECT id FROM records')).toHaveLength(0);
+  expect(await rows('SELECT * FROM records ORDER BY id')).toEqual(before);
   await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Ссылка https://example.org/ 🦔');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('.entry')).toContainText('Ссылка https://example.org/ 🦔');
-  const [source] = await rows('SELECT * FROM records');
-  const versions = await rows('SELECT * FROM record_versions');
+  const [source] = await rows("SELECT r.* FROM records r JOIN collections c ON c.id=r.collection_id WHERE c.system_kind='inbox' ORDER BY r.hlc DESC LIMIT 1");
+  const versions = await rows('SELECT * FROM record_versions WHERE record_id=?', [source!.id]);
   await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Мои записи');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
@@ -33,15 +35,16 @@ test('global capture and inbox move preserve one record; cancel never writes', a
   await chooseTarget();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отменённый перенос');
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
-  expect(await rows('SELECT * FROM records')).toEqual([source]);
-  expect(await rows('SELECT * FROM record_versions')).toEqual(versions);
+  expect(await rows('SELECT * FROM records WHERE id=?', [source!.id])).toEqual([source]);
+  expect(await rows('SELECT * FROM record_versions WHERE record_id=?', [source!.id])).toEqual(versions);
   await chooseTarget();
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Запись сохранена');
-  const [moved] = await rows('SELECT * FROM records');
+  const [moved] = await rows('SELECT * FROM records WHERE id=?', [source!.id]);
   expect(moved).toMatchObject({ id: source!.id, created_at: source!.created_at, updated_at: source!.updated_at, created_local: source!.created_local, updated_local: source!.updated_local });
   expect(moved!.collection_id).not.toBe(source!.collection_id);
-  expect(await rows('SELECT * FROM record_versions')).toHaveLength(2);
+  expect(await rows('SELECT * FROM record_versions WHERE record_id=?', [source!.id])).toHaveLength(2);
+  expect(await rows('SELECT id FROM records')).toHaveLength(before.length + 1);
   await page.reload();
   await page.getByRole('button', { name: 'Мои записи', exact: true }).click();
   await page.getByRole('button', { name: 'Ссылки', exact: true }).click();

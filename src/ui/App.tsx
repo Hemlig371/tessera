@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type {
   Collection,
   Entry,
+  EntryListItem,
   EntryQuery,
   Field,
   Library,
@@ -34,7 +35,7 @@ export function App({ api }: { api: Repository }) {
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
     [layouts, setLayouts] = useState(emptyLayouts);
-  const [page, setPage] = useState<Page<Entry>>({ items: [], next: null }),
+  const [page, setPage] = useState<Page<EntryListItem>>({ items: [], next: null }),
     [selected, setSelected] = useState<Entry | null>(null);
   const [context, setContext] = useState<Context | null>(null),
     [revision, refresh] = useState(0);
@@ -546,12 +547,7 @@ export function App({ api }: { api: Repository }) {
                               })}
                             </div>
                           ) : (
-                            <span>
-                              {Object.values(row.data)
-                                .filter((value) => typeof value === 'string')
-                                .slice(0, 2)
-                                .join(' · ')}
-                            </span>
+                            <span>{row.title || t('unset')}<small> · {row.collection_name}</small></span>
                           )}
                           <small className="entry-date">
                             {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(

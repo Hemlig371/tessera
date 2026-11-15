@@ -8,6 +8,7 @@ import type {
   Appearance,
   Collection,
   Entry,
+  EntryListItem,
   EntryQuery,
   Field,
   FieldConfig,
@@ -467,7 +468,7 @@ export class Repository {
     );
     return row;
   }
-  queryEntries(query: EntryQuery): Promise<Page<Entry>> {
+  queryEntries(query: EntryQuery): Promise<Page<EntryListItem>> {
     return this.db.read((s) => queryEntries(s, query));
   }
   async previewImport(

@@ -1,5 +1,5 @@
 import { AppError } from './errors';
-import type { Entry, EntryQuery, Field, JsonValue, Page, UiDefinition } from './model';
+import type { EntryListItem, EntryQuery, Field, JsonValue, Page, UiDefinition } from './model';
 import { canonical } from './model';
 import type { SqlSession, SqlValue } from './ports';
 import { fieldExpression, searchTerms, textSortKey } from './search-keys';
@@ -7,7 +7,7 @@ import { fieldConfig, isText, requireId, validateValue } from './validation';
 import { activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 
 /** Bounded keyset queries; all filtering and ordering happen in SQLite. */
-export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Page<Entry>> {
+export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Page<EntryListItem>> {
   for (const id of [input.collection_id, input.library_id]) if (id) requireId(id);
   const limit = input.limit ?? 100;
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
@@ -119,14 +119,14 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   const order = expressions.map((e) => `${e} ${direction.toUpperCase()} NULLS LAST`).join(',');
   const projections = expressions.map((e, i) => `${e} AS key${i}`).join(',');
   const rows = await s.query<StoredEntry & Record<string, SqlValue>>(
-    `SELECT r.*,${projections} ${activeRecords}
+    `SELECT r.*,c.name AS collection_name,json_extract(r.data,'$."'||c.primary_field_id||'"') AS display_title,${projections} ${activeRecords}
     ${where.map((w) => ' AND ' + w).join('')} ORDER BY ${order} LIMIT ?`,
     [...params, limit + 1]
   );
   const visible = rows.slice(0, limit),
     last = visible.at(-1);
   return {
-    items: visible.map(decodeEntry),
+    items: visible.map(row => ({ ...decodeEntry(row), title: String(row.display_title ?? ''), collection_name: String(row.collection_name) })),
     next:
       rows.length > limit && last
         ? {

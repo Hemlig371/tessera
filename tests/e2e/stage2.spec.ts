@@ -58,6 +58,10 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('КРАС');
   await expect(page.locator('.entry')).toHaveCount(1);
+  await page.getByRole('combobox', { name: 'Где искать', exact: true }).selectOption('all');
+  await expect(page.locator('.entry')).toContainText('Красный блокнот');
+  await expect(page.locator('.entry')).toContainText('Склад');
+  await page.getByRole('combobox', { name: 'Где искать', exact: true }).selectOption('collection');
   await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('несуществующее');
   await expect(page.getByRole('heading', { name: 'Ничего не найдено' })).toBeVisible();
   await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('');

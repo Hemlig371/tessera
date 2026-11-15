@@ -28,6 +28,7 @@ describe.each(adapters)('%s search and CSV', (kind) => {
     expect(
       (await api.queryEntries({ search: 'КРАС БОЛЬШ', library_id: library.id })).items.map((x) => x.id)
     ).toEqual([a.id]);
+    expect((await api.queryEntries({ search: 'КРАС', library_id: library.id })).items[0]).toMatchObject({ title: 'Красный блокнот', collection_name: 'Вещи' });
     expect((await api.queryEntries({ search: 'ёлк' })).items).toHaveLength(1);
     await api.updateField(notes.id, { config: { fts: false } });
     expect((await api.queryEntries({ search: 'ёлк' })).items).toHaveLength(0);

@@ -35,6 +35,8 @@ export interface Entry extends Stamp {
   updated_local: string;
   purged: number;
 }
+/** Query-only labels; never included in record snapshots or synchronization payloads. */
+export interface EntryListItem extends Entry { title: string; collection_name: string }
 export interface EntryCursor {
   updated_at: string;
   id: string;

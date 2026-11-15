@@ -10,7 +10,7 @@ import { PresetsEditor } from './PresetsEditor';
 import { collectionCreationChoice } from '../core/creation-presets';
 import { ProfilesEditor } from './ProfilesEditor';
 import { fieldConfig } from '../core/validation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type {
@@ -31,7 +31,7 @@ import type {
 import type { Repository } from '../core/repository';
 import { layoutItems } from '../core/ui-definition';
 import { useUi } from './store';
-import { ErrorMessage, errorKey, Modal, useFormatValue } from './common';
+import { ErrorMessage, errorKey, EditorPage, useFormatValue } from './common';
 import { StructureEditor } from './StructureEditor';
 import { FieldsEditor } from './FieldsEditor';
 import { LayoutEditor } from './LayoutEditor';
@@ -88,6 +88,11 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   } | null>(null);
   const [trail, setTrail] = useState<string[]>([]);
   const previousQuery = useRef<string | null>(null);
+  const browsePosition = useRef<{ token: string; documentTop: number; listTop: number; focus: HTMLElement | null } | null>(null);
+  const restoreBrowse = useRef(false);
+  const editorOrigin = useRef<{ id: string | null; top: number } | null>(null);
+  const [loadedQuery, setLoadedQuery] = useState<{ token: string; revision: number } | null>(null);
+  const cardHeading = useRef<HTMLHeadingElement>(null);
   const [search, setSearch] = useState('');
   const searchFor = ui.searchFor;
   const scroll = useRef<HTMLDivElement>(null),
@@ -106,6 +111,37 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     search: ui.search,
   };
   const queryToken = JSON.stringify(query);
+  const rememberBrowse = useCallback(() => {
+    if (!selected && !useUi.getState().editor) {
+      browsePosition.current = { token: queryToken, documentTop: window.scrollY, listTop: scroll.current?.scrollTop ?? 0,
+        focus: document.activeElement instanceof HTMLElement ? document.activeElement : null };
+      restoreBrowse.current = true;
+    }
+  }, [selected, queryToken]);
+  const selectedId = selected?.id ?? null;
+  useLayoutEffect(() => {
+    if (ui.editor || !selectedId) return;
+    const frame = requestAnimationFrame(() => {
+      cardHeading.current?.focus({ preventScroll: true });
+      const origin = editorOrigin.current;
+      window.scrollTo(0, origin?.id === selectedId ? origin.top : 0);
+      editorOrigin.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ui.editor, selectedId]);
+  useLayoutEffect(() => {
+    if (ui.editor || selectedId || !restoreBrowse.current || (browsing && (loadedQuery?.token !== queryToken || loadedQuery.revision !== revision))) return;
+    const frame = requestAnimationFrame(() => {
+      const position = browsePosition.current;
+      if (position?.token === queryToken) {
+        if (scroll.current) scroll.current.scrollTop = position.listTop;
+        window.scrollTo(0, position.documentTop);
+        if (position.focus?.isConnected && !position.focus.closest('[inert]')) position.focus.focus({ preventScroll: true });
+      }
+      restoreBrowse.current = false; editorOrigin.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ui.editor, selectedId, queryToken, loadedQuery, revision, browsing]);
   function formatRelations(row: EntryListItem, fieldId: string) {
     const preview = row.relation_previews?.[fieldId];
     if (!preview?.count) return t('noRelations');
@@ -217,13 +253,14 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       setContext(null);
       setTrail([]);
       previousQuery.current = queryToken;
+      browsePosition.current = null; restoreBrowse.current = false;
     }
     if (browsing) {
       setLoading(true);
       api
         .queryEntries(JSON.parse(queryToken) as EntryQuery)
         .then((rows) => {
-          if (active && request === queryRequest.current) setPage(rows);
+          if (active && request === queryRequest.current) { setPage(rows); setLoadedQuery({ token: queryToken, revision }); }
         })
         .catch((e) => {
           if (active) setError(errorKey(e));
@@ -236,6 +273,29 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       active = false;
     };
   }, [api, queryToken, browsing, revision]);
+  const selectEntry = useCallback(async (id: string, preserveSaved = false) => {
+    rememberBrowse();
+    const request = ++selectionRequest.current;
+    try {
+      const entry = await api.getEntry(id);
+      if (!entry) throw new Error('notFound');
+      const parent = await api.getCollection(entry.collection_id);
+      const [entryFields, form, card, list, original] = await Promise.all([
+        api.listFields(parent.id),
+        api.getUiConfig(parent.id, 'form'),
+        api.getUiConfig(parent.id, 'card'),
+        api.getUiConfig(parent.id, 'list'),
+        api.inboxOriginal(entry),
+      ]);
+      if (request === selectionRequest.current) {
+        setSelected(entry);
+        setContext({ collection: parent, fields: entryFields, layouts: { form, card, list }, inboxOriginal: original });
+        if (!preserveSaved) setSaved(false);
+      }
+    } catch (e) {
+      if (request === selectionRequest.current) setError(errorKey(e));
+    }
+  }, [api, rememberBrowse]);
   async function run(action: () => Promise<void>, close = true, reloadSelected = true) {
     if (busy) return;
     setBusy(true);
@@ -313,6 +373,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   function beginCreate(choice?: CreationChoice) {
     if (busy || !collection) return;
+    selectionRequest.current++;
+    rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
+    useUi.setState({ navOpen: false });
     setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false); setBusy(true);
     void (async () => {
       const draft = await loadCreationDraft(collection);
@@ -325,6 +388,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   function open(editor: typeof ui.editor, editingId?: string) {
     if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) { beginCreate({ kind: editor === 'quick-entry' ? 'quick' : 'standard' }); return; }
+    selectionRequest.current++;
+    rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
+    if (editor) useUi.setState({ navOpen: false });
     if (editor && ['library','collection','fields','form','card','list','quick','profiles','presets'].includes(editor)) useUi.setState({ constructorOpen: true });
     setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false);
     ui.openEditor(editor, '', editingId);
@@ -338,10 +404,17 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       finally { setBusy(false); }
     })();
   }, [busy, ui]);
+  const backRecord = useCallback(() => {
+    if (busy) return;
+    const parent = trail.at(-1);
+    if (parent) { setTrail(old => old.slice(0, -1)); void selectEntry(parent); }
+    else { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }
+  }, [busy, trail, selectEntry]);
   useEffect(() => {
     if (ui.editor) return bindSystemBack(close, () => setError('fileError'));
+    if (selected) return bindSystemBack(backRecord, () => setError('fileError'));
     if (ui.constructorOpen) return bindSystemBack(() => { if (!busy) useUi.setState({ constructorOpen: false }); }, () => setError('fileError'));
-  }, [ui.editor, ui.constructorOpen, close, busy]);
+  }, [ui.editor, ui.constructorOpen, close, busy, selected, backRecord]);
   async function saveDraftAction(action: DraftAction, collectionId: string, data: RecordData): Promise<Entry> {
     if (action.kind === 'linked') return api.createLinkedEntry(action.parent_id, action.field_id, data, action.create_id);
     return api.saveNewEntry(collectionId, data, action.create_id);
@@ -382,30 +455,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       setBusy(false);
     }
   }
-  async function selectEntry(id: string, preserveSaved = false) {
-    const request = ++selectionRequest.current;
-    try {
-      const entry = await api.getEntry(id);
-      if (!entry) throw new Error('notFound');
-      const parent = await api.getCollection(entry.collection_id);
-      const [entryFields, form, card, list, original] = await Promise.all([
-        api.listFields(parent.id),
-        api.getUiConfig(parent.id, 'form'),
-        api.getUiConfig(parent.id, 'card'),
-        api.getUiConfig(parent.id, 'list'),
-        api.inboxOriginal(entry),
-      ]);
-      if (request === selectionRequest.current) {
-        setSelected(entry);
-        setContext({ collection: parent, fields: entryFields, layouts: { form, card, list }, inboxOriginal: original });
-        if (!preserveSaved) setSaved(false);
-      }
-    } catch (e) {
-      if (request === selectionRequest.current) setError(errorKey(e));
-    }
-  }
   async function createRelated(fieldId: string) {
     if (!selected || busy) return;
+    editorOrigin.current = { id: selected.id, top: window.scrollY };
     setBusy(true);
     setError(null);
     try {
@@ -441,6 +493,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const disabled = busy || !!ui.editor;
   function toggleConstructor() {
     if (disabled) return;
+    if (!ui.constructorOpen && selected) { setSelected(null); setContext(null); setTrail([]); }
     useUi.setState({ constructorOpen: !ui.constructorOpen, navOpen: false });
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
@@ -557,6 +610,29 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             </select>
           </label>
         </div>
+        {error && !ui.editor && <ErrorMessage code={error} />}
+        {saved && !ui.editor && (
+          <div role="status" className="saved">
+            {t('saved')}
+          </div>
+        )}
+        {undo && !ui.editor && (
+          <div role="status" className="undo">
+            {t('deleted')}
+            <button
+              disabled={disabled}
+              onClick={() => {
+                void run(async () => {
+                  await api.setDeleted(undo.kind, undo.id, false);
+                  setUndo(null);
+                });
+              }}
+            >
+              {t('undo')}
+            </button>
+          </div>
+        )}
+        <section className={'browse-screen' + (ui.editor || selected ? ' screen-inactive' : '')} inert={!!ui.editor || !!selected} aria-hidden={!!ui.editor || !!selected}>
         <header>
           <div>
             <small>{library?.name ?? t('libraries')}</small>
@@ -644,28 +720,6 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 <option value="all">{t('scopeAll')}</option>
               </select>
             </label>
-          </div>
-        )}
-        {error && !ui.editor && <ErrorMessage code={error} />}
-        {saved && (
-          <div role="status" className="saved">
-            {t('saved')}
-          </div>
-        )}
-        {undo && (
-          <div role="status" className="undo">
-            {t('deleted')}
-            <button
-              disabled={disabled}
-              onClick={() => {
-                void run(async () => {
-                  await api.setDeleted(undo.kind, undo.id, false);
-                  setUndo(null);
-                });
-              }}
-            >
-              {t('undo')}
-            </button>
           </div>
         )}
         {!libraries.length && !browsing ? (
@@ -790,8 +844,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             )}
           </>
         )}
+        </section>
         {selected && context && !ui.editor && (
-          <section className="detail">
+          <section className="detail" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
             <div className="dialog-heading">
               <div>
                 {!!trail.length && (
@@ -806,10 +861,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                     {t('backToRecord')}
                   </button>
                 )}
-                <h2>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h2>
+                <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
               </div>
-              <button aria-label={t('closeCard')} onClick={() => setSelected(null)}>
-                ×
+              <button aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
+                ←
               </button>
             </div>
             <LayoutRowsView definition={context.layouts.card} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t('inboxContent') : field.name} render={item => {
@@ -852,9 +907,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             </div>
           </section>
         )}
-      </main>
       {ui.editor && (
-        <Modal title={title} close={close} busy={busy}>
+        <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {ui.editor === 'appearance' && <DeviceAppearanceEditor value={appearance} busy={busy} cancel={close} save={value => { void run(async () => { setAppearance(await api.saveDeviceAppearance(value)); }); }} />}
           {ui.editor === 'move' && selected && <InboxMoveForm api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}
@@ -878,6 +932,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                     else {
                       const row = await api.createLibrary(name, appearance);
                       ui.select(row.id);
+                      useUi.setState({ navOpen: true });
                     }
                   } else if (ui.libraryId) {
                     if (ui.editingId)
@@ -1004,8 +1059,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               run={run}
             />
           )}
-        </Modal>
+        </EditorPage>
       )}
+      </main>
     </div>
   );
 }

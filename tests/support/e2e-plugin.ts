@@ -1,3 +1,4 @@
+import { createKnowledgeFixture } from '../fixtures/knowledge';
 import { layoutScenario } from './layout-scenario';
 import type { Plugin } from 'vite';
 import { resolve } from 'node:path';
@@ -100,6 +101,10 @@ export function e2ePlugin(): Plugin {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;
+          }
+          if (op === 'knowledge-seed') {
+            const value = await createKnowledgeFixture(await Repository.open(db));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'layout-seed') {
             const value = await layoutScenario(await Repository.open(db));

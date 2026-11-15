@@ -1,4 +1,4 @@
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, showList } from '../support/ui-actions';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -24,7 +24,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
     await expect(
       page.locator('.field-list b').filter({ hasText: new RegExp('^' + name + '$') })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await page.locator('[data-editor]').getByRole('button', { name: 'Назад', exact: true }).click();
   }
   await addField('Описание', 'multiline');
   await addField('Остаток', 'integer');
@@ -36,7 +36,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await formCount.getByRole('checkbox', { name: 'Задать значение по умолчанию для формы' }).check();
   await formCount.getByRole('spinbutton', { name: 'Значение по умолчанию' }).fill('0');
   await page.getByRole('button', { name: 'Сохранить настройку' }).click();
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.getByRole('spinbutton', { name: 'Остаток', exact: true })).toHaveValue('0');
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Красный блокнот');
   await page.getByRole('textbox', { name: 'Описание', exact: true }).fill('Строка\nВторая строка');
@@ -50,23 +50,23 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
     .getByRole('checkbox', { name: 'Показывать' })
     .uncheck();
   await page.getByRole('button', { name: 'Сохранить настройку' }).click();
-  await page.locator('.entry').click();
+  await showList(page); await page.locator('.entry').click();
   await expect(page.locator('.detail')).not.toContainText('Вторая строка');
   await page.getByRole('button', { name: 'Редактировать', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Описание', exact: true })).toHaveValue(
     'Строка\nВторая строка'
   );
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
-  await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('КРАС');
+  await showList(page); await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('КРАС');
   await expect(page.locator('.entry')).toHaveCount(1);
-  await page.getByRole('combobox', { name: 'Где искать', exact: true }).selectOption('all');
+  await showList(page); await page.getByRole('combobox', { name: 'Где искать', exact: true }).selectOption('all');
   await expect(page.locator('.entry')).toContainText('Красный блокнот');
   await expect(page.locator('.entry')).toContainText('Склад');
-  await page.getByRole('combobox', { name: 'Где искать', exact: true }).selectOption('collection');
-  await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('несуществующее');
+  await showList(page); await page.getByRole('combobox', { name: 'Где искать', exact: true }).selectOption('collection');
+  await showList(page); await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('несуществующее');
   await expect(page.getByRole('heading', { name: 'Ничего не найдено' })).toBeVisible();
-  await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('');
-  await page.getByRole('button', { name: 'CSV', exact: true }).click();
+  await showList(page); await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('');
+  await showList(page); await page.getByRole('button', { name: 'CSV', exact: true }).click();
   await page
     .getByLabel('Файл CSV', { exact: true })
     .setInputFiles({
@@ -89,9 +89,9 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   expect(csv).toContain('Красный блокнот');
   expect(csv).toContain('Импорт');
   expect(csv).toContain('"Раз;два"');
-  await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await page.locator('[data-editor]').getByRole('button', { name: 'Назад', exact: true }).click();
   await expect(page.locator('.entry')).toHaveCount(2);
-  await page.locator('.entry').filter({ hasText: 'Импорт' }).click();
+  await showList(page); await page.locator('.entry').filter({ hasText: 'Импорт' }).click();
   await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click();
   await expect(page.locator('.entry')).toHaveCount(1);
   await page.getByRole('button', { name: 'Отменить удаление' }).click();
@@ -118,7 +118,7 @@ test('50,000 native SQLite records stay paged and virtualized in UI', async ({ p
   await page.getByRole('button', { name: 'Показать ещё', exact: true }).click();
   await expect(page.getByText('Загружено записей: 200', { exact: true })).toBeVisible();
   expect(await page.locator('.entry').count()).toBeLessThan(30);
-  await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('метка49999');
+  await showList(page); await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('метка49999');
   await expect(page.getByText('Загружено записей: 1', { exact: true })).toBeVisible();
   await expect(page.locator('.entry')).toContainText('Запись 49999');
 });

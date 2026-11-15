@@ -1,4 +1,4 @@
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, showList } from '../support/ui-actions';
 import { expect, test } from '@playwright/test';
 
 test('mobile single/multiple relations, reverse card, linked creation, cancel and deleted targets', async ({
@@ -21,7 +21,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
     await page.getByRole('button', { name: 'Создать', exact: true }).click();
   }
   await newCollection('Проекты');
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проект Tessera');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
@@ -37,11 +37,11 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
     await expect(
       page.locator('.field-list b').filter({ hasText: new RegExp('^' + name + '$') })
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await page.locator('[data-editor]').getByRole('button', { name: 'Назад', exact: true }).click();
   }
   await field('Проект', 'relation', 'Целевая коллекция', 'Проекты');
   await field('Рекомендации', 'relation', 'Целевая коллекция', 'Проекты', true);
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Задача разработки');
   await page
     .getByRole('group', { name: 'Проект', exact: true })
@@ -55,13 +55,13 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await expect(page.locator('.entry')).toContainText('Проект Tessera');
   await navigate('Проекты');
   await field('Задачи проекта', 'backlink', 'Исходное поле связи', 'Задачи · Проект');
-  await page.locator('.entry').click();
+  await showList(page); await page.locator('.entry').click();
   const block = page.locator('.detail').getByLabel('Задачи проекта', { exact: true });
   await expect(block.getByRole('button', { name: /Задача разработки/ })).toBeVisible();
   await block.getByRole('button', { name: /Задача разработки/ }).click();
-  await expect(page.locator('.detail h2')).toHaveText('Задача разработки');
+  await expect(page.locator('.detail #record-title')).toHaveText('Задача разработки');
   await page.getByRole('button', { name: 'Назад к записи', exact: true }).click();
-  await expect(page.locator('.detail h2')).toHaveText('Проект Tessera');
+  await expect(page.locator('.detail #record-title')).toHaveText('Проект Tessera');
   await block.getByRole('button', { name: 'Создать связанную запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отмена связанной');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
@@ -72,7 +72,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await expect(block.getByRole('button', { name: /Создана из проекта/ })).toBeVisible();
   await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click();
   await navigate('Задачи');
-  await page.locator('.entry').filter({ hasText: 'Задача разработки' }).click();
+  await showList(page); await page.locator('.entry').filter({ hasText: 'Задача разработки' }).click();
   await expect(page.locator('.detail').getByLabel('Проект', { exact: true })).toContainText('Удалено');
   await page.locator('.detail').getByRole('button', { name: 'Редактировать', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Ссылка сохранена');
@@ -91,7 +91,7 @@ test('relation target selector pages backwards and searches in SQLite', async ({
   await page.reload();
   await page.getByRole('button', { name: 'Связи этапа 3', exact: true }).click();
   await page.getByRole('button', { name: 'Задачи', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Выбрана после страницы');
   const picker = page.getByRole('group', { name: 'Проект', exact: true });
   await expect(picker.locator('.relation-options button')).toHaveCount(50);
@@ -102,7 +102,7 @@ test('relation target selector pages backwards and searches in SQLite', async ({
   await picker.getByRole('searchbox', { name: 'Поиск связанных записей', exact: true }).fill('Цель 50');
   await expect(picker.locator('.relation-options button')).toHaveCount(1);
   await picker.getByRole('searchbox',{name:'Поиск связанных записей',exact:true}).press('Enter');
-  await expect(page.getByRole('dialog').getByRole('button',{name:'Сохранить',exact:true})).toBeEnabled();
+  await expect(page.locator('[data-editor]').getByRole('button',{name:'Сохранить',exact:true})).toBeEnabled();
   await picker.getByRole('button', { name: 'Цель 50', exact: true }).click();
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('.entry').filter({ hasText: 'Выбрана после страницы' })).toContainText('Цель 50');

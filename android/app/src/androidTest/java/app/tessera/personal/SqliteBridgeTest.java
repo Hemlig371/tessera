@@ -40,8 +40,8 @@ public class SqliteBridgeTest {
             openDraftCollection(scenario);
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='+ Новая запись').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[aria-label=Название]')");
-            js(scenario, "(()=>{const input=document.querySelector('[role=dialog] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android draft survives process death'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]')");
+            js(scenario, "(()=>{const input=document.querySelector('[data-editor] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android draft survives process death'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
             File file = draftFile(draftScope(scenario));
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
             while (!file.exists() && System.nanoTime() < deadline) Thread.sleep(200);
@@ -50,11 +50,11 @@ public class SqliteBridgeTest {
             assertTrue("Native draft file did not contain the unsaved input", content.contains("Android draft survives process death"));
             UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
             device.pressBack();
-            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
             assertTrue("System Back must preserve the creation draft", file.isFile());
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='+ Новая запись').click()");
-            awaitJs(scenario, "document.querySelector('[role=dialog] input[aria-label=Название]')?.value==='Android draft survives process death'");
-            js(scenario, "(()=>{const input=document.querySelector('[role=dialog] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android paused draft survives process death'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Android draft survives process death'");
+            js(scenario, "(()=>{const input=document.querySelector('[data-editor] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android paused draft survives process death'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
             device.pressHome();
             deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
             while (System.nanoTime() < deadline && !new String(java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8).contains("Android paused draft survives process death")) Thread.sleep(100);
@@ -65,15 +65,15 @@ public class SqliteBridgeTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             awaitJs(scenario, "!!document.querySelector('nav button')");
-            assertEquals("false", js(scenario, "!!document.querySelector('[role=dialog]')"));
+            assertEquals("false", js(scenario, "!!document.querySelector('[data-editor]')"));
             openDraftCollection(scenario);
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
-            assertEquals("false", js(scenario, "!!document.querySelector('[role=dialog]')"));
+            assertEquals("false", js(scenario, "!!document.querySelector('[data-editor]')"));
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='+ Новая запись').click()");
-            awaitJs(scenario, "document.querySelector('[role=dialog] input[aria-label=Название]')?.value==='Android paused draft survives process death'");
+            awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Android paused draft survives process death'");
             File file = draftFile(draftScope(scenario));
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить').click()");
-            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
             assertFalse("Successful save did not remove the native draft file", file.exists());
             System.out.println("DRAFT_PROCESS passed: native file survived force-stop and was restored only on creation and removed only by Save");
         }
@@ -93,15 +93,15 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelectorAll('.entry').length===1 && document.querySelector('.entry').textContent.includes('Бета')");
             openConstructor(scenario);
             js(scenario, "[...document.querySelectorAll('button')].find(button=>button.textContent==='Представления').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
-            js(scenario, "(()=>{const select=document.querySelector('[role=dialog] select'); select.value=[...select.options].find(option=>option.text==='Только Бета').value; select.dispatchEvent(new Event('change',{bubbles:true}));})()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:not(:disabled)')");
-            js(scenario, "document.querySelector('[role=dialog] input[type=checkbox]').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:checked')");
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(button=>button.textContent==='Сохранить представление').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:disabled:checked') && [...document.querySelectorAll('[role=dialog] button')].some(button=>button.textContent==='Сохранить представление' && !button.disabled)");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] select')");
+            js(scenario, "(()=>{const select=document.querySelector('[data-editor] select'); select.value=[...select.options].find(option=>option.text==='Только Бета').value; select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[type=checkbox]:not(:disabled)')");
+            js(scenario, "document.querySelector('[data-editor] input[type=checkbox]').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[type=checkbox]:checked')");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(button=>button.textContent==='Сохранить представление').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[type=checkbox]:disabled:checked') && [...document.querySelectorAll('[data-editor] button')].some(button=>button.textContent==='Сохранить представление' && !button.disabled)");
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
-            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
             scenario.recreate();
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             openProfileCollection(scenario);
@@ -119,20 +119,20 @@ public class SqliteBridgeTest {
             js(scenario, "document.querySelector('.split-button button:last-child').click()");
             awaitJs(scenario, "!!document.querySelector('[role=menuitem]')");
             js(scenario, "[...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='Новый баг').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[aria-label=Название]')");
-            assertEquals("false", js(scenario, "!!document.querySelector('[role=dialog] textarea')"));
-            js(scenario, "(()=>{const input=document.querySelector('[role=dialog] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android preset draft'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]')");
+            assertEquals("false", js(scenario, "!!document.querySelector('[data-editor] textarea')"));
+            js(scenario, "(()=>{const input=document.querySelector('[data-editor] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android preset draft'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
-            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
             js(scenario, "document.querySelector('.split-button button:last-child').click()");
             awaitJs(scenario, "!!document.querySelector('[role=menuitem]')");
             js(scenario, "[...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='Новый баг').click()");
-            awaitJs(scenario, "document.querySelector('[role=dialog] input[aria-label=Название]')?.value==='Android preset draft' && !!document.querySelector('[role=dialog] textarea')");
-            assertEquals("\"Ошибка\"", js(scenario, "document.querySelector('[role=dialog] input[aria-label=Тип]').value"));
-            assertEquals("\"0\"", js(scenario, "document.querySelector('[role=dialog] input[aria-label=Приоритет]').value"));
-            assertEquals("\"false\"", js(scenario, "document.querySelector('[role=dialog] select[aria-label=Готово]').value"));
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(button=>button.textContent==='Сохранить').click()");
-            awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
+            awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Android preset draft' && !!document.querySelector('[data-editor] textarea')");
+            assertEquals("\"Ошибка\"", js(scenario, "document.querySelector('[data-editor] input[aria-label=Тип]').value"));
+            assertEquals("\"0\"", js(scenario, "document.querySelector('[data-editor] input[aria-label=Приоритет]').value"));
+            assertEquals("\"false\"", js(scenario, "document.querySelector('[data-editor] select[aria-label=Готово]').value"));
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(button=>button.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
         }
     }
     @Test public void adaptiveRowsRevealRequiredControlsAndPersistThroughRecreation() throws Exception {
@@ -144,16 +144,16 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Заметки').click()");
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='+ Новая запись').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[aria-label=Название]:not(:disabled)')");
-            assertEquals("false", js(scenario, "document.querySelector('[role=dialog] .collapsed-field').open"));
-            assertEquals("1", js(scenario, "getComputedStyle(document.querySelector('[role=dialog] .layout-row')).gridTemplateColumns.split(' ').length"));
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить').click()");
-            awaitJs(scenario, "document.querySelector('[role=dialog] .collapsed-field').open");
-            js(scenario, "(()=>{const input=document.querySelector('[role=dialog] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android layout record');input.dispatchEvent(new Event('input',{bubbles:true}));const text=document.querySelector('[role=dialog] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(text,'**Native rows**');text.dispatchEvent(new Event('input',{bubbles:true}));})()");
-            assertEquals("\"0\"", js(scenario, "document.querySelector('[role=dialog] input[aria-label=Приоритет]').value"));
-            assertEquals("\"false\"", js(scenario, "document.querySelector('[role=dialog] select[aria-label=Избранное]').value"));
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить').click()");
-            awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Android layout record'))");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]:not(:disabled)')");
+            assertEquals("false", js(scenario, "document.querySelector('[data-editor] .collapsed-field').open"));
+            assertEquals("1", js(scenario, "getComputedStyle(document.querySelector('[data-editor] .layout-row')).gridTemplateColumns.split(' ').length"));
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "document.querySelector('[data-editor] .collapsed-field').open");
+            js(scenario, "(()=>{const input=document.querySelector('[data-editor] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android layout record');input.dispatchEvent(new Event('input',{bubbles:true}));const text=document.querySelector('[data-editor] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(text,'**Native rows**');text.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            assertEquals("\"0\"", js(scenario, "document.querySelector('[data-editor] input[aria-label=Приоритет]').value"));
+            assertEquals("\"false\"", js(scenario, "document.querySelector('[data-editor] select[aria-label=Избранное]').value"));
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Android layout record'))");
             scenario.recreate();
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.textContent.includes('Заметки: строки (dev/CI)'))");
@@ -187,18 +187,18 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='Оформление' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Оформление').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
-            js(scenario, "(()=>{const controls=document.querySelectorAll('[role=dialog] select'); for(const [i,value] of ['dark','compact','1.5'].entries()){controls[i].value=value;controls[i].dispatchEvent(new Event('change',{bubbles:true}));}})()");
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить оформление').click()");
-            awaitJs(scenario, "!document.querySelector('[role=dialog]') && document.documentElement.dataset.theme==='dark'");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] select')");
+            js(scenario, "(()=>{const controls=document.querySelectorAll('[data-editor] select'); for(const [i,value] of ['dark','compact','1.5'].entries()){controls[i].value=value;controls[i].dispatchEvent(new Event('change',{bubbles:true}));}})()");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить оформление').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && document.documentElement.dataset.theme==='dark'");
             scenario.recreate();
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             awaitJs(scenario, "document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact' && parseFloat(getComputedStyle(document.documentElement).fontSize)>=22.4");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Оформление').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
-            js(scenario, "(()=>{const select=document.querySelector('[role=dialog] select');select.value='system';select.dispatchEvent(new Event('change',{bubbles:true}));})()");
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить оформление').click()");
-            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] select')");
+            js(scenario, "(()=>{const select=document.querySelector('[data-editor] select');select.value='system';select.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить оформление').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
             device.executeShellCommand("cmd uimode night yes");
             awaitJs(scenario, "document.documentElement.dataset.theme==='dark'");
             device.executeShellCommand("cmd uimode night no");
@@ -265,13 +265,15 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Записи').click()");
             awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Bridge roundtrip'))");
             js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Bridge roundtrip')).click()");
-            awaitJs(scenario, "!!document.querySelector('.detail h2')");
-            assertEquals("\"Bridge roundtrip\"", js(scenario, "document.querySelector('.detail h2').textContent"));
+            awaitJs(scenario, "!!document.querySelector('.detail #record-title')");
+            assertEquals("\"Bridge roundtrip\"", js(scenario, "document.querySelector('.detail #record-title').textContent"));
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('.detail')");
             // Real ACTION_CREATE_DOCUMENT, real DocumentsUI, real UTF-8 file on disk.
             UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
             device.executeShellCommand("rm -f /sdcard/Download/Tessera-acceptance.csv");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='CSV').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog]')");
+            awaitJs(scenario, "!!document.querySelector('[data-editor]')");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Сохранить CSV').click()");
             var filename = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 30000);
             assertNotNull("SAF filename input missing", filename);
@@ -283,9 +285,9 @@ public class SqliteBridgeTest {
             assertTrue("Actual SAF CSV did not contain the record: " + csv, csv.contains("Bridge roundtrip"));
             assertTrue("CSV header missing", csv.contains("Название"));
             // Export status appears before run() finishes reloading metadata and enabling controls.
-            awaitJs(scenario, "[...document.querySelectorAll('[role=dialog] button')].some(b=>b.getAttribute('aria-label')==='Закрыть' && !b.disabled)");
-            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.getAttribute('aria-label')==='Закрыть').click()");
-            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            awaitJs(scenario, "[...document.querySelectorAll('[data-editor] button')].some(b=>b.getAttribute('aria-label')==='Назад' && !b.disabled)");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.getAttribute('aria-label')==='Назад').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
 
             // A real reverse relation block opens its source record in the mobile WebView.
             js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Связи этапа 3')).click()");
@@ -295,7 +297,11 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Родитель связи')).click()");
             awaitJs(scenario, "[...document.querySelectorAll('.relation-row')].some(b=>b.textContent.includes('Правка со ссылкой'))");
             js(scenario, "[...document.querySelectorAll('.relation-row')].find(b=>b.textContent.includes('Правка со ссылкой')).click()");
-            awaitJs(scenario, "document.querySelector('.detail h2')?.textContent==='Правка со ссылкой'");
+            awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Правка со ссылкой'");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Родитель связи'");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('.detail') && [...document.querySelectorAll('.entry')].some(button=>button.textContent.includes('Родитель связи'))");
             scenario.recreate();
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
         }

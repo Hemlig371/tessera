@@ -1,4 +1,4 @@
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, showList } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('safe Markdown capture, preview, configured move and editing retain the exact original', async ({ page }) => {
@@ -17,7 +17,7 @@ test('safe Markdown capture, preview, configured move and editing retain the exa
   await openConstructor(page); await page.getByRole('button', { name: 'Настройки коллекции', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Разделять заголовок и текст' }).check();
   await page.getByRole('combobox', { name: 'Поле текста Markdown' }).selectOption({ label: 'Текст' });
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
   const original = '# Привет **ёж** &amp; мир\n\n- [x] Готово\n- Второй пункт\n\nРусский поиск иголкаёж\n\n[ссылка](https://example.org/?a=1&amp;b=2)\n\n[опасно](javascript:alert(1))\n\n![пиксель](https://example.org/pixel.png)\n\n<img src=x onerror="window.markdownXss=true">\n<script>window.markdownXss=true</script>';
   await page.evaluate(() => { Reflect.set(window, 'markdownXss', false); });
   await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
@@ -27,8 +27,8 @@ test('safe Markdown capture, preview, configured move and editing retain the exa
   await expect(page.locator('.markdown').getByRole('link', { name: 'опасно', exact: true })).toHaveCount(0);
   await expect(page.locator('.markdown img, .markdown script')).toHaveCount(0);
   expect(await page.evaluate(() => Reflect.get(window, 'markdownXss'))).toBe(false);
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.locator('.entry').filter({ hasText: /Привет/ }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await showList(page); await page.locator('.entry').filter({ hasText: /Привет/ }).click();
   await page.locator('.detail .markdown').getByRole('link', { name: 'ссылка', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-acceptance-external', 'https://example.org/?a=1&b=2');
   await page.getByRole('button', { name: 'Перенести в коллекцию', exact: true }).click();
@@ -36,14 +36,14 @@ test('safe Markdown capture, preview, configured move and editing retain the exa
   await page.getByLabel('Коллекция назначения').selectOption({ label: 'Заметки' });
   await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Привет ёж & мир');
   await expect(page.getByRole('textbox', { name: 'Текст', exact: true })).toHaveValue(original.slice(original.indexOf('\n')+1));
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
   await page.locator('.detail summary').click(); await expect(page.locator('.detail .original-content')).toHaveText(original);
   const rows = async () => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql: 'SELECT * FROM records WHERE collection_id=?', params: [scope.collection_id] } })).json()).value as { id: string; data: string }[];
   const moved = (await rows()).find(row => JSON.parse(row.data)[scope.primary_field_id] === 'Привет ёж & мир'); expect(moved).toBeDefined();
   expect(JSON.parse(moved!.data)[scope.primary_field_id]).toBe('Привет ёж & мир');
   await page.getByRole('button', { name: 'Редактировать', exact: true }).click();
   await page.getByRole('textbox', { name: 'Текст', exact: true }).fill('Редакция с иголкаёж');
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
   await expect(page.locator('.detail .original-content')).toHaveText(original);
   expect((await rows()).find(row => row.id === moved!.id)).toBeDefined();
   expect(await page.evaluate(() => Reflect.get(window, 'markdownXss'))).toBe(false);

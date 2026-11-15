@@ -23,8 +23,8 @@ test('capture waits for its own field metadata before constructing a draft sessi
   expect(delayed).toBeGreaterThan(0);
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Capture metadata draft 🦔');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0); await page.unrouteAll({ behavior: 'wait' });
+  await expect(page.locator('[data-editor]')).toHaveCount(0); await page.unrouteAll({ behavior: 'wait' });
   await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Содержимое', exact: true })).toHaveValue('Capture metadata draft 🦔');
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
 });

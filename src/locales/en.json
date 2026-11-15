@@ -316,5 +316,7 @@
   "moveRowDown": "Move row {{count}} down",
   "removeLayoutRow": "Remove row",
   "addLayoutRow": "Add row",
-  "fieldCollapsed": "Collapse field by default"
+  "fieldCollapsed": "Collapse field by default",
+  "backScreen": "Back",
+  "backToEntries": "Back to list"
 }

@@ -434,42 +434,15 @@ small {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.shade {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  z-index: 10;
-}
-.editor {
-  width: 700px;
-  max-width: 100%;
-  max-height: 92dvh;
-  overflow: auto;
-  background: var(--raised);
-  border-radius: 16px;
-  padding: 25px;
-  box-shadow: 0 20px 80px var(--shadow);
-}
-.dialog-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.dialog-heading h2 {
-  margin: 0;
-}
-.dialog-heading button {
-  border: 0;
-  background: transparent;
-  font-size: 1.5333rem;
-  padding: 0 9px;
-}
+main { position: relative; }
+.browse-screen.screen-inactive { position: absolute; inset: 0; block-size: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+.editor-page { width: 100%; max-width: 1200px; margin-inline: auto; padding-block: 12px 24px; }
+.editor-heading { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 2; padding-block: 12px; margin-bottom: 20px; background: var(--page); border-bottom: 1px solid var(--border); }
+.editor-heading h1 { margin: 0; font-size: 1.65rem; overflow-wrap: anywhere; }
+.editor-heading button { flex-shrink: 0; }
+.editor-page form > .actions, .detail > .actions { position: sticky; bottom: 0; z-index: 1; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--page); }
+.detail { margin-top: 12px; max-width: 1200px; margin-inline: auto; }
+.detail h1 { overflow-wrap: anywhere; }
 label {
   display: block;
   font-size: 0.86667rem;
@@ -697,16 +670,6 @@ td {
   .empty {
     padding: 35px 8px;
   }
-  .shade {
-    padding: 8px;
-    align-items: flex-start;
-  }
-  .editor {
-    margin-top: 10px;
-    padding: 18px;
-    max-height: 95dvh;
-    border-radius: 12px;
-  }
   .entry {
     padding: 10px 12px;
   }
@@ -874,3 +837,5 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .row-designer-tools label { flex: 1; min-width: min(140px, 100%); }
 .row-designer-cells > label { padding: 10px; border: 1px dashed var(--control-border); border-radius: 6px; background: var(--surface); overflow-wrap: anywhere; }
 @media (max-width: 760px) { .layout-row { grid-template-columns: minmax(0, 1fr); } }
+
+.editor-page :is(input, select, textarea, summary) { scroll-margin-block: 8rem 6rem; }

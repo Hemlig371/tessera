@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, showList } from '../support/ui-actions';
 
 test('visual rows preserve cells while resizing/reordering; forms adapt and reveal collapsed required inputs', async ({ page }) => {
   test.setTimeout(90000);
@@ -27,14 +27,14 @@ test('visual rows preserve cells while resizing/reordering; forms adapt and reve
   await rows.last().getByRole('textbox', { name: 'Группа полей', exact: true }).fill('Текст');
   await page.getByRole('group', { name: 'Текст', exact: true }).getByRole('checkbox', { name: 'Свернуть поле по умолчанию' }).check();
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
   expect(await query('SELECT * FROM records WHERE collection_id=?', [scope.collection_id])).toEqual(before);
   expect(await query('SELECT v.* FROM record_versions v JOIN records r ON r.id=v.record_id WHERE r.collection_id=?', [scope.collection_id])).toEqual(versions);
   const configs = await query("SELECT config FROM ui_configs WHERE collection_id=? AND kind='form'", [scope.collection_id]) as { config: string }[];
   expect(JSON.parse(configs[0]!.config).rows.flatMap((row: { field_ids: string[] }) => row.field_ids)).toEqual([scope.primary, scope.count, scope.flag, scope.date, scope.body]);
   await page.getByRole('button', { name: 'Готово, к данным' }).click();
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
-  const dialog = page.getByRole('dialog'), title = dialog.getByRole('textbox', { name: 'Название', exact: true });
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  const dialog = page.locator('[data-editor]'), title = dialog.getByRole('textbox', { name: 'Название', exact: true });
   await expect(title).not.toBeVisible();
   await expect.poll(() => dialog.locator('.layout-row').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(3);
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click();
@@ -51,12 +51,12 @@ test('visual rows preserve cells while resizing/reordering; forms adapt and reve
   await dialog.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(await query('SELECT * FROM records WHERE collection_id=?', [scope.collection_id])).toEqual(before);
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await dialog.locator('summary').filter({ hasText: /^Текст$/ }).click();
   await expect(dialog.getByRole('textbox', { name: 'Текст', exact: true })).toHaveValue('**Тело**\nбез потери 🦔');
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await page.locator('.entry').filter({ hasText: 'Колонки сохранены' }).click();
+  await showList(page); await page.locator('.entry').filter({ hasText: 'Колонки сохранены' }).click();
   await expect(page.locator('.detail .layout-row').first()).toContainText('Тело');
   await expect(page.locator('.detail .layout-row').first().locator('.markdown strong')).toBeVisible();
   await expect(page.locator('.detail .layout-row').first()).not.toContainText('Приоритет');

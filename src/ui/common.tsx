@@ -1,7 +1,7 @@
 import { MarkdownInput } from './MarkdownInput';
 import { markdownPreview } from '../core/markdown';
 import { useTranslation } from 'react-i18next';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { Field, JsonValue } from '../core/model';
 export function errorKey(error: unknown): string {
   return error instanceof Error && /^[a-zA-Z]+$/.test(error.message) ? error.message : 'generic';
@@ -15,42 +15,28 @@ export function ErrorMessage({ code }: { code: string }) {
     </div>
   );
 }
-export function Modal({
-  title,
-  children,
-  close,
-  busy,
-}: {
-  title: string;
-  children: ReactNode;
-  close: () => void;
-  busy: boolean;
+export function EditorPage({ title, children, close, busy }: {
+  title: string; children: ReactNode; close: () => void; busy: boolean;
 }) {
-  const { t } = useTranslation();
-  return (
-    <div className="shade">
-      <section
-        className="editor"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="editor-title"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' && !busy) {
-            e.stopPropagation();
-            close();
-          }
-        }}
-      >
-        <div className="dialog-heading">
-          <h2 id="editor-title">{title}</h2>
-          <button aria-label={t('close')} disabled={busy} onClick={close}>
-            ×
-          </button>
-        </div>
-        {children}
-      </section>
+  const { t } = useTranslation(), heading = useRef<HTMLHeadingElement>(null), page = useRef<HTMLElement>(null);
+  useEffect(() => { if (document.activeElement === document.body) heading.current?.focus(); }, []);
+  useEffect(() => {
+    const back = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy && !event.defaultPrevented &&
+        (event.target === document.body || (event.target instanceof Node && page.current?.contains(event.target)))) {
+        event.stopPropagation(); close();
+      }
+    };
+    window.addEventListener('keydown', back);
+    return () => window.removeEventListener('keydown', back);
+  }, [busy, close]);
+  return <section ref={page} tabIndex={-1} className="editor-page" data-editor="" role="region" aria-labelledby="editor-title">
+    <div className="editor-heading">
+      <button aria-label={t('backScreen')} disabled={busy} onClick={close}>← {t('backScreen')}</button>
+      <h1 id="editor-title" ref={heading} tabIndex={-1}>{title}</h1>
     </div>
-  );
+    {children}
+  </section>;
 }
 export function FieldInput({
   field,

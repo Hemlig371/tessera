@@ -1,3 +1,4 @@
+import { showList } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('CSV progress remains interactive; cancel rolls back, then the same checked file can be imported', async ({ page }) => {
@@ -10,7 +11,7 @@ test('CSV progress remains interactive; cancel rolls back, then the same checked
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Import');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   const query = async (sql: string) => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql } })).json()).value as unknown;
-  await page.getByRole('button', { name: 'CSV', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: 'CSV', exact: true }).click();
   await page.getByLabel('Файл CSV', { exact: true }).setInputFiles({ name: 'large.csv', mimeType: 'text/csv', buffer: Buffer.from('Название\n'+Array.from({ length: 5000 }, (_, index) => 'Импорт '+index).join('\n')) });
   await expect(page.getByRole('status')).toHaveText('Прочитано строк: 5000');
   await page.getByRole('button', { name: 'Проверить и показать предосмотр' }).click();

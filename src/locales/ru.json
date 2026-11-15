@@ -316,5 +316,7 @@
   "moveRowDown": "Ниже: строка {{count}}",
   "removeLayoutRow": "Убрать строку",
   "addLayoutRow": "Добавить строку",
-  "fieldCollapsed": "Свернуть поле по умолчанию"
+  "fieldCollapsed": "Свернуть поле по умолчанию",
+  "backScreen": "Назад",
+  "backToEntries": "К списку"
 }

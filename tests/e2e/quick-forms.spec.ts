@@ -1,4 +1,4 @@
-import { openConstructor, openQuickCreation } from '../support/ui-actions';
+import { openConstructor, openQuickCreation, showList } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('mobile quick form inherits hidden defaults, cancels without writes and has its own field selection', async ({ page }) => {
@@ -38,12 +38,12 @@ test('mobile quick form inherits hidden defaults, cancels without writes and has
   await openConstructor(page); await page.getByRole('button', { name: 'Быстрая форма', exact: true }).click();
   await page.locator('fieldset').filter({ has: page.locator('legend', { hasText: /^Заметка$/ }) }).getByLabel('Показывать', { exact: true }).check();
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
   expect(await rows("SELECT * FROM ui_configs WHERE collection_id=? AND kind='form'", [collectionId])).toEqual(form);
   await openQuickCreation(page);
   await expect(page.getByRole('textbox', { name: 'Заметка' })).toBeVisible();
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.getByRole('spinbutton', { name: 'Количество' })).toHaveValue('7');
   await expect(page.getByRole('textbox', { name: 'Заметка' })).toBeVisible();
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();

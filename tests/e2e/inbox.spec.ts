@@ -1,3 +1,4 @@
+import { showList } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('global capture and inbox move preserve one record; cancel never writes', async ({ page }) => {
@@ -27,7 +28,7 @@ test('global capture and inbox move preserve one record; cancel never writes', a
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Ссылки');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await page.getByRole('button', { name: 'Входящие', exact: true }).click();
-  await page.locator('.entry').click();
+  await showList(page); await page.locator('.entry').click();
   const chooseTarget = async () => {
     await page.getByRole('button', { name: 'Перенести в коллекцию', exact: true }).click();
     await page.getByLabel('Библиотека назначения').selectOption({ label: 'Мои записи' });

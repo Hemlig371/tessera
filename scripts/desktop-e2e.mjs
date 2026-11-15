@@ -21,21 +21,23 @@ async function until(script) {
   throw new Error('UI timeout: ' + script + '\n' + await execute('return document.body.innerText'));
 }
 async function clickText(text) {
+  if (text === 'Закрыть' && await execute("return !!document.querySelector('[data-editor]')")) { await clickText('Назад'); return; }
+  if (['+ Новая запись','Варианты создания','CSV','Настройки библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text) && await execute("return [...document.querySelectorAll('button')].some(button=>button.getAttribute('aria-label')==='К списку')")) await clickText('К списку');
   if (text === '+ Быстрая запись') { await clickText('Варианты создания'); await clickText('Быстрая запись'); return; }
   if (['Настройки библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text)) {
     await until("!!document.querySelector('#constructor-toggle:not(:disabled)')");
     if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
   }
   const encoded = JSON.stringify(text);
-  await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled'))`);
-  await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled')).click();`);
+  await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]'))`);
+  await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]')).click();`);
 }
 async function openLibrary(name) {
-  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.matches(':disabled'))`;
+  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.matches(':disabled') && !b.closest('[inert]'))`;
   await until(`!!(${selector})`); await execute(`(${selector}).click()`);
 }
 async function input(text) {
-  const selector = '[role=dialog] input:not([type=checkbox]):not([type=file]):not([type=hidden]):not(:disabled), [role=dialog] textarea:not(:disabled)';
+  const selector = '[data-editor] input:not([type=checkbox]):not([type=file]):not([type=hidden]):not(:disabled), [data-editor] textarea:not(:disabled)';
   await until(`!!document.querySelector(${JSON.stringify(selector)})`);
   const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: selector });
   await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/value`, { text: text.replaceAll('\n', '\uE007') });
@@ -82,15 +84,15 @@ try {
   await execute("[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Native Inbox transfer')).click()");
   await clickText('Перенести в коллекцию');
   async function selectOption(label, text) {
-    const selector = `[...document.querySelectorAll('[role=dialog] label')].find(l=>l.textContent.includes(${JSON.stringify(label)}))?.querySelector('select')`;
+    const selector = `[...document.querySelectorAll('[data-editor] label')].find(l=>l.textContent.includes(${JSON.stringify(label)}))?.querySelector('select')`;
     await until(`!!(${selector}) && !(${selector}).matches(':disabled') && [...(${selector}).options].some(o=>o.text===${JSON.stringify(text)})`);
     await execute(`const s=${selector}; s.value=[...s.options].find(o=>o.text===${JSON.stringify(text)}).value; s.dispatchEvent(new Event('change',{bubbles:true}));`);
   }
   await selectOption('Библиотека назначения', 'Native library');
   await selectOption('Коллекция назначения', 'Native collection');
-  await until("document.querySelector('[role=dialog] input')?.value==='Native Inbox transfer'");
+  await until("document.querySelector('[data-editor] input')?.value==='Native Inbox transfer'");
   await clickText('Сохранить');
-  await until("!document.querySelector('[role=dialog]') && document.querySelector('[role=status]')?.textContent==='Запись сохранена'");
+  await until("!document.querySelector('[data-editor]') && document.querySelector('[role=status]')?.textContent==='Запись сохранена'");
   await request('DELETE', `/session/${session}`); session = undefined;
   await start();
   await openLibrary('Native library');
@@ -109,64 +111,64 @@ try {
   assert.ok(nativeDraft,'Debounced draft was not written through native file IPC');
   await request('DELETE', `/session/${session}`); session=undefined;
   await start();
-  assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
+  assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await openLibrary('Native library');
   await clickText('Native collection');
-  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.matches(':disabled'))");
-  assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
+  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.matches(':disabled') && !b.closest('[inert]'))");
+  assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await clickText('+ Новая запись');
-  await until("document.querySelector('[role=dialog] input')?.value==='Native draft survives restart'");
+  await until("document.querySelector('[data-editor] input')?.value==='Native draft survives restart'");
   await clickText('Закрыть');
-  await until("!document.querySelector('[role=dialog]')");
+  await until("!document.querySelector('[data-editor]')");
   assert.ok((await readFile(nativeDraft,'utf8')).includes('Native draft survives restart'));
   await clickText('+ Новая запись');
-  await until("document.querySelector('[role=dialog] input')?.value==='Native draft survives restart'");
+  await until("document.querySelector('[data-editor] input')?.value==='Native draft survives restart'");
   await clickText('Сохранить');
-  await until("!document.querySelector('[role=dialog]')");
+  await until("!document.querySelector('[data-editor]')");
   await assert.rejects(readFile(nativeDraft),{code:'ENOENT'});
   await clickText('Представления');
-  await execute("const input=document.querySelector('[role=dialog] form:last-of-type input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native profile'); input.dispatchEvent(new Event('input',{bubbles:true}));");
+  await execute("const input=document.querySelector('[data-editor] form:last-of-type input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native profile'); input.dispatchEvent(new Event('input',{bubbles:true}));");
   await clickText('Создать представление');
-  await until("!document.querySelector('[role=dialog]') && document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
+  await until("!document.querySelector('[data-editor]') && document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
   await clickText('Представления');
-  await execute("const select=document.querySelector('[role=dialog] select'); select.value=[...select.options].find(option=>option.text==='Native profile').value; select.dispatchEvent(new Event('change',{bubbles:true}));");
-  await until("!!document.querySelector('[role=dialog] input[type=checkbox]:not(:disabled)')");
-  await execute("document.querySelector('[role=dialog] input[type=checkbox]').click()");
+  await execute("const select=document.querySelector('[data-editor] select'); select.value=[...select.options].find(option=>option.text==='Native profile').value; select.dispatchEvent(new Event('change',{bubbles:true}));");
+  await until("!!document.querySelector('[data-editor] input[type=checkbox]:not(:disabled)')");
+  await execute("document.querySelector('[data-editor] input[type=checkbox]').click()");
   await clickText('Сохранить представление');
-  await until("!!document.querySelector('[role=dialog] input[type=checkbox]:disabled:checked')");
-  await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await until("!!document.querySelector('[data-editor] input[type=checkbox]:disabled:checked')");
+  await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
   await request('DELETE', `/session/${session}`); session=undefined; await start();
   await openLibrary('Native library'); await clickText('Native collection');
   await until("document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
   await clickText('Пресеты создания'); await input('Native preset');
-  await execute("document.querySelector('[role=dialog] fieldset input[type=checkbox]').click()");
-  await until("!!document.querySelector('[role=dialog] input[aria-label=Название]')");
-  await execute("const input=document.querySelector('[role=dialog] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native preset entry'); input.dispatchEvent(new Event('input',{bubbles:true}));");
-  await clickText('Сохранить пресет'); await until("!document.querySelector('[role=dialog]')");
+  await execute("document.querySelector('[data-editor] fieldset input[type=checkbox]').click()");
+  await until("!!document.querySelector('[data-editor] input[aria-label=Название]')");
+  await execute("const input=document.querySelector('[data-editor] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native preset entry'); input.dispatchEvent(new Event('input',{bubbles:true}));");
+  await clickText('Сохранить пресет'); await until("!document.querySelector('[data-editor]')");
   await clickText('Варианты создания'); await clickText('Native preset');
-  await until("document.querySelector('[role=dialog] input')?.value==='Native preset entry'");
-  await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
-  await clickText('+ Новая запись'); await until("document.querySelector('[role=dialog] input')?.value==='Native preset entry'");
-  await clickText('Сохранить'); await until("!document.querySelector('[role=dialog]')");
+  await until("document.querySelector('[data-editor] input')?.value==='Native preset entry'");
+  await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
+  await clickText('+ Новая запись'); await until("document.querySelector('[data-editor] input')?.value==='Native preset entry'");
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]')");
   await request('DELETE', `/session/${session}`); session=undefined; await start();
   await openLibrary('Native library'); await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native preset entry'))");
   await clickText('Поля'); await clickText('+ Новое поле'); await input('Native Markdown');
   await selectOption('Тип поля', 'Markdown'); await clickText('Сохранить поле');
   await until("[...document.querySelectorAll('.field-list b')].some(element=>element.textContent==='Native Markdown')");
-  await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
   await clickText('Настройки коллекции');
   await selectOption('Поле для входящих', 'Native Markdown');
-  await execute("document.querySelector('[role=dialog] fieldset input[type=checkbox]').click()");
+  await execute("document.querySelector('[data-editor] fieldset input[type=checkbox]').click()");
   await selectOption('Поле заголовка Markdown', 'Название'); await selectOption('Поле текста Markdown', 'Native Markdown');
-  await clickText('Сохранить'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]')");
   const markdown = '# Native mapped **ёж**\n\n**Native body**';
   await clickText('+ Во входящие'); await input(markdown); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native mapped'))");
   await execute("[...document.querySelectorAll('.entry')].find(row=>row.textContent.includes('Native mapped')).click()");
   await clickText('Перенести в коллекцию'); await selectOption('Библиотека назначения', 'Native library'); await selectOption('Коллекция назначения', 'Native collection');
-  await until("document.querySelector('[role=dialog] input')?.value==='Native mapped ёж'");
-  await clickText('Сохранить'); await until("!document.querySelector('[role=dialog]') && !!document.querySelector('.detail .markdown strong')");
+  await until("document.querySelector('[data-editor] input')?.value==='Native mapped ёж'");
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && !!document.querySelector('.detail .markdown strong')");
   assert.equal(await execute("return document.querySelector('.detail .markdown strong').textContent"),'Native body');
   assert.equal(await execute("return document.querySelector('.detail .original-content').textContent"),markdown);
   const guarded = await request('POST', `/session/${session}/execute/async`, {
@@ -177,32 +179,32 @@ try {
   await clickText('+ Новая коллекция'); await input('Native CSV'); await clickText('Создать');
   await clickText('CSV');
   await execute(`const source=new DataTransfer(); source.items.add(new File(['Название\\n'+Array.from({length:5000},(_,i)=>'CSV '+i).join('\\n')],'cancel.csv',{type:'text/csv'})); const field=document.querySelector('input[type=file]'); field.files=source.files; field.dispatchEvent(new Event('change',{bubbles:true}));`);
-  await until("document.querySelector('[role=dialog] [role=status]')?.textContent==='Прочитано строк: 5000'");
+  await until("document.querySelector('[data-editor] [role=status]')?.textContent==='Прочитано строк: 5000'");
   await clickText('Проверить и показать предосмотр');
-  await until("document.querySelector('[role=dialog] [role=status]')?.textContent.startsWith('Проверено строк: 5000')");
+  await until("document.querySelector('[data-editor] [role=status]')?.textContent.startsWith('Проверено строк: 5000')");
   await clickText('Подтвердить импорт');
-  await until("/Обработано записей: [1-9]/.test(document.querySelector('[role=dialog] [role=status]')?.textContent)");
+  await until("/Обработано записей: [1-9]/.test(document.querySelector('[data-editor] [role=status]')?.textContent)");
   await clickText('Отменить операцию CSV');
-  await until("document.querySelector('[role=dialog] [role=status]')?.textContent==='Операция отменена. Данные базы не изменены.'");
+  await until("document.querySelector('[data-editor] [role=status]')?.textContent==='Операция отменена. Данные базы не изменены.'");
   await clickText('Закрыть');
-  await until("!document.querySelector('[role=dialog]') && document.body.innerText.includes('Загружено записей: 0')");
+  await until("!document.querySelector('[data-editor]') && document.body.innerText.includes('Загружено записей: 0')");
   await clickText('Оформление'); await selectOption('Тема', 'Тёмная');
   await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%');
   await clickText('Сохранить оформление');
-  await until("!document.querySelector('[role=dialog]') && document.documentElement.dataset.theme==='dark'");
+  await until("!document.querySelector('[data-editor]') && document.documentElement.dataset.theme==='dark'");
   await request('DELETE', `/session/${session}`); session = undefined; await start();
   await until("document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact'");
   assert.equal(await execute("return getComputedStyle(document.documentElement).fontSize"),'22.5px');
   await openLibrary('Native library'); await clickText('Native collection'); await clickText('Форма');
   await until("!!document.querySelector('.row-designer select')");
   await execute("const columns=document.querySelector('.row-designer select');columns.value='3';columns.dispatchEvent(new Event('change',{bubbles:true}));");
-  await clickText('Сохранить настройку'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('Сохранить настройку'); await until("!document.querySelector('[data-editor]')");
   await clickText('Варианты создания'); await clickText('Обычная форма');
-  await until("!!document.querySelector('[role=dialog] .layout-row') && getComputedStyle(document.querySelector('[role=dialog] .layout-row')).gridTemplateColumns.split(' ').length===3");
+  await until("!!document.querySelector('[data-editor] .layout-row') && getComputedStyle(document.querySelector('[data-editor] .layout-row')).gridTemplateColumns.split(' ').length===3");
   await request('POST', `/session/${session}/window/rect`, { width: 390, height: 844 });
-  await until("getComputedStyle(document.querySelector('[role=dialog] .layout-row')).gridTemplateColumns.split(' ').length===1");
+  await until("getComputedStyle(document.querySelector('[data-editor] .layout-row')).gridTemplateColumns.split(' ').length===1");
   assert.equal(await execute("return document.documentElement.scrollWidth<=innerWidth"),true);
-  await input('Native adaptive draft'); await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await input('Native adaptive draft'); await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
   await request('POST', `/session/${session}/window/rect`, { width: 1100, height: 800 });
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {

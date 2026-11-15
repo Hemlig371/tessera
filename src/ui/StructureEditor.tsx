@@ -89,7 +89,7 @@ export function StructureEditor({
             {t('incomingField')}
             <select value={incoming} onChange={(e) => setIncoming(e.target.value)} disabled={busy}>
               {fields
-                .filter((f) => f.type === 'text')
+                .filter((f) => f.type === 'text' || f.type === 'multiline')
                 .map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}

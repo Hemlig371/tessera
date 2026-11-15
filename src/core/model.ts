@@ -9,11 +9,13 @@ export interface Stamp {
   updated_at: string;
 }
 export interface Library extends Stamp {
+  system_kind?: 'inbox' | null;
   name: string;
   config: string;
   position: number;
 }
 export interface Collection extends Stamp {
+  system_kind?: 'inbox' | null;
   library_id: string;
   name: string;
   primary_field_id: string;
@@ -39,6 +41,7 @@ export interface Entry extends Stamp {
 export interface EntryListItem extends Entry {
   title: string;
   collection_name: string;
+  collection_system_kind?: 'inbox';
   relation_previews?: Record<string, { items: RelationItem[]; count: number }>;
 }
 export interface EntryCursor {

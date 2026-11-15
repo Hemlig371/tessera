@@ -1,0 +1,51 @@
+import { test, expect } from '@playwright/test';
+
+test('global capture and inbox move preserve one record; cancel never writes', async ({ page }) => {
+  await page.goto('/');
+  const rows = async (sql: string) => {
+    const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql } });
+    return (await response.json()).value as Record<string, string | number | null>[];
+  };
+  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Отменённый ввод');
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  expect(await rows('SELECT id FROM records')).toHaveLength(0);
+  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Ссылка https://example.org/ 🦔');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.locator('.entry')).toContainText('Ссылка https://example.org/ 🦔');
+  const [source] = await rows('SELECT * FROM records');
+  const versions = await rows('SELECT * FROM record_versions');
+  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Мои записи');
+  await page.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Ссылки');
+  await page.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('button', { name: 'Входящие', exact: true }).click();
+  await page.locator('.entry').click();
+  const chooseTarget = async () => {
+    await page.getByRole('button', { name: 'Перенести в коллекцию', exact: true }).click();
+    await page.getByLabel('Библиотека назначения').selectOption({ label: 'Мои записи' });
+    await page.getByLabel('Коллекция назначения').selectOption({ label: 'Ссылки' });
+    await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Ссылка https://example.org/ 🦔');
+  };
+  await chooseTarget();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отменённый перенос');
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  expect(await rows('SELECT * FROM records')).toEqual([source]);
+  expect(await rows('SELECT * FROM record_versions')).toEqual(versions);
+  await chooseTarget();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Запись сохранена');
+  const [moved] = await rows('SELECT * FROM records');
+  expect(moved).toMatchObject({ id: source!.id, created_at: source!.created_at, updated_at: source!.updated_at, created_local: source!.created_local, updated_local: source!.updated_local });
+  expect(moved!.collection_id).not.toBe(source!.collection_id);
+  expect(await rows('SELECT * FROM record_versions')).toHaveLength(2);
+  await page.reload();
+  await page.getByRole('button', { name: 'Мои записи', exact: true }).click();
+  await page.getByRole('button', { name: 'Ссылки', exact: true }).click();
+  await expect(page.locator('.entry')).toContainText('Ссылка https://example.org/ 🦔');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

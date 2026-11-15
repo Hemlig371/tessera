@@ -65,4 +65,13 @@ export const migrations = [
       'CREATE INDEX relations_field ON relation_index(field_id,target_record_id,source_record_id)',
     ],
   },
+  {
+    version: 4,
+    statements: [
+      "ALTER TABLE libraries ADD COLUMN system_kind TEXT CHECK(system_kind IS NULL OR system_kind='inbox')",
+      'CREATE UNIQUE INDEX libraries_system ON libraries(system_kind) WHERE system_kind IS NOT NULL',
+      "ALTER TABLE collections ADD COLUMN system_kind TEXT CHECK(system_kind IS NULL OR system_kind='inbox')",
+      'CREATE UNIQUE INDEX collections_system ON collections(system_kind) WHERE system_kind IS NOT NULL',
+    ],
+  },
 ] as const;

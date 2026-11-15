@@ -26,8 +26,8 @@ async function clickText(text) {
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled).click();`);
 }
 async function input(text) {
-  await until("!!document.querySelector('[role=dialog] input')");
-  const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: '[role=dialog] input' });
+  await until("!!document.querySelector('[role=dialog] input, [role=dialog] textarea')");
+  const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: '[role=dialog] input, [role=dialog] textarea' });
   await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/value`, { text });
 }
 async function start() {
@@ -63,6 +63,25 @@ try {
   await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
   await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
+  await clickText('+ Во входящие'); await input('Native Inbox transfer'); await clickText('Сохранить');
+  await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
+  await execute("[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Native Inbox transfer')).click()");
+  await clickText('Перенести в коллекцию');
+  async function selectOption(label, text) {
+    const selector = `[...document.querySelectorAll('[role=dialog] label')].find(l=>l.textContent.includes(${JSON.stringify(label)}))?.querySelector('select')`;
+    await until(`!!(${selector}) && [...(${selector}).options].some(o=>o.text===${JSON.stringify(text)})`);
+    await execute(`const s=${selector}; s.value=[...s.options].find(o=>o.text===${JSON.stringify(text)}).value; s.dispatchEvent(new Event('change',{bubbles:true}));`);
+  }
+  await selectOption('Библиотека назначения', 'Native library');
+  await selectOption('Коллекция назначения', 'Native collection');
+  await until("document.querySelector('[role=dialog] input')?.value==='Native Inbox transfer'");
+  await clickText('Сохранить');
+  await until("!document.querySelector('[role=dialog]') && document.querySelector('[role=status]')?.textContent==='Запись сохранена'");
+  await request('DELETE', `/session/${session}`); session = undefined;
+  await start();
+  await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
+  await clickText('Native collection');
+  await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

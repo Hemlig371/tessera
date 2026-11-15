@@ -158,6 +158,7 @@ export class Repository {
     return this.db.transaction(async (s) => {
       const [old] = await s.query<Library>('SELECT * FROM libraries WHERE id=? AND deleted_at IS NULL', [id]);
       if (!old) throw new AppError('notFound');
+      if (old.system_kind) throw new AppError('systemContainer');
       return this.update(s, 'libraries', 'library', old, {
         ...(patch.name != null ? { name: nameValue(patch.name) } : {}),
         ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
@@ -169,15 +170,71 @@ export class Repository {
   }
   listLibraries(): Promise<Library[]> {
     return this.db.read((s) =>
-      s.query<Library>('SELECT * FROM libraries WHERE deleted_at IS NULL ORDER BY position,created_at,id')
+      s.query<Library>('SELECT * FROM libraries WHERE deleted_at IS NULL AND system_kind IS NULL ORDER BY position,created_at,id')
     );
+  }
+  /** A hidden structural library keeps the single records table and its foreign keys intact. */
+  async getInbox(): Promise<Collection> {
+    return this.db.transaction(async (s) => {
+      const [existing] = await s.query<Collection>("SELECT * FROM collections WHERE system_kind='inbox'");
+      if (existing) {
+        await activeCollection(s, existing.id);
+        return existing;
+      }
+      const systemId = async (role: string) => {
+        const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`tessera:${this.datasetId}:inbox:${role}`))).slice(0, 16);
+        bytes[6] = (bytes[6]! & 15) | 128;
+        bytes[8] = (bytes[8]! & 63) | 128;
+        const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+      };
+      const library: Library = { ...(await this.stamp(s, await systemId('library'))), name: 'inbox', config: '{}', position: 0, system_kind: 'inbox' };
+      const fieldId = await systemId('content');
+      const collection: Collection = { ...(await this.stamp(s, await systemId('collection'))), library_id: library.id, name: 'inbox',
+        primary_field_id: fieldId, incoming_field_id: fieldId, config: '{}', position: 0, system_kind: 'inbox' };
+      const field: Field = { ...(await this.stamp(s, fieldId)), collection_id: collection.id,
+        name: 'content', type: 'multiline', config: '{"required":true,"fts":true}', position: 0 };
+      await this.insert(s, 'libraries', library);
+      await this.insert(s, 'collections', collection);
+      await this.insert(s, 'fields', field);
+      await this.log(s, 'library', library, library);
+      await this.log(s, 'collection', collection, collection);
+      await this.log(s, 'field', field, field);
+      return collection;
+    });
+  }
+  async moveInboxEntry(id: string, collectionId: string, input: RecordData, expectedHlc: string): Promise<Entry> {
+    requireId(id);
+    requireId(collectionId);
+    validateData(input);
+    return this.db.transaction(async (s) => {
+      const [stored] = await s.query<StoredEntry>('SELECT r.* ' + activeRecords + ' AND r.id=?', [id]);
+      if (!stored) throw new AppError('notFound');
+      const previous = decodeEntry(stored);
+      if (previous.hlc !== expectedHlc) throw new AppError('staleRecord');
+      const source = await activeCollection(s, previous.collection_id);
+      const target = await activeCollection(s, collectionId);
+      if (source.system_kind !== 'inbox' || target.system_kind) throw new AppError('invalidInboxMove');
+      const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,id', [collectionId]);
+      const [form] = await s.query<UiConfiguration>("SELECT * FROM ui_configs WHERE collection_id=? AND kind='form' AND deleted_at IS NULL", [collectionId]);
+      const retained = { ...previous.data };
+      delete retained[source.incoming_field_id];
+      const data = prepareEntryData({ ...retained, [target.incoming_field_id]: previous.data[source.incoming_field_id] ?? '', ...input },
+        entryRules(target, fields, form ? JSON.parse(form.config) as UiDefinition : { fields: [] }));
+      await validateRelationTargets(s, target, fields, data);
+      const stamp = await this.stamp(s, id);
+      // Moving is not delete+create. Preserve all original dates and unknown values; HLC records the operation.
+      const row: Entry = { ...previous, collection_id: collectionId, data, hlc: stamp.hlc, device_id: stamp.device_id };
+      await this.persistEntry(s, row, true, fields, stamp.updated_at);
+      return row;
+    });
   }
   async createCollection(libraryId: string, value: string, primaryLabel: string): Promise<Collection> {
     requireId(libraryId);
     const name = nameValue(value),
       label = nameValue(primaryLabel);
     return this.db.transaction(async (s) => {
-      if (!(await s.query('SELECT id FROM libraries WHERE id=? AND deleted_at IS NULL', [libraryId]))[0])
+      if (!(await s.query('SELECT id FROM libraries WHERE id=? AND deleted_at IS NULL AND system_kind IS NULL', [libraryId]))[0])
         throw new AppError('notFound');
       const [order] = await s.query<{ n: number }>(
         'SELECT coalesce(max(position),-1)+1 AS n FROM collections WHERE library_id=?',
@@ -221,13 +278,14 @@ export class Repository {
     requireId(id);
     return this.db.transaction(async (s) => {
       const old = await activeCollection(s, id);
+      if (old.system_kind) throw new AppError('systemContainer');
       for (const fieldId of [patch.primary_field_id, patch.incoming_field_id]) {
         if (fieldId) {
           requireId(fieldId);
           if (
             !(
               await s.query(
-                "SELECT id FROM fields WHERE id=? AND collection_id=? AND type='text' AND deleted_at IS NULL",
+                "SELECT id FROM fields WHERE id=? AND collection_id=? AND type IN('text','multiline') AND deleted_at IS NULL",
                 [fieldId, id]
               )
             )[0]
@@ -281,6 +339,7 @@ export class Repository {
       checked = validateFieldConfig(type, config);
     const row = await this.db.transaction(async (s) => {
       const parent = await activeCollection(s, collectionId);
+      if (parent.system_kind) throw new AppError('systemContainer');
       await validateRelationDefinition(s, parent, type, checked);
       const [order] = await s.query<{ n: number }>(
         'SELECT coalesce(max(position),-1)+1 AS n FROM fields WHERE collection_id=?',
@@ -310,6 +369,7 @@ export class Repository {
       const [old] = await s.query<Field>('SELECT * FROM fields WHERE id=? AND deleted_at IS NULL', [id]);
       if (!old) throw new AppError('notFound');
       const parent = await activeCollection(s, old.collection_id);
+      if (parent.system_kind) throw new AppError('systemContainer');
       if (patch.type && patch.type !== old.type) throw new AppError('fieldTypeChange');
       const checked = patch.config ? validateFieldConfig(old.type, patch.config) : fieldConfig(old);
       await validateRelationDefinition(s, parent, old.type, checked, old);
@@ -341,6 +401,9 @@ export class Repository {
         [id]
       );
       if (!stored) throw new AppError('notFound');
+      if (kind === 'library' || kind === 'collection') {
+        if ((stored as Library | Collection).system_kind) throw new AppError('systemContainer');
+      }
       if (kind !== 'library') {
         if (kind === 'collection') {
           if (
@@ -449,10 +512,15 @@ export class Repository {
       created_local: previous?.created_local ?? local,
       updated_local: local,
     };
-    if (previous)
+    await this.persistEntry(s, row, !!previous, fields);
+    return row;
+  }
+  private async persistEntry(s: SqlSession, row: Entry, exists: boolean, fields: Field[], savedAt = row.updated_at): Promise<void> {
+    const encoded = canonical(row.data);
+    if (exists)
       await s.execute(
-        'UPDATE records SET data=?,updated_at=?,updated_local=?,hlc=?,device_id=?,sort_version=0 WHERE id=?',
-        [encoded, row.updated_at, local, row.hlc, this.deviceId, row.id]
+        'UPDATE records SET collection_id=?,data=?,updated_at=?,updated_local=?,hlc=?,device_id=?,sort_version=0 WHERE id=?',
+        [row.collection_id, encoded, row.updated_at, row.updated_local, row.hlc, this.deviceId, row.id]
       );
     else
       await this.insert(s, 'records', {
@@ -467,7 +535,7 @@ export class Repository {
       record_id: row.id,
       hlc: row.hlc,
       device_id: this.deviceId,
-      saved_at: row.updated_at,
+      saved_at: savedAt,
       snapshot: { ...row },
     };
     await s.execute('INSERT INTO record_versions VALUES(?,?,?,?,?,?)', [
@@ -475,17 +543,16 @@ export class Repository {
       row.id,
       row.hlc,
       this.deviceId,
-      row.updated_at,
+      savedAt,
       canonical(version.snapshot),
     ]);
     await this.log(s, 'record', row, row);
-    await this.log(s, 'record_version', { ...stamp, id: version.id }, version);
+    await this.log(s, 'record_version', { ...row, id: version.id }, version);
     await this.refreshRecords(
       s,
       [{ ...row, data: encoded, sort_data: '{}', sort_version: 0, search_data: '{}' }],
       fields
     );
-    return row;
   }
   queryEntries(query: EntryQuery): Promise<Page<EntryListItem>> {
     return this.db.read((s) => queryEntries(s, query));
@@ -497,6 +564,7 @@ export class Repository {
     requireId(collectionId);
     return this.db.read(async (s) => {
       const collection = await activeCollection(s, collectionId);
+      if (collection.system_kind) throw new AppError('systemContainer');
       const fields = await s.query<Field>(
         'SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL',
         [collectionId]
@@ -713,6 +781,7 @@ export class Repository {
     if (!['form', 'card', 'list'].includes(kind)) throw new AppError('invalidData');
     await this.db.transaction(async (s) => {
       const collection = await activeCollection(s, collectionId);
+      if (collection.system_kind) throw new AppError('systemContainer');
       const fields = await s.query<Field>(
         'SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL',
         [collectionId]

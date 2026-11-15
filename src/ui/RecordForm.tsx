@@ -54,13 +54,14 @@ export function RecordForm({
           .filter((item) => item.visible)
           .map((item) => {
             const field = fields.find((f) => f.id === item.field_id)!;
+            const displayField = collection.system_kind === 'inbox' ? { ...field, name: t('inboxContent') } : field;
             const config = formConfig(field, item),
               required = config.required || field.id === collection.primary_field_id;
             return (
               <div key={field.id} className={item.width === 'half' ? 'half' : 'full'}>
                 {item.group && <small className="group-label">{item.group}</small>}
                 <div className="form-field">
-                  {field.name}
+                  {displayField.name}
                   {required && <span aria-hidden="true"> *</span>}
                   {field.type === 'backlink' ? (
                     entry ? (
@@ -72,14 +73,14 @@ export function RecordForm({
                     <RelationInput
                       pinnedIds={relationIds(initialData?.[field.id])}
                       api={api}
-                      field={field}
+                      field={displayField}
                       value={data[field.id]}
                       disabled={busy}
                       change={(value) => setData((old) => ({ ...old, [field.id]: value }))}
                     />
                   ) : (
                     <FieldInput
-                      field={field}
+                      field={displayField}
                       value={data[field.id]}
                       disabled={busy}
                       required={required}

@@ -10,6 +10,7 @@ import { stage3Scenario } from './stage3-scenario';
 import { stage2Scenario } from './stage2-scenario';
 import { scaleScenario } from './scale';
 import { sqliteContract } from './sqlite-contract';
+import { inboxScenario } from './inbox-scenario';
 
 async function run() {
   const first = await openAndroidDatabase();
@@ -33,6 +34,8 @@ async function run() {
     document.documentElement.dataset.scale = JSON.stringify({ importMs: result.importMs, queryMs: result.queryMs });
     await first.transaction(s => s.execute("INSERT INTO local_settings VALUES('acceptance.stage3',?)", [JSON.stringify({ collection: result.collection.id, importMs: result.importMs, queryMs: result.queryMs })]));
   } else document.documentElement.dataset.scale = String(complete.value);
+  document.documentElement.dataset.acceptanceStage = 'inbox';
+  await inboxScenario(api);
   document.documentElement.dataset.acceptanceStage = 'reopen';
   await first.close();
   const reopened = await openAndroidDatabase();

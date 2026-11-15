@@ -74,7 +74,10 @@
     "relationDefinitionChange": "Changing an existing target or cardinality requires conversion. Create a new field.",
     "relationTargetMismatch": "The record does not belong to this relation target collection.",
     "relationUnavailable": "The new target is unavailable or deleted. Existing links are retained.",
-    "relationsUpdating": "The relation index is updating. Retry when it finishes."
+    "relationsUpdating": "The relation index is updating. Retry when it finishes.",
+    "systemContainer": "This system container cannot be changed or deleted.",
+    "invalidInboxMove": "Only an Inbox entry can be moved to a regular collection.",
+    "staleRecord": "This entry has changed. Close and reopen the form; your input remains on screen for now."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -209,5 +212,13 @@
     "deleted": "Deleted",
     "missing": "Missing record"
   },
-  "moreRelations": " · {{count}} more"
+  "moreRelations": " · {{count}} more",
+  "inbox": "Inbox",
+  "inboxContent": "Content",
+  "captureInbox": "Capture to inbox",
+  "moveFromInbox": "Move to collection",
+  "inboxMoveHint": "Choose a collection and complete its required fields. The entry stays in Inbox until you save.",
+  "targetLibrary": "Destination library",
+  "targetCollection": "Destination collection",
+  "chooseLibrary": "Choose a library"
 }

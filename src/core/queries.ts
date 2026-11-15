@@ -135,7 +135,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   const order = expressions.map((e) => `${e} ${direction.toUpperCase()} NULLS LAST`).join(',');
   const projections = expressions.map((e, i) => `${e} AS key${i}`).join(',');
   const rows = await s.query<StoredEntry & Record<string, SqlValue>>(
-    `SELECT r.*,c.name AS collection_name,json_extract(r.data,'$."'||c.primary_field_id||'"') AS display_title,${projections} ${activeRecords}
+    `SELECT r.*,c.name AS collection_name,c.system_kind AS collection_system_kind,json_extract(r.data,'$."'||c.primary_field_id||'"') AS display_title,${projections} ${activeRecords}
     ${where.map((w) => ' AND ' + w).join('')} ORDER BY ${order} LIMIT ?`,
     [...params, limit + 1]
   );
@@ -151,6 +151,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
       ...decodeEntry(row),
       title: String(row.display_title ?? ''),
       collection_name: String(row.collection_name),
+      ...(row.collection_system_kind === 'inbox' ? { collection_system_kind: 'inbox' as const } : {}),
       ...(previews.has(row.id) ? { relation_previews: previews.get(row.id)! } : {}),
     })),
     next:

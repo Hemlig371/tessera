@@ -24,6 +24,7 @@ import { FieldsEditor } from './FieldsEditor';
 import { LayoutEditor } from './LayoutEditor';
 import { RelationBlock } from './RelationBlock';
 import { CsvPanel } from './CsvPanel';
+import { InboxMoveForm } from './InboxMoveForm';
 export { ErrorMessage } from './common';
 const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { fields: [] } } as Record<
   UiKind,
@@ -197,7 +198,7 @@ export function App({ api }: { api: Repository }) {
       active = false;
     };
   }, [api, queryToken, browsing, revision]);
-  async function run(action: () => Promise<void>, close = true) {
+  async function run(action: () => Promise<void>, close = true, reloadSelected = true) {
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -224,7 +225,7 @@ export function App({ api }: { api: Repository }) {
       }
       setLibraries(nextLibraries);
       setCollections(nextCollections);
-      if (selected) {
+      if (selected && reloadSelected) {
         const currentEntry = await api.getEntry(selected.id);
         if (currentEntry) await selectEntry(selected.id, true);
         else {
@@ -242,6 +243,17 @@ export function App({ api }: { api: Repository }) {
     } finally {
       setBusy(false);
     }
+  }
+  function showInbox(capture = false) {
+    void run(async () => {
+      const inbox = await api.getInbox();
+      ui.select(inbox.library_id, inbox.id);
+      setSelected(null);
+      setContext(null);
+      setLinked(null);
+      setSaved(false);
+      if (capture) ui.openEditor('entry');
+    }, !capture, false);
   }
   function open(editor: typeof ui.editor, editingId?: string) {
     setLinked(null);
@@ -336,6 +348,8 @@ export function App({ api }: { api: Repository }) {
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
+        : ui.editor === 'move'
+          ? t('moveFromInbox')
         : ui.editor === 'entry'
           ? t(ui.editingId ? 'edit' : 'newEntry')
           : t(ui.editor === 'fields' ? 'fields' : ui.editor === 'csv' ? 'csv' : `layouts.${ui.editor}`);
@@ -352,6 +366,9 @@ export function App({ api }: { api: Repository }) {
             <small>{t('tagline')}</small>
           </div>
         </div>
+        <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} onClick={() => showInbox()}>
+          {t('inbox')}
+        </button>
         <div className="nav-heading">{t('libraries')}</div>
         <nav aria-label={t('libraries')}>
           {libraries.map((l) => {
@@ -421,6 +438,7 @@ export function App({ api }: { api: Repository }) {
             {t('navigation')}
           </button>
           <span className="quiet-label">{t('offline')}</span>
+          <button disabled={disabled} onClick={() => showInbox(true)}>+ {t('captureInbox')}</button>
           <label className="language">
             {t('language')}
             <select
@@ -442,10 +460,10 @@ export function App({ api }: { api: Repository }) {
                 ? t('allEntries')
                 : ui.scope === 'library'
                   ? library?.name
-                  : (collection?.name ?? t('brand'))}
+                  : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
             </h1>
           </div>
-          {collection && (
+          {collection && !collection.system_kind && (
             <button className="primary" disabled={disabled || !fieldsReady} onClick={() => open('entry')}>
               + {t('newEntry')}
             </button>
@@ -457,7 +475,7 @@ export function App({ api }: { api: Repository }) {
               {t('editLibrary')}
             </button>
           )}
-          {collection && (
+          {collection && !collection.system_kind && (
             <>
               <button disabled={disabled || !fieldsReady} onClick={() => open('collection', collection.id)}>
                 {t('editCollection')}
@@ -476,7 +494,7 @@ export function App({ api }: { api: Repository }) {
             </>
           )}
         </div>
-        {!!libraries.length && (
+        {(!!libraries.length || browsing) && (
           <div className="searchbar">
             <label>
               {t('search')}
@@ -528,7 +546,7 @@ export function App({ api }: { api: Repository }) {
             </button>
           </div>
         )}
-        {!libraries.length ? (
+        {!libraries.length && !browsing ? (
           <div className="empty">
             <span aria-hidden="true">▦</span>
             <h2>{t('emptyLibraries')}</h2>
@@ -574,7 +592,7 @@ export function App({ api }: { api: Repository }) {
                   <div style={{ height: virtual.getTotalSize(), position: 'relative' }}>
                     {virtual.getVirtualItems().map((v) => {
                       const row = page.items[v.index]!,
-                        collectionMode = ui.scope === 'collection';
+                        collectionMode = ui.scope === 'collection' && !collection?.system_kind;
                       return (
                         <button
                           key={row.id}
@@ -621,7 +639,7 @@ export function App({ api }: { api: Repository }) {
                           ) : (
                             <span>
                               {row.title || t('unset')}
-                              <small> · {row.collection_name}</small>
+                              <small> · {row.collection_system_kind === 'inbox' ? t('inbox') : row.collection_name}</small>
                             </span>
                           )}
                           <small className="entry-date">
@@ -678,7 +696,7 @@ export function App({ api }: { api: Repository }) {
                   return (
                     <dl key={f.id} className={item.width === 'half' ? 'half' : 'full'}>
                       {item.group && <small>{item.group}</small>}
-                      <dt>{f.name}</dt>
+                      <dt>{context.collection.system_kind === 'inbox' ? t('inboxContent') : f.name}</dt>
                       <dd>
                         {['relation', 'backlink'].includes(f.type) ? (
                           <RelationBlock
@@ -704,6 +722,7 @@ export function App({ api }: { api: Repository }) {
                 })}
             </div>
             <div className="actions">
+              {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
               <button disabled={busy} onClick={() => open('entry', selected.id)}>
                 {t('edit')}
               </button>
@@ -717,6 +736,8 @@ export function App({ api }: { api: Repository }) {
       {ui.editor && (
         <Modal title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
+          {ui.editor === 'move' && selected && <InboxMoveForm api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}
+            save={(collectionId, data) => { void run(async () => { await api.moveInboxEntry(selected.id, collectionId, data, selected.hlc); setSaved(true); }); }} />}
           {(ui.editor === 'library' || ui.editor === 'collection') && (
             <StructureEditor
               key={ui.editor + (ui.editingId ?? '')}

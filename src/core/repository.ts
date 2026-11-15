@@ -1,4 +1,5 @@
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
+import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
 import { defaultAppearance, validateAppearance, type DeviceAppearance } from './device-appearance';
 import { inboxMoveDefaults, validateInboxMapping, type InboxMapping } from './inbox-mapping';
 import {
@@ -84,6 +85,7 @@ export class Repository {
       return { datasetId, deviceId };
     });
     const repository = new Repository(db, ids.deviceId, ids.datasetId);
+    await repository.compactHistory();
     await repository.rebuildDerived();
     await repository.rebuildRelationIndex(false);
     return repository;
@@ -99,10 +101,10 @@ export class Repository {
     await this.db.transaction(s => s.execute("INSERT INTO local_settings VALUES('device_appearance',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [canonical({ ...valid })]));
     return valid;
   }
-  private async stamp(s: SqlSession, id: string = crypto.randomUUID()): Promise<Stamp> {
+  private async stamp(s: SqlSession, id: string = crypto.randomUUID(), remote?: string): Promise<Stamp> {
     const [last] = await s.query<{ value: string }>("SELECT value FROM local_settings WHERE key='hlc'");
     const now = new Date(),
-      hlc = nextHlc(this.deviceId, now.getTime(), last?.value);
+      hlc = nextHlc(this.deviceId, now.getTime(), last?.value, remote);
     await s.execute(
       "INSERT INTO local_settings VALUES('hlc',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
       [hlc]
@@ -617,6 +619,7 @@ export class Repository {
       savedAt,
       canonical(version.snapshot),
     ]);
+    await trimHistory(s, row.id);
     await this.log(s, 'record', row, row);
     await this.log(s, 'record_version', { ...row, id: version.id }, version);
     await this.refreshRecords(
@@ -627,6 +630,33 @@ export class Repository {
   }
   queryEntries(query: EntryQuery): Promise<Page<EntryListItem>> {
     return this.db.read((s) => queryEntries(s, query));
+  }
+  getHistory(recordId: string): Promise<HistoryState> {
+    requireId(recordId);
+    return this.db.read(s => readHistory(s, recordId));
+  }
+  private async compactHistory(): Promise<void> {
+    while (await this.db.transaction(async s => {
+      const records = await s.query<{ record_id: string }>(
+        'SELECT record_id FROM record_versions GROUP BY record_id HAVING count(*)>20 LIMIT 100');
+      for (const record of records) await trimHistory(s, record.record_id);
+      return records.length;
+    })) { /* Restartable batches; the cutoff and deletion commit together. */ }
+  }
+  /** Explicit user operation; records and current values remain intact. */
+  clearHistory(recordId: string | null = null): Promise<HistoryClear> {
+    if (recordId !== null) requireId(recordId);
+    return this.db.transaction(async s => {
+      const [observed] = await s.query<{ hlc: string | null }>(`SELECT max(hlc) AS hlc FROM (
+        SELECT hlc FROM record_versions UNION ALL
+        SELECT value FROM app_meta WHERE key LIKE 'history:clear:%' UNION ALL
+        SELECT json_extract(value,'$.hlc') FROM app_meta WHERE key LIKE 'history:trim:%')`);
+      const stamp = await this.stamp(s, recordId ?? undefined, observed?.hlc ?? undefined);
+      const marker = { record_id: recordId, hlc: stamp.hlc };
+      await applyHistoryClear(s, marker);
+      await this.log(s, 'history_clear', stamp, marker);
+      return marker;
+    });
   }
   async previewImport(
     collectionId: string,

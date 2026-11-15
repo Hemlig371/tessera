@@ -5,6 +5,10 @@ function parse(value: string) {
   if (!match || !UUID_RE.test(match[3]!)) throw new Error('invalidHlc');
   return { physical: Number(match[1]), logical: Number(match[2]) };
 }
+export function assertHlc(value: string): void {
+  const parsed = parse(value);
+  if (!Number.isSafeInteger(parsed.physical)) throw new Error('invalidHlc');
+}
 /** Lexically ordered HLC: physical UTC, logical counter, UUID device tie-break. */
 export function nextHlc(device: string, now: number, previous?: string, remote?: string): string {
   if (!UUID_RE.test(device) || !Number.isSafeInteger(now) || now < 0) throw new Error('invalidHlc');

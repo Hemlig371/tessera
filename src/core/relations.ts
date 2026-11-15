@@ -120,9 +120,18 @@ export async function refreshRelationRecords(s: SqlSession, ids: readonly string
   );
   await s.execute(`UPDATE records SET relation_version=1 WHERE id IN(${marks})`, ids);
 }
-export async function requireRelationsReady(s: SqlSession): Promise<void> {
-  if ((await s.query('SELECT r.id ' + activeRecords + ' AND r.relation_version=0 LIMIT 1')).length)
+async function requireRelationsReady(s: SqlSession, collectionId: string, ids?: readonly string[]): Promise<void> {
+  if (ids && !ids.length) return;
+  const subset = ids ? ` AND r.id IN(${ids.map(() => '?').join(',')})` : '';
+  if ((await s.query('SELECT r.id ' + activeRecords + ' AND r.collection_id=? AND r.relation_version=0' + subset + ' LIMIT 1', [collectionId, ...(ids ?? [])])).length)
     throw new AppError('relationsUpdating');
+}
+/** Only the forward source collection owns these derived edges. */
+export async function requireFieldRelationsReady(s: SqlSession, field: Field, ids?: readonly string[]): Promise<void> {
+  if (field.type === 'relation') return requireRelationsReady(s, field.collection_id, ids);
+  if (field.type !== 'backlink') return;
+  const [source] = await s.query<Field>("SELECT * FROM fields WHERE id=? AND type='relation' AND deleted_at IS NULL", [fieldConfig(field).source_field_id!]);
+  if (source) await requireRelationsReady(s, source.collection_id);
 }
 export async function relationSources(s: SqlSession, collectionId: string): Promise<RelationSource[]> {
   const parent = await activeCollection(s, collectionId);
@@ -190,7 +199,6 @@ export async function relationPage(
 ): Promise<RelationPage> {
   requireId(recordId);
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new AppError('invalidLimit');
-  await requireRelationsReady(s);
   const { field, collection, forward } = await relationContext(s, fieldId);
   const [record] = await s.query<StoredEntry>(
     'SELECT r.* ' + activeRecords + ' AND r.id=? AND r.collection_id=?',
@@ -198,6 +206,7 @@ export async function relationPage(
   );
   if (!record) throw new AppError('notFound');
   if (!forward) return { items: [], next: null, available: false };
+  await requireFieldRelationsReady(s, field, [recordId]);
   const key = recordId + ':' + field.id + ':' + field.hlc + ':' + record.hlc;
   if (cursor && (cursor.query_key !== key || !Number.isSafeInteger(cursor.ordinal) || cursor.ordinal < 0))
     throw new AppError('invalidCursor');
@@ -259,6 +268,7 @@ export async function backlinkValues(
   const result = new Map<string, RecordData>();
   if (!ids.length) return result;
   for (const field of fields.filter((f) => f.type === 'backlink')) {
+    await requireFieldRelationsReady(s, field);
     const sourceId = fieldConfig(field).source_field_id!;
     const rows = await s.query<{ target_record_id: string; source_record_id: string }>(
       `SELECT ri.target_record_id,ri.source_record_id FROM relation_index ri
@@ -287,9 +297,9 @@ export async function relationPreviews(
   const result = new Map<string, Record<string, { items: RelationItem[]; count: number }>>();
   const complex = fields.filter((f) => f.type === 'relation' || f.type === 'backlink');
   if (!complex.length || !ids.length) return result;
-  await requireRelationsReady(s);
   const marks = ids.map(() => '?').join(',');
   for (const field of complex) {
+    await requireFieldRelationsReady(s, field, ids);
     const reverse = field.type === 'backlink',
       config = fieldConfig(field);
     const rows = await s.query<{

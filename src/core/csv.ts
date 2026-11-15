@@ -1,4 +1,4 @@
-import { backlinkValues, requireRelationsReady } from './relations';
+import { backlinkValues } from './relations';
 import { RowError } from './entry-data';
 import { AppError } from './errors';
 import type { EntryQuery, Field, JsonValue, RecordData } from './model';
@@ -166,7 +166,6 @@ export async function exportCsv(
   let count = 0;
   try {
     await api.db.transaction(async (s) => {
-      if (fields.some((f) => f.type === 'backlink')) await requireRelationsReady(s);
       await writer.write(
         '\uFEFF' +
           csvLine(

@@ -1,4 +1,4 @@
-import { requireRelationsReady, relationPreviews } from './relations';
+import { requireFieldRelationsReady, relationPreviews } from './relations';
 import { AppError } from './errors';
 import type { EntryListItem, EntryQuery, Field, JsonValue, Page, UiDefinition } from './model';
 import { canonical } from './model';
@@ -29,6 +29,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     where.push('c.library_id=?');
     params.push(q.library_id);
   }
+  const scopeWhere = [...where], scopeParams = [...params];
   const fields = q.collection_id
     ? await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [
         q.collection_id,
@@ -62,7 +63,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     const field = byId.get(filter.field_id);
     if (!field) throw new AppError('invalidFilter');
     if (['relation', 'backlink'].includes(field.type)) {
-      await requireRelationsReady(s);
+      await requireFieldRelationsReady(s, field);
       if (!['eq', 'ne', 'empty', 'filled'].includes(filter.op)) throw new AppError('invalidFilter');
       const target = field.type === 'relation' ? 'ri.source_record_id=r.id' : 'ri.target_record_id=r.id';
       const sourceField = field.type === 'relation' ? field.id : fieldConfig(field).source_field_id!;
@@ -98,8 +99,10 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   const ids = [...new Set([q.group_field, q.sort_field ?? 'updated_at'].filter((id): id is string => !!id))];
   const expressions = [...ids.map(expression), 'r.id'];
   // Derived keys are either fully rebuilt or unavailable; never silently show partial results.
-  if (terms.length || ids.some((id) => id !== 'updated_at') || q.filters?.length) {
-    if ((await s.query('SELECT r.id ' + activeRecords + ' AND r.sort_version=0 LIMIT 1')).length)
+  if (terms.length || ids.some(id => byId.has(id) && isText(byId.get(id)!.type)) ||
+    q.filters?.some(filter => isText(byId.get(filter.field_id)!.type))) {
+    if ((await s.query('SELECT r.id ' + activeRecords + ' AND r.sort_version=0' +
+      scopeWhere.map(clause => ' AND ' + clause).join('') + ' LIMIT 1', scopeParams)).length)
       throw new AppError('searchUpdating');
   }
   const queryKey = canonical({

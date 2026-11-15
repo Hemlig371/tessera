@@ -1,0 +1,55 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { adapters, fixture } from '../support/fixture';
+import { exportCsv } from '../../src/core/csv';
+
+describe.each(adapters)('%s A-02 index isolation', kind => {
+  let f: Awaited<ReturnType<typeof fixture>>;
+  afterEach(async () => { await f?.cleanup(); });
+  it('scopes FTS/text readiness to the requested collection/library and allows raw numeric queries', async () => {
+    f = await fixture(kind); const api = f.api!;
+    const library = await api.createLibrary('A-02'), other = await api.createLibrary('Независимая');
+    const a = await api.createCollection(library.id, 'A', 'Название'), b = await api.createCollection(library.id, 'B', 'Название');
+    const c = await api.createCollection(other.id, 'C', 'Название');
+    const amount = await api.createField(a.id, 'Количество', 'integer');
+    const rowA = await api.saveEntry(a.id, { [a.primary_field_id]: 'Альфа', [amount.id]: 7 });
+    const rowB = await api.saveEntry(b.id, { [b.primary_field_id]: 'Бета' });
+    const rowC = await api.saveEntry(c.id, { [c.primary_field_id]: 'Гамма' });
+    await f.db.transaction(s => s.execute('UPDATE records SET sort_version=0 WHERE collection_id=?', [a.id]));
+    expect((await api.queryEntries({ collection_id: b.id, sort_field: b.primary_field_id, search: 'бе' })).items.map(row => row.id)).toEqual([rowB.id]);
+    expect((await api.queryEntries({ library_id: other.id, search: 'га' })).items.map(row => row.id)).toEqual([rowC.id]);
+    expect((await api.queryEntries({ collection_id: a.id, sort_field: amount.id, filters: [{ field_id: amount.id, op: 'gt', value: 0 }] })).items.map(row => row.id)).toEqual([rowA.id]);
+    await expect(api.queryEntries({ collection_id: a.id, search: 'аль' })).rejects.toThrow('searchUpdating');
+    await expect(api.queryEntries({ collection_id: a.id, sort_field: a.primary_field_id })).rejects.toThrow('searchUpdating');
+    await expect(api.queryEntries({ library_id: library.id, search: 'бе' })).rejects.toThrow('searchUpdating');
+    await expect(api.queryEntries({ search: 'бе' })).rejects.toThrow('searchUpdating');
+    await api.rebuildDerived();
+    expect((await api.queryEntries({ collection_id: a.id, search: 'аль' })).items.map(row => row.id)).toEqual([rowA.id]);
+  });
+  it('checks only relevant relation sources, including backlink pages, previews, filters and CSV', async () => {
+    f = await fixture(kind); const api = f.api!, library = await api.createLibrary('Связи A-02');
+    const targets = await api.createCollection(library.id, 'Цели', 'Название');
+    const sources = await api.createCollection(library.id, 'Источники', 'Название');
+    const unrelated = await api.createCollection(library.id, 'Другая', 'Название');
+    const link = await api.createField(sources.id, 'Цель', 'relation', { target_collection_id: targets.id });
+    const back = await api.createField(targets.id, 'Источники', 'backlink', { source_field_id: link.id });
+    const target = await api.saveEntry(targets.id, { [targets.primary_field_id]: 'Цель' });
+    const source = await api.saveEntry(sources.id, { [sources.primary_field_id]: 'Источник', [link.id]: target.id });
+    const ignored = await api.saveEntry(unrelated.id, { [unrelated.primary_field_id]: 'Другое' });
+    await f.db.transaction(s => s.execute('UPDATE records SET relation_version=0 WHERE id=?', [ignored.id]));
+    expect((await api.getRelationPage(source.id, link.id)).items.map(row => row.id)).toEqual([target.id]);
+    expect((await api.getRelationPage(target.id, back.id)).items.map(row => row.id)).toEqual([source.id]);
+    expect((await api.queryEntries({ collection_id: targets.id })).items[0]!.relation_previews![back.id]!.count).toBe(1);
+    const query = { collection_id: targets.id, filters: [{ field_id: back.id, op: 'eq' as const, value: source.id }] };
+    expect((await api.queryEntries(query)).items.map(row => row.id)).toEqual([target.id]);
+    let csv = '';
+    await exportCsv(api, query, [back], 'ru', ';', { write: async text => { csv += text; }, finish: async () => {}, abort: async () => {} });
+    expect(csv).toContain(source.id);
+    await f.db.transaction(s => s.execute('UPDATE records SET relation_version=0 WHERE id=?', [source.id]));
+    await expect(api.getRelationPage(source.id, link.id)).rejects.toThrow('relationsUpdating');
+    await expect(api.getRelationPage(target.id, back.id)).rejects.toThrow('relationsUpdating');
+    await expect(api.queryEntries(query)).rejects.toThrow('relationsUpdating');
+    expect((await api.queryEntries({ collection_id: unrelated.id })).items.map(row => row.id)).toEqual([ignored.id]);
+    await api.rebuildRelationIndex(false);
+    expect((await api.queryEntries(query)).items.map(row => row.id)).toEqual([target.id]);
+  });
+});

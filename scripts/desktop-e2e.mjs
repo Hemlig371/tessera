@@ -188,6 +188,31 @@ try {
   await until("document.querySelector('[data-editor] [role=status]')?.textContent==='Операция отменена. Данные базы не изменены.'");
   await clickText('Закрыть');
   await until("!document.querySelector('[data-editor]') && document.body.innerText.includes('Загружено записей: 0')");
+  await clickText('CSV');
+  await execute(`const source=new DataTransfer(); source.items.add(new File(['Название\\n'+Array.from({length:250},(_,i)=>'Native row '+String(i).padStart(3,'0')).join('\\n')],'context.csv',{type:'text/csv'})); const field=document.querySelector('input[type=file]'); field.files=source.files; field.dispatchEvent(new Event('change',{bubbles:true}));`);
+  await until("document.querySelector('[data-editor] [role=status]')?.textContent==='Прочитано строк: 250'");
+  await clickText('Проверить и показать предосмотр');
+  await until("document.querySelector('[data-editor] [role=status]')?.textContent.startsWith('Проверено строк: 250')");
+  await clickText('Подтвердить импорт');
+  await until("document.querySelector('[data-editor] [role=status]')?.textContent.startsWith('Импортировано записей: 250')");
+  await clickText('Закрыть');
+  await until("!document.querySelector('[data-editor]') && document.querySelector('.list-meta')?.textContent==='Загружено записей: 100'");
+  for (const count of [200,250]) {
+    await clickText('Показать ещё'); await until(`document.querySelector('.list-meta')?.textContent==='Загружено записей: ${count}'`);
+  }
+  await execute("document.querySelector('.entry-scroll').scrollTop=document.querySelector('.entry').getBoundingClientRect().height*219");
+  await until("!!document.querySelector('.entry[data-index=\"219\"]')");
+  const deepOffset = await execute("return document.querySelector('.entry-scroll').scrollTop");
+  const deepProfile = await execute("return document.querySelector('.profile-switcher select').value");
+  await execute("document.querySelector('.entry[data-index=\"219\"]').click()");
+  await clickText('Редактировать');
+  await until("!!document.querySelector('[data-editor] input:not(:disabled)')");
+  await execute("const input=document.querySelector('[data-editor] input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,input.value+' (saved)');input.dispatchEvent(new Event('input',{bubbles:true}))");
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && !!document.querySelector('.detail')");
+  await clickText('К списку');
+  await until("document.querySelector('.list-meta')?.textContent==='Загружено записей: 250'");
+  await until(`Math.abs(document.querySelector('.entry-scroll').scrollTop-${deepOffset})<1`);
+  assert.equal(await execute("return document.querySelector('.profile-switcher select').value"), deepProfile);
   await clickText('Оформление'); await selectOption('Тема', 'Тёмная');
   await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%');
   await clickText('Сохранить оформление');

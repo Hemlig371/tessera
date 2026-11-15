@@ -88,7 +88,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   } | null>(null);
   const [trail, setTrail] = useState<string[]>([]);
   const previousQuery = useRef<string | null>(null);
-  const browsePosition = useRef<{ token: string; documentTop: number; listTop: number; focus: HTMLElement | null } | null>(null);
+  const browsePosition = useRef<{ token: string; count: number; documentTop: number; listTop: number; focus: HTMLElement | null } | null>(null);
   const restoreBrowse = useRef(false);
   const editorOrigin = useRef<{ id: string | null; top: number } | null>(null);
   const [loadedQuery, setLoadedQuery] = useState<{ token: string; revision: number } | null>(null);
@@ -113,11 +113,11 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const queryToken = JSON.stringify(query);
   const rememberBrowse = useCallback(() => {
     if (!selected && !useUi.getState().editor) {
-      browsePosition.current = { token: queryToken, documentTop: window.scrollY, listTop: scroll.current?.scrollTop ?? 0,
+      browsePosition.current = { token: queryToken, count: page.items.length, documentTop: window.scrollY, listTop: scroll.current?.scrollTop ?? 0,
         focus: document.activeElement instanceof HTMLElement ? document.activeElement : null };
       restoreBrowse.current = true;
     }
-  }, [selected, queryToken]);
+  }, [selected, queryToken, page.items.length]);
   const selectedId = selected?.id ?? null;
   useLayoutEffect(() => {
     if (ui.editor || !selectedId) return;
@@ -246,8 +246,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   useEffect(() => {
     const request = ++queryRequest.current;
     let active = true;
-    setPage({ items: [], next: null });
-    if (previousQuery.current !== queryToken) {
+    const sameQuery = previousQuery.current === queryToken;
+    const retainedCount = sameQuery && browsePosition.current?.token === queryToken ? browsePosition.current.count : 0;
+    if (!sameQuery || !browsing) setPage({ items: [], next: null });
+    if (!sameQuery) {
       setSelected(null);
       selectionRequest.current++;
       setContext(null);
@@ -259,7 +261,14 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       setLoading(true);
       api
         .queryEntries(JSON.parse(queryToken) as EntryQuery)
-        .then((rows) => {
+        .then(async (first) => {
+          let rows = first;
+          // Refresh only the range already loaded before opening the page.
+          // Keep its DOM/scroll context until all bounded SQL pages are ready.
+          while (active && request === queryRequest.current && rows.next && rows.items.length < retainedCount) {
+            const next = await api.queryEntries({ ...JSON.parse(queryToken) as EntryQuery, cursor: rows.next });
+            rows = { items: [...rows.items, ...next.items], next: next.next };
+          }
           if (active && request === queryRequest.current) { setPage(rows); setLoadedQuery({ token: queryToken, revision }); }
         })
         .catch((e) => {

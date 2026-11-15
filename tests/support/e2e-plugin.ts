@@ -103,7 +103,7 @@ export function e2ePlugin(): Plugin {
             return;
           }
           if (op === 'knowledge-seed') {
-            const value = await createKnowledgeFixture(await Repository.open(db));
+            const value = await createKnowledgeFixture(await Repository.open(db), typeof params[0] === 'string' ? params[0] : undefined);
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'layout-seed') {

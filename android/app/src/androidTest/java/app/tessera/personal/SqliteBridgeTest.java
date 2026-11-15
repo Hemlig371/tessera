@@ -229,6 +229,34 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'");
         }
     }
+    @Test public void explicitSaveKeepsDeepNativeListAndProfile() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('База знаний (dev/CI)')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Материалы')");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Материалы').click()");
+            awaitJs(scenario, "document.querySelector('.list-meta')?.textContent==='Загружено записей: 100'");
+            for (int count : new int[]{200, 250}) {
+                js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Показать ещё').click()");
+                awaitJs(scenario, "document.querySelector('.list-meta')?.textContent==='Загружено записей: " + count + "'");
+            }
+            js(scenario, "document.querySelector('.entry-scroll').scrollTop=document.querySelector('.entry').getBoundingClientRect().height*219");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Материал 220'))");
+            String offset = js(scenario, "document.querySelector('.entry-scroll').scrollTop");
+            String profile = js(scenario, "document.querySelector('.profile-switcher select').value");
+            js(scenario, "const row=[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Материал 220'));row.focus();row.click()");
+            awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Материал 220'");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='Редактировать').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] select[aria-label=Прочитано]:not(:disabled)')");
+            js(scenario, "const input=document.querySelector('[data-editor] select[aria-label=Прочитано]');input.value=input.value==='true'?'false':'true';input.dispatchEvent(new Event('change',{bubbles:true}))");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && !!document.querySelector('.detail')");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('.detail') && document.querySelector('.list-meta')?.textContent==='Загружено записей: 250'");
+            awaitJs(scenario, "Math.abs(document.querySelector('.entry-scroll').scrollTop-" + offset + ")<1");
+            assertEquals(profile, js(scenario, "document.querySelector('.profile-switcher select').value"));
+        }
+    }
     private String js(ActivityScenario<MainActivity> scenario, String script) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>();

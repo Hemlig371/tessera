@@ -1,8 +1,8 @@
 import type { Repository } from '../../src/core/repository';
 
 /** Deterministic user content; UUIDs and technical timestamps are assigned by the repository. */
-export async function createKnowledgeFixture(api: Repository) {
-  const library = await api.createLibrary('База знаний (dev/CI)');
+export async function createKnowledgeFixture(api: Repository, name = 'База знаний (dev/CI)') {
+  const library = await api.createLibrary(name);
   const materials = await api.createCollection(library.id, 'Материалы', 'Название');
   const topics = await api.createCollection(library.id, 'Темы', 'Название');
   const sources = await api.createCollection(library.id, 'Источники', 'Название');

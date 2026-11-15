@@ -51,6 +51,12 @@ test('global capture and inbox move preserve one record; cancel never writes', a
   await page.getByRole('button', { name: 'Мои записи', exact: true }).click();
   await page.getByRole('button', { name: 'Ссылки', exact: true }).click();
   await expect(page.locator('.entry')).toContainText('Ссылка https://example.org/ 🦔');
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  for (const language of ['ru', 'en']) {
+    await page.locator('.language select').selectOption(language);
+    for (const width of [320, 360, 390, 760]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect(page.getByRole('button', { name: language === 'ru' ? '+ Во входящие' : '+ Capture to inbox', exact: true })).toBeInViewport();
+    }
+  }
 });

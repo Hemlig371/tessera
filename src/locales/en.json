@@ -81,7 +81,8 @@
     "invalidDraft": "The local draft is damaged or has an unsupported format. It has not replaced database contents.",
     "draftWrite": "The local draft could not be saved or removed. Your input remains in the form; check available storage and retry.",
     "draftCleanup": "The entry was saved, but its local draft could not be removed. Do not delete application data.",
-    "lastProfile": "The last display profile cannot be deleted."
+    "lastProfile": "The last display profile cannot be deleted.",
+    "invalidPreset": "This preset is unavailable or incompatible with the current fields. Review its settings; no record was created."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -241,5 +242,22 @@
   "createDisplayProfile": "Create display profile",
   "saveDisplayProfile": "Save display profile",
   "deleteDisplayProfile": "Delete display profile",
-  "defaultDisplayProfile": "Default profile"
+  "defaultDisplayProfile": "Default profile",
+  "creationAlternatives": "Creation options",
+  "creationPresets": "Creation presets",
+  "standardForm": "Standard form",
+  "presetToConfigure": "Preset to configure",
+  "newPreset": "New preset",
+  "presetName": "Preset name",
+  "presetForm": "Preset form",
+  "usePresetByDefault": "Use for a short press on +",
+  "presetValuesHint": "Prefills a new entry. There is no record until Save. A restored draft takes priority.",
+  "presetInclude": "Prefill field",
+  "presetToday": "Current local date on creation",
+  "presetUnknownField": "Unavailable field {{id}}. Its value is retained in the preset.",
+  "presetRemoveValue": "Remove preset value",
+  "savePreset": "Save preset",
+  "deletePreset": "Delete preset",
+  "defaultCreation": "Short press on +",
+  "saveDefaultCreation": "Save creation action"
 }

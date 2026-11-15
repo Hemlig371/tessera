@@ -107,6 +107,33 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('.profile-switcher option:checked')?.textContent==='Только Бета' && document.querySelectorAll('.entry').length===1");
         }
     }
+    @Test public void creationPresetKeepsDraftAndSavesThroughNativeRepository() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(button=>button.textContent.includes('Проекты и задачи (dev/CI)'))");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(button=>button.textContent.includes('Проекты и задачи (dev/CI)')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(button=>button.getAttribute('aria-label')==='Задачи')");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(button=>button.getAttribute('aria-label')==='Задачи').click()");
+            awaitJs(scenario, "!!document.querySelector('.split-button button:not(:disabled)')");
+            js(scenario, "document.querySelector('.split-button button:last-child').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=menuitem]')");
+            js(scenario, "[...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='Новый баг').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[aria-label=Название]')");
+            assertEquals("false", js(scenario, "!!document.querySelector('[role=dialog] textarea')"));
+            js(scenario, "(()=>{const input=document.querySelector('[role=dialog] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android preset draft'); input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('[role=dialog]')");
+            js(scenario, "document.querySelector('.split-button button:last-child').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=menuitem]')");
+            js(scenario, "[...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='Новый баг').click()");
+            awaitJs(scenario, "document.querySelector('[role=dialog] input[aria-label=Название]')?.value==='Android preset draft' && !!document.querySelector('[role=dialog] textarea')");
+            assertEquals("\"Ошибка\"", js(scenario, "document.querySelector('[role=dialog] input[aria-label=Тип]').value"));
+            assertEquals("\"0\"", js(scenario, "document.querySelector('[role=dialog] input[aria-label=Приоритет]').value"));
+            assertEquals("\"false\"", js(scenario, "document.querySelector('[role=dialog] select[aria-label=Готово]').value"));
+            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(button=>button.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
+        }
+    }
     private String js(ActivityScenario<MainActivity> scenario, String script) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>();

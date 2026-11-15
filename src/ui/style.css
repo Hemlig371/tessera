@@ -748,3 +748,11 @@ header > div { min-width: 0; }
 .profile-switcher label { min-width: 0; max-width: 100%; margin: 0; font-size: 12px; }
 .profile-switcher select { max-width: 100%; min-width: 0; }
 .profile-switcher button { font-size: 12px; padding: 8px; }
+
+.create-button { position: relative; max-width: 100%; }
+.split-button { display: flex; align-items: stretch; }
+.split-button button { padding: 8px 10px; font-size: 13px; min-width: 0; }
+.split-button .primary { border-radius: 8px 0 0 8px; }
+.split-button button:last-child { border-radius: 0 8px 8px 0; min-width: 32px; }
+.creation-menu { position: absolute; right: 0; top: 100%; z-index: 20; width: 260px; max-width: 85vw; padding: 6px; background: white; border: 1px solid #cddace; border-radius: 8px; box-shadow: 0 6px 18px #0002; }
+.creation-menu button { display: block; width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }

@@ -100,4 +100,13 @@ export const migrations = [
       'UPDATE collections SET default_profile_id=(SELECT id FROM display_profiles p WHERE p.collection_id=collections.id)',
     ],
   },
+  {
+    version: 7,
+    statements: [
+      `CREATE TABLE creation_presets(${stamp}, collection_id TEXT NOT NULL REFERENCES collections(id),
+        name TEXT NOT NULL CHECK(length(trim(name))>0), position INTEGER NOT NULL DEFAULT 0,
+        config TEXT NOT NULL ${jsonObject('config')})`,
+      'CREATE INDEX presets_collection ON creation_presets(collection_id,deleted_at,position,id)',
+    ],
+  },
 ] as const;

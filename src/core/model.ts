@@ -119,6 +119,18 @@ export interface DisplayProfile extends Stamp {
   position: number;
   config: string;
 }
+export type CreationChoice = { kind: 'standard' | 'quick' } | { kind: 'preset'; preset_id: string };
+export interface PresetDefinition {
+  form: 'standard' | 'quick';
+  data: RecordData;
+  today_fields: string[];
+}
+export interface CreationPreset extends Stamp {
+  collection_id: string;
+  name: string;
+  position: number;
+  config: string;
+}
 export interface EntryQuery extends ListOptions {
   profile_id?: string;
   collection_id?: string;

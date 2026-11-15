@@ -17,6 +17,9 @@ import { canonical, localTimestamp } from './model';
 import type {
   Appearance,
   Collection,
+  CreationChoice,
+  CreationPreset,
+  PresetDefinition,
   DisplayProfile,
   Entry,
   EntryListItem,
@@ -45,12 +48,14 @@ import {
   requireId,
   validateData,
   validateFieldConfig,
+  validateValue,
 } from './validation';
 import { fieldExpression, fieldIndexName, sortData } from './search-keys';
-import { validateUiDefinition } from './ui-definition';
+import { collectionCreationChoice, validateCreationChoice, validatePresetDefinition } from './creation-presets';
+import { formConfig, validateUiDefinition } from './ui-definition';
 import { readQuickForm, validateQuickForm } from './quick-forms';
 
-type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms' | 'display_profiles';
+type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms' | 'display_profiles' | 'creation_presets';
 export class Repository {
   private constructor(
     readonly db: DatabaseAdapter,
@@ -782,6 +787,81 @@ export class Repository {
         items,
         next: rows.length > limit && last ? { updated_at: last.updated_at, id: last.id } : null,
       };
+    });
+  }
+  async listCreationPresets(collectionId: string): Promise<CreationPreset[]> {
+    requireId(collectionId);
+    return this.db.read(async s => {
+      await activeCollection(s, collectionId);
+      return s.query<CreationPreset>('SELECT * FROM creation_presets WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,created_at,id', [collectionId]);
+    });
+  }
+  async setCreationChoice(collectionId: string, choice: CreationChoice): Promise<void> {
+    requireId(collectionId); validateCreationChoice(choice);
+    await this.db.transaction(async s => {
+      const parent = await activeCollection(s, collectionId);
+      if (parent.system_kind) throw new AppError('systemContainer');
+      if (choice.kind === 'preset' && !(await s.query('SELECT id FROM creation_presets WHERE id=? AND collection_id=? AND deleted_at IS NULL', [choice.preset_id, collectionId])).length) throw new AppError('invalidPreset');
+      await this.update(s, 'collections', 'collection', parent, { config: canonical({ ...JSON.parse(parent.config), creation: choice }) });
+    });
+  }
+  async createCreationPreset(collectionId: string, value: string, definition: PresetDefinition, makeDefault = false, position?: number): Promise<CreationPreset> {
+    requireId(collectionId); const name = nameValue(value);
+    return this.db.transaction(async s => {
+      const { collection, fields, form } = await this.quickContext(s, collectionId);
+      validatePresetDefinition(definition, fields, form, collection.primary_field_id);
+      const [order] = await s.query<{ n: number }>('SELECT coalesce(max(position),-1)+1 AS n FROM creation_presets WHERE collection_id=?', [collectionId]);
+      const row: CreationPreset = { ...(await this.stamp(s)), collection_id: collectionId, name, position: position == null ? order!.n : positionValue(position), config: canonical(definition as unknown as JsonValue) };
+      await this.insert(s, 'creation_presets', row); await this.log(s, 'creation_preset', row, row);
+      if (makeDefault) await this.update(s, 'collections', 'collection', collection, { config: canonical({ ...JSON.parse(collection.config), creation: { kind: 'preset', preset_id: row.id } }) });
+      return row;
+    });
+  }
+  async updateCreationPreset(id: string, patch: { name?: string; position?: number; definition?: PresetDefinition; make_default?: boolean }): Promise<CreationPreset> {
+    requireId(id);
+    return this.db.transaction(async s => {
+      const [old] = await s.query<CreationPreset>('SELECT * FROM creation_presets WHERE id=? AND deleted_at IS NULL', [id]);
+      if (!old) throw new AppError('notFound');
+      const { collection, fields, form } = await this.quickContext(s, old.collection_id);
+      if (patch.definition) validatePresetDefinition(patch.definition, fields, form, collection.primary_field_id);
+      const row = await this.update(s, 'creation_presets', 'creation_preset', old, {
+        ...(patch.name != null ? { name: nameValue(patch.name) } : {}),
+        ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
+        ...(patch.definition ? { config: canonical(patch.definition as unknown as JsonValue) } : {}),
+      });
+      if (patch.make_default) await this.update(s, 'collections', 'collection', collection, { config: canonical({ ...JSON.parse(collection.config), creation: { kind: 'preset', preset_id: id } }) });
+      return row;
+    });
+  }
+  async deleteCreationPreset(id: string): Promise<void> {
+    requireId(id);
+    await this.db.transaction(async s => {
+      const [old] = await s.query<CreationPreset>('SELECT * FROM creation_presets WHERE id=? AND deleted_at IS NULL', [id]);
+      if (!old) throw new AppError('notFound');
+      const parent = await activeCollection(s, old.collection_id);
+      if (parent.system_kind) throw new AppError('systemContainer');
+      const choice = collectionCreationChoice(parent.config);
+      if (choice.kind === 'preset' && choice.preset_id === id) await this.update(s, 'collections', 'collection', parent, { config: canonical({ ...JSON.parse(parent.config), creation: { kind: 'standard' } }) });
+      await this.update(s, 'creation_presets', 'creation_preset', old, { deleted_at: new Date().toISOString() });
+    });
+  }
+  async resolveCreation(collectionId: string, input?: CreationChoice, now = new Date()): Promise<{ form: 'standard' | 'quick'; data: RecordData }> {
+    requireId(collectionId);
+    return this.db.read(async s => {
+      const { collection, fields, form } = await this.quickContext(s, collectionId);
+      const choice = input ?? collectionCreationChoice(collection.config); validateCreationChoice(choice);
+      if (choice.kind !== 'preset') return { form: choice.kind, data: {} };
+      const [row] = await s.query<CreationPreset>('SELECT * FROM creation_presets WHERE id=? AND collection_id=? AND deleted_at IS NULL', [choice.preset_id, collectionId]);
+      if (!row) throw new AppError('invalidPreset');
+      const definition = JSON.parse(row.config) as PresetDefinition;
+      validatePresetDefinition(definition, fields, form, collection.primary_field_id);
+      const data: RecordData = { ...definition.data };
+      for (const id of definition.today_fields) data[id] = localTimestamp(now).slice(0, 10);
+      for (const id of Object.keys(data)) {
+        const field = fields.find(field => field.id === id)!;
+        validateValue(field.type, data[id], formConfig(field, form.fields.find(item => item.field_id === id)), field.id === collection.primary_field_id);
+      }
+      return { form: definition.form, data };
     });
   }
   async listDisplayProfiles(collectionId: string): Promise<DisplayProfile[]> {

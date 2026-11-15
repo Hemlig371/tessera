@@ -128,6 +128,19 @@ try {
   await request('DELETE', `/session/${session}`); session=undefined; await start();
   await openLibrary('Native library'); await clickText('Native collection');
   await until("document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
+  await clickText('Пресеты создания'); await input('Native preset');
+  await execute("document.querySelector('[role=dialog] fieldset input[type=checkbox]').click()");
+  await until("!!document.querySelector('[role=dialog] input[aria-label=Название]')");
+  await execute("const input=document.querySelector('[role=dialog] input[aria-label=Название]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native preset entry'); input.dispatchEvent(new Event('input',{bubbles:true}));");
+  await clickText('Сохранить пресет'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('Варианты создания'); await clickText('Native preset');
+  await until("document.querySelector('[role=dialog] input')?.value==='Native preset entry'");
+  await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('+ Новая запись'); await until("document.querySelector('[role=dialog] input')?.value==='Native preset entry'");
+  await clickText('Сохранить'); await until("!document.querySelector('[role=dialog]')");
+  await request('DELETE', `/session/${session}`); session=undefined; await start();
+  await openLibrary('Native library'); await clickText('Native collection');
+  await until("[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native preset entry'))");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

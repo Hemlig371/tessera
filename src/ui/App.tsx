@@ -1,3 +1,6 @@
+import { CreateButton } from './CreateButton';
+import { PresetsEditor } from './PresetsEditor';
+import { collectionCreationChoice } from '../core/creation-presets';
 import { ProfilesEditor } from './ProfilesEditor';
 import { fieldConfig } from '../core/validation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -5,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type {
   Collection,
+  CreationChoice,
+  CreationPreset,
   DisplayProfile,
   Entry,
   EntryListItem,
@@ -44,6 +49,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
     [layouts, setLayouts] = useState(emptyLayouts);
+  const [presets, setPresets] = useState<CreationPreset[]>([]);
+  const [creationInitial, setCreationInitial] = useState<RecordData>({});
   const [profiles, setProfiles] = useState<DisplayProfile[]>([]);
   const [quickDefinition, setQuickDefinition] = useState<UiDefinition>({ fields: [] });
   const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
@@ -166,11 +173,13 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         ...(['form', 'card', 'list'] as const).map((kind) => api.getUiConfig(ui.collectionId!, kind, kind === 'list' ? ui.profileId ?? undefined : undefined)),
         api.getQuickForm(ui.collectionId),
         api.listDisplayProfiles(ui.collectionId),
+        api.listCreationPresets(ui.collectionId),
       ])
-        .then(([rows, form, card, list, quick, profileRows]) => {
+        .then(([rows, form, card, list, quick, profileRows, presetRows]) => {
           if (active) {
             setFields(rows as Field[]);
             setProfiles(profileRows as DisplayProfile[]);
+            setPresets(presetRows as CreationPreset[]);
             setQuickDefinition(quick as UiDefinition);
             setLayouts({
               form: form as UiDefinition,
@@ -228,21 +237,24 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       const nextCollections = current.libraryId ? await api.listCollections(current.libraryId) : [];
       const currentCollection = nextCollections.find((c) => c.id === current.collectionId);
       if (currentCollection) {
-        const [nextFields, form, card, list, quick, profileRows] = await Promise.all([
+        const [nextFields, form, card, list, quick, profileRows, presetRows] = await Promise.all([
           api.listFields(currentCollection.id),
           api.getUiConfig(currentCollection.id, 'form'),
           api.getUiConfig(currentCollection.id, 'card'),
           api.getUiConfig(currentCollection.id, 'list', current.profileId ?? undefined),
           api.getQuickForm(currentCollection.id),
           api.listDisplayProfiles(currentCollection.id),
+          api.listCreationPresets(currentCollection.id),
         ]);
         setFields(nextFields);
         setProfiles(profileRows);
+        setPresets(presetRows);
         setLayouts({ form, card, list });
         setQuickDefinition(quick);
       } else {
         setFields([]);
         setProfiles([]);
+        setPresets([]);
         setLayouts(emptyLayouts);
         setQuickDefinition({ fields: [] });
       }
@@ -275,6 +287,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       setSelected(null);
       setContext(null);
       setLinked(null);
+      setCreationInitial({});
       setSaved(false);
       setOpeningDraft(capture ? await loadCreationDraft(inbox) : null);
       if (capture) ui.openEditor('entry');
@@ -286,14 +299,22 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     if (draft && await api.getDraftTarget(draft.action.create_id)) { await drafts.remove(scope); return null; }
     return draft;
   }
+  function beginCreate(choice?: CreationChoice) {
+    if (busy || !collection) return;
+    setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false); setBusy(true);
+    void (async () => {
+      const draft = await loadCreationDraft(collection);
+      if (draft) { setOpeningDraft(draft); ui.openEditor('entry'); }
+      else {
+        const resolved = await api.resolveCreation(collection.id, choice);
+        setCreationInitial(resolved.data); ui.openEditor(resolved.form === 'quick' ? 'quick-entry' : 'entry');
+      }
+    })().catch(error => setError(errorKey(error))).finally(() => setBusy(false));
+  }
   function open(editor: typeof ui.editor, editingId?: string) {
-    setLinked(null); setOpeningDraft(null); setStaleEdit(null); setError(null); setSaved(false);
-    if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) {
-      setBusy(true);
-      void loadCreationDraft(collection).then(draft => {
-        setOpeningDraft(draft); ui.openEditor(draft ? 'entry' : editor);
-      }).catch(error => setError(errorKey(error))).finally(() => setBusy(false));
-    } else ui.openEditor(editor, '', editingId);
+    if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) { beginCreate({ kind: editor === 'quick-entry' ? 'quick' : 'standard' }); return; }
+    setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false);
+    ui.openEditor(editor, '', editingId);
   }
   const close = useCallback(() => {
     if (busy) return;
@@ -405,7 +426,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const disabled = busy || !!ui.editor;
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -533,9 +554,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             </label><button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button></div>}
           </div>
           {collection && !collection.system_kind && (
-            <button className="primary" disabled={disabled || !fieldsReady} onClick={() => open('entry')}>
-              + {t('newEntry')}
-            </button>
+            <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} options={[
+              { label: t('standardForm'), choice: { kind: 'standard' } }, { label: t('quickEntry'), choice: { kind: 'quick' } },
+              ...presets.filter(preset => preset.collection_id === collection.id).map(preset => ({ label: preset.name, choice: { kind: 'preset' as const, preset_id: preset.id } })),
+            ]} />
           )}
         </header>
         <div className="toolbar">
@@ -558,6 +580,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 </button>
               ))}
               <button disabled={disabled || !fieldsReady} onClick={() => open('quick')}>{t('layouts.quick')}</button>
+              <button disabled={disabled || !fieldsReady} onClick={() => open('presets')}>{t('creationPresets')}</button>
               <button disabled={disabled || !fieldsReady} onClick={() => open('quick-entry')}>+ {t('quickEntry')}</button>
               <button disabled={disabled || !fieldsReady} onClick={() => open('csv')}>
                 {t('csv')}
@@ -859,7 +882,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               collection={recordContext.collection}
               fields={recordContext.fields}
               layout={recordContext.layouts.form}
-              initialData={linked?.initial}
+              initialData={linked?.initial ?? creationInitial}
               pinnedData={!openingDraft ? linked?.initial : undefined}
               busy={busy}
               cancel={close}
@@ -882,7 +905,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               layout={context.layouts.form} entry={selected} busy={busy} cancel={close}
               change={data => setStaleEdit(old => old ? { ...old, data } : null)} save={data => saveEdited(data)} />
           </>}
-          {ui.editor === 'quick-entry' && collection && <DraftRecordForm api={api} collection={collection} store={drafts}
+          {ui.editor === 'quick-entry' && collection && <DraftRecordForm api={api} collection={collection} store={drafts} initialData={creationInitial}
             action={{ kind: 'save', create_id: crypto.randomUUID() }} registerClose={registerCreationClose} warn={warnDraftCleanup}
             fields={fields}
             layout={{ fields: fields.map(field => ({ ...layouts.form.fields.find(base => base.field_id === field.id),
@@ -913,6 +936,12 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               }}
             />
           )}
+          {ui.editor === 'presets' && collection && <PresetsEditor api={api} presets={presets} fields={fields} choice={collectionCreationChoice(collection.config)} busy={busy}
+            setChoice={choice => { void run(() => api.setCreationChoice(collection.id, choice), false); }}
+            save={(id, name, position, definition, makeDefault) => { void run(async () => {
+              if (id) await api.updateCreationPreset(id, { name, position, definition, make_default: makeDefault });
+              else await api.createCreationPreset(collection.id, name, definition, makeDefault, position);
+            }); }} remove={id => { void run(() => api.deleteCreationPreset(id), false); }} />}
           {ui.editor === 'profiles' && collection && <ProfilesEditor profiles={profiles} defaultId={collection.default_profile_id ?? null}
             busy={busy} cancel={close} create={name => { void run(async () => {
               const profile = await api.createDisplayProfile(collection.id, name, layouts.list);

@@ -26,6 +26,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: 'src-tauri/sqlite-bridge -> target' }
       - run: npm ci
+      - name: Windows smoke cleanup regression
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/native/windows-cleanup.test.ps1
       - run: npm run typecheck
       - run: npm run check:platforms
       - run: npm run lint

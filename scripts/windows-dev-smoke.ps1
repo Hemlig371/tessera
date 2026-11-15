@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'stop-smoke-process.ps1')
 $profilePath = Join-Path $env:APPDATA 'app.tessera.personal.dev'
 if (Test-Path $profilePath) { throw 'Smoke test requires a clean dev profile; refusing to remove existing data.' }
 $process = Start-Process cmd.exe -ArgumentList '/c npm run dev:desktop -- --no-watch' -PassThru -RedirectStandardOutput 'windows-dev.stdout.log' -RedirectStandardError 'windows-dev.stderr.log'
@@ -15,8 +16,8 @@ try {
     Start-Sleep -Seconds 2
   }
   if (-not $ready) { Get-Content windows-dev.stderr.log; throw 'Native UI did not initialize its SQLite database' }
-  Write-Output 'PASS: Windows tauri dev launched, WebView executed TS migrations and opened native SQLite.'
 } finally {
-  taskkill /PID $process.Id /T /F 2>$null
-  Remove-Item Env:TESSERA_SMOKE_DB -ErrorAction SilentlyContinue
+  try { Stop-SmokeProcessTree $process }
+  finally { Remove-Item Env:TESSERA_SMOKE_DB -ErrorAction SilentlyContinue }
 }
+Write-Output 'PASS: Windows tauri dev launched, WebView executed TS migrations and opened native SQLite; process tree stopped.'

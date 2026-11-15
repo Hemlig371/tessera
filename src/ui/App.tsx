@@ -1,3 +1,5 @@
+import { quickLayout } from '../core/quick-forms';
+import { LayoutRowsView } from './LayoutRowsView';
 import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
 import { useAppearance } from './use-appearance';
 import { defaultAppearance } from '../core/device-appearance';
@@ -810,14 +812,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 ×
               </button>
             </div>
-            <div className="field-grid">
-              {layoutItems(context.layouts.card, context.fields)
-                .filter((item) => item.visible)
-                .map((item) => {
+            <LayoutRowsView definition={context.layouts.card} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t('inboxContent') : field.name} render={item => {
                   const f = context.fields.find((field) => field.id === item.field_id)!;
                   return (
-                    <dl key={f.id} className={item.width === 'half' ? 'half' : 'full'}>
-                      {item.group && <small>{item.group}</small>}
+                    <dl key={f.id}>
                       <dt>{context.collection.system_kind === 'inbox' ? t('inboxContent') : f.name}</dt>
                       <dd>
                         {['relation', 'backlink'].includes(f.type) ? (
@@ -841,8 +839,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                       </dd>
                     </dl>
                   );
-                })}
-            </div>
+                }} />
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
             <div className="actions">
               {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
@@ -939,8 +936,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           {ui.editor === 'quick-entry' && collection && fieldsReady && <DraftRecordForm key={'quick:' + collection.id} api={api} collection={collection} store={drafts} initialData={creationInitial}
             action={{ kind: 'save', create_id: crypto.randomUUID() }} registerClose={registerCreationClose} warn={warnDraftCleanup}
             fields={fields}
-            layout={{ fields: fields.map(field => ({ ...layouts.form.fields.find(base => base.field_id === field.id),
-              ...(quickDefinition.fields.find(item => item.field_id === field.id) ?? { field_id: field.id, visible: false }) })) }}
+            layout={quickLayout(layouts.form, quickDefinition, fields)}
             busy={busy} cancel={close} save={(data, action, complete) => { void run(async () => {
               if (action.kind === 'save') await api.saveQuickEntry(collection.id, data, action.create_id);
               else await saveDraftAction(action, collection.id, data);

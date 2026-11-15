@@ -193,6 +193,17 @@ try {
   await request('DELETE', `/session/${session}`); session = undefined; await start();
   await until("document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact'");
   assert.equal(await execute("return getComputedStyle(document.documentElement).fontSize"),'22.5px');
+  await openLibrary('Native library'); await clickText('Native collection'); await clickText('Форма');
+  await until("!!document.querySelector('.row-designer select')");
+  await execute("const columns=document.querySelector('.row-designer select');columns.value='3';columns.dispatchEvent(new Event('change',{bubbles:true}));");
+  await clickText('Сохранить настройку'); await until("!document.querySelector('[role=dialog]')");
+  await clickText('Варианты создания'); await clickText('Обычная форма');
+  await until("!!document.querySelector('[role=dialog] .layout-row') && getComputedStyle(document.querySelector('[role=dialog] .layout-row')).gridTemplateColumns.split(' ').length===3");
+  await request('POST', `/session/${session}/window/rect`, { width: 390, height: 844 });
+  await until("getComputedStyle(document.querySelector('[role=dialog] .layout-row')).gridTemplateColumns.split(' ').length===1");
+  assert.equal(await execute("return document.documentElement.scrollWidth<=innerWidth"),true);
+  await input('Native adaptive draft'); await clickText('Закрыть'); await until("!document.querySelector('[role=dialog]')");
+  await request('POST', `/session/${session}/window/rect`, { width: 1100, height: 800 });
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

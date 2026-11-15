@@ -135,6 +135,36 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
         }
     }
+    @Test public void adaptiveRowsRevealRequiredControlsAndPersistThroughRecreation() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.textContent.includes('Заметки: строки (dev/CI)'))");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Заметки: строки (dev/CI)')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Заметки')");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Заметки').click()");
+            awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='+ Новая запись').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[aria-label=Название]:not(:disabled)')");
+            assertEquals("false", js(scenario, "document.querySelector('[role=dialog] .collapsed-field').open"));
+            assertEquals("1", js(scenario, "getComputedStyle(document.querySelector('[role=dialog] .layout-row')).gridTemplateColumns.split(' ').length"));
+            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "document.querySelector('[role=dialog] .collapsed-field').open");
+            js(scenario, "(()=>{const input=document.querySelector('[role=dialog] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android layout record');input.dispatchEvent(new Event('input',{bubbles:true}));const text=document.querySelector('[role=dialog] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(text,'**Native rows**');text.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            assertEquals("\"0\"", js(scenario, "document.querySelector('[role=dialog] input[aria-label=Приоритет]').value"));
+            assertEquals("\"false\"", js(scenario, "document.querySelector('[role=dialog] select[aria-label=Избранное]').value"));
+            js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Android layout record'))");
+            scenario.recreate();
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.textContent.includes('Заметки: строки (dev/CI)'))");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Заметки: строки (dev/CI)')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Заметки')");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Заметки').click()");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Android layout record'))");
+            js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Android layout record')).click()");
+            awaitJs(scenario, "document.querySelector('.detail .layout-row .markdown strong')?.textContent==='Native rows'");
+        }
+    }
     @Test public void constructorModeExitsWithSystemBackWithoutLosingTheProfile() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);

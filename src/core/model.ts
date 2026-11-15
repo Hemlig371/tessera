@@ -92,6 +92,13 @@ export interface LayoutItem {
   required?: boolean;
   hint?: string;
   default?: JsonValue;
+  collapsed?: boolean;
+}
+export interface LayoutRow {
+  id: string;
+  columns: 1 | 2 | 3;
+  field_ids: string[];
+  group?: string;
 }
 export interface EntryFilter {
   field_id: string;
@@ -107,6 +114,7 @@ export interface ListOptions {
 }
 export interface UiDefinition {
   fields: LayoutItem[];
+  rows?: LayoutRow[];
   list?: ListOptions;
 }
 export interface UiConfiguration extends Stamp {

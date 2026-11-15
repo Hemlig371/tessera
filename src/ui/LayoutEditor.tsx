@@ -1,7 +1,8 @@
+import { LayoutRowsEditor } from './LayoutRowsEditor';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { EntryFilter, Field, LayoutItem, ListOptions, UiDefinition, UiKind } from '../core/model';
-import { layoutItems } from '../core/ui-definition';
+import type { EntryFilter, Field, LayoutItem, LayoutRow, ListOptions, UiDefinition, UiKind } from '../core/model';
+import { layoutItems, layoutRows } from '../core/ui-definition';
 import type { Repository } from '../core/repository';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
@@ -23,18 +24,23 @@ export function LayoutEditor({
   busy: boolean;
 }) {
   const { t } = useTranslation();
-  const [items, setItems] = useState(() => layoutItems(definition, fields));
+  const [storedItems, setItems] = useState(() => layoutItems(definition, fields));
+  const [rows, setRows] = useState<LayoutRow[]>(() => kind === 'list' ? [] : layoutRows(definition, fields, true));
+  const order = new Map(rows.flatMap(row => row.field_ids).map((id, index) => [id, index]));
+  const items = kind === 'list' ? storedItems : [...storedItems].sort((a, b) => (order.get(a.field_id) ?? Infinity) - (order.get(b.field_id) ?? Infinity));
   const [list, setList] = useState<ListOptions>(definition.list ?? {});
   function patch(id: string, value: Partial<LayoutItem>) {
     setItems((old) => old.map((item) => (item.field_id === id ? { ...item, ...value } : item)));
   }
   function move(index: number, offset: number) {
-    setItems((old) => {
-      const next = [...old];
-      const [item] = next.splice(index, 1);
-      next.splice(index + offset, 0, item!);
-      return next;
-    });
+    if (kind !== 'list') {
+      const first = items[index]!.field_id, second = items[index + offset]!.field_id;
+      // Every field stays assigned; moving across a row swaps its cell with its neighbour.
+      setRows(current => {
+        const complete = layoutRows({ fields: storedItems, rows: current.filter(row => row.field_ids.length) }, fields, true);
+        return complete.map(row => ({ ...row, field_ids: row.field_ids.map(id => id === first ? second : id === second ? first : id) }));
+      });
+    } else setItems(old => { const next = [...old], [item] = next.splice(index, 1); next.splice(index + offset, 0, item!); return next; });
   }
   function filter(index: number, value: Partial<EntryFilter>) {
     setList((old) => ({
@@ -46,10 +52,11 @@ export function LayoutEditor({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        save({ fields: items, ...(kind === 'list' ? { list } : {}) });
+        save({ fields: items, ...(kind === 'list' ? { list } : { rows: rows.filter(row => row.field_ids.length) }) });
       }}
     >
       <p>{t('independentLayouts')}</p>
+      {kind !== 'list' && <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows} />}
       {items.map((item, index) => {
         const field = fields.find((f) => f.id === item.field_id)!;
         return (
@@ -81,7 +88,7 @@ export function LayoutEditor({
                 ↓
               </button>
             </div>
-            <div className="field-grid">
+            {kind === 'list' && <div className="field-grid">
               <label className="half">
                 {t('width')}
                 <select
@@ -100,7 +107,8 @@ export function LayoutEditor({
                   onChange={(e) => patch(field.id, { group: e.target.value })}
                 />
               </label>
-            </div>
+            </div>}
+            {kind !== 'list' && <label className="check"><input type="checkbox" checked={item.collapsed ?? false} onChange={event => patch(field.id, { collapsed: event.target.checked })} />{t('fieldCollapsed')}</label>}
             {kind === 'form' && field.type !== 'backlink' && (
               <>
                 <label className="check">

@@ -305,5 +305,16 @@
   "finishConstructor": "Done, back to data",
   "constructorCollectionHint": "Configure fields, forms and display profiles. Check the result on records below.",
   "constructorChooseHint": "Select a library or collection to configure.",
-  "constructorPreview": "Record preview"
+  "constructorPreview": "Record preview",
+  "rowDesigner": "Layout rows",
+  "rowDesignerHint": "Each row has 1, 2 or 3 columns. Fields stack on phones. Unassigned fields remain at the end; removing a row never deletes its fields.",
+  "layoutRow": "Row {{count}}",
+  "columnCount": "Columns",
+  "layoutCell": "Field {{count}}",
+  "emptyLayoutCell": "Choose a field",
+  "moveRowUp": "Move row {{count}} up",
+  "moveRowDown": "Move row {{count}} down",
+  "removeLayoutRow": "Remove row",
+  "addLayoutRow": "Add row",
+  "fieldCollapsed": "Collapse field by default"
 }

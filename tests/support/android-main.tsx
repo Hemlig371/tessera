@@ -1,3 +1,4 @@
+import { layoutScenario } from './layout-scenario';
 // Dedicated acceptance APK entry. Production Vite config never references this file.
 import { createRoot } from 'react-dom/client';
 import '../../src/ui/i18n';
@@ -52,6 +53,8 @@ async function run() {
   await presetsScenario(api);
   document.documentElement.dataset.acceptanceStage = 'import-cancellation';
   await importCancellationScenario(api);
+  document.documentElement.dataset.acceptanceStage = 'layout-rows';
+  await layoutScenario(api);
   document.documentElement.dataset.acceptanceStage = 'markdown';
   await markdownScenario(api);
   const external = registerPlugin<{ openUrl(options: { url: string }): Promise<void> }>('ExternalActions');

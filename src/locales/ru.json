@@ -305,5 +305,16 @@
   "finishConstructor": "Готово, к данным",
   "constructorCollectionHint": "Настройте поля, формы и представления. Ниже можно проверить результат на записях.",
   "constructorChooseHint": "Выберите библиотеку или коллекцию для настройки.",
-  "constructorPreview": "Предпросмотр записей"
+  "constructorPreview": "Предпросмотр записей",
+  "rowDesigner": "Строки компоновки",
+  "rowDesignerHint": "В строке — 1, 2 или 3 колонки. На телефоне поля перестраиваются в одну колонку. Поля без назначенной строки остаются в конце формы; удаление строки не удаляет поля.",
+  "layoutRow": "Строка {{count}}",
+  "columnCount": "Колонок",
+  "layoutCell": "Поле {{count}}",
+  "emptyLayoutCell": "Выберите поле",
+  "moveRowUp": "Выше: строка {{count}}",
+  "moveRowDown": "Ниже: строка {{count}}",
+  "removeLayoutRow": "Убрать строку",
+  "addLayoutRow": "Добавить строку",
+  "fieldCollapsed": "Свернуть поле по умолчанию"
 }

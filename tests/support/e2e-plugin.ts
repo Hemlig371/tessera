@@ -1,3 +1,4 @@
+import { layoutScenario } from './layout-scenario';
 import type { Plugin } from 'vite';
 import { resolve } from 'node:path';
 import { mkdtemp, rm, readFile, writeFile, mkdir, rename } from 'node:fs/promises';
@@ -99,6 +100,10 @@ export function e2ePlugin(): Plugin {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;
+          }
+          if (op === 'layout-seed') {
+            const value = await layoutScenario(await Repository.open(db));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'markdown-seed') {
             const value = await markdownScenario(await Repository.open(db));

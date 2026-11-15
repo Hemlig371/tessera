@@ -4,6 +4,19 @@ import type { SqlSession } from './ports';
 import { formConfig, validateUiDefinition } from './ui-definition';
 import { validateValue } from './validation';
 
+/** Normal-form validation/defaults are shared; quick-form layout remains independent. */
+export function quickLayout(form: UiDefinition, quick: UiDefinition, fields: readonly Field[]): UiDefinition {
+  return { ...quick, fields: fields.map(field => {
+    const base = form.fields.find(item => item.field_id === field.id);
+    return {
+      ...(base?.required != null ? { required: base.required } : {}),
+      ...(base?.hint != null ? { hint: base.hint } : {}),
+      ...(base && Object.hasOwn(base, 'default') ? { default: base.default } : {}),
+      ...(quick.fields.find(item => item.field_id === field.id) ?? { field_id: field.id, visible: false }),
+    };
+  }) };
+}
+
 function needsInput(field: Field, primary: string, form: UiDefinition): boolean {
   if (field.type === 'backlink') return false;
   const config = formConfig(field, form.fields.find(item => item.field_id === field.id));
@@ -28,7 +41,8 @@ export async function readQuickForm(s: SqlSession, collection: Collection, field
   if (stored) {
     const definition = JSON.parse(stored.config) as UiDefinition;
     const active = new Set(fields.map(field => field.id));
-    return { fields: definition.fields.filter(item => active.has(item.field_id)) };
+    return { ...definition, fields: definition.fields.filter(item => active.has(item.field_id)),
+      ...(definition.rows ? { rows: definition.rows.map(row => ({ ...row, field_ids: row.field_ids.filter(id => active.has(id)) })).filter(row => row.field_ids.length) } : {}) };
   }
   return { fields: fields.map(field => ({ field_id: field.id,
     visible: field.id === collection.primary_field_id || needsInput(field, collection.primary_field_id, form), width: 'full' })) };

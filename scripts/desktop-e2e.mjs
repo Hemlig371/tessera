@@ -30,11 +30,13 @@ async function openLibrary(name) {
   await until(`!!(${selector})`); await execute(`(${selector}).click()`);
 }
 async function input(text) {
-  await until("!!document.querySelector('[role=dialog] input, [role=dialog] textarea')");
-  const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: '[role=dialog] input, [role=dialog] textarea' });
+  const selector = '[role=dialog] input:not([type=checkbox]):not([type=file]):not([type=hidden]):not(:disabled), [role=dialog] textarea:not(:disabled)';
+  await until(`!!document.querySelector(${JSON.stringify(selector)})`);
+  const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: selector });
   await request('POST', `/session/${session}/element/${element['element-6066-11e4-a52e-4f735466cecf']}/value`, { text: text.replaceAll('\n', '\uE007') });
-  assert.equal(await execute("return document.querySelector('[role=dialog] input, [role=dialog] textarea').value"), text);
+  await until(`document.querySelector(${JSON.stringify(selector)})?.value===${JSON.stringify(text)}`);
 }
+
 async function start() {
   const result = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: resolve('src-tauri/target/debug/tessera') } } } });
   session = result.sessionId;

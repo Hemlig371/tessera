@@ -2,7 +2,7 @@ import { create } from 'zustand';
 interface UiState {
   libraryId: string | null;
   collectionId: string | null;
-  editor: 'library' | 'collection' | 'entry' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | null;
+  editor: 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | null;
   editingId: string | null;
   text: string;
   search: string;

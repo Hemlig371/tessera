@@ -167,7 +167,8 @@
   "layouts": {
     "form": "Form",
     "card": "Card",
-    "list": "List"
+    "list": "List",
+    "quick": "Quick form"
   },
   "types": {
     "text": "Text",
@@ -220,5 +221,7 @@
   "inboxMoveHint": "Choose a collection and complete its required fields. The entry stays in Inbox until you save.",
   "targetLibrary": "Destination library",
   "targetCollection": "Destination collection",
-  "chooseLibrary": "Choose a library"
+  "chooseLibrary": "Choose a library",
+  "quickEntry": "Quick entry",
+  "quickFormHint": "Choose fields for quick entry. Validation, required fields and defaults come from the regular form. Hidden required fields must have valid defaults."
 }

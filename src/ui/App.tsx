@@ -39,6 +39,7 @@ export function App({ api }: { api: Repository }) {
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
     [layouts, setLayouts] = useState(emptyLayouts);
+  const [quickDefinition, setQuickDefinition] = useState<UiDefinition>({ fields: [] });
   const [page, setPage] = useState<Page<EntryListItem>>({ items: [], next: null }),
     [selected, setSelected] = useState<Entry | null>(null);
   const [context, setContext] = useState<Context | null>(null),
@@ -151,10 +152,12 @@ export function App({ api }: { api: Repository }) {
       Promise.all([
         api.listFields(ui.collectionId),
         ...(['form', 'card', 'list'] as const).map((kind) => api.getUiConfig(ui.collectionId!, kind)),
+        api.getQuickForm(ui.collectionId),
       ])
-        .then(([rows, form, card, list]) => {
+        .then(([rows, form, card, list, quick]) => {
           if (active) {
             setFields(rows as Field[]);
+            setQuickDefinition(quick as UiDefinition);
             setLayouts({
               form: form as UiDefinition,
               card: card as UiDefinition,
@@ -211,17 +214,20 @@ export function App({ api }: { api: Repository }) {
       const nextCollections = current.libraryId ? await api.listCollections(current.libraryId) : [];
       const currentCollection = nextCollections.find((c) => c.id === current.collectionId);
       if (currentCollection) {
-        const [nextFields, form, card, list] = await Promise.all([
+        const [nextFields, form, card, list, quick] = await Promise.all([
           api.listFields(currentCollection.id),
           api.getUiConfig(currentCollection.id, 'form'),
           api.getUiConfig(currentCollection.id, 'card'),
           api.getUiConfig(currentCollection.id, 'list'),
+          api.getQuickForm(currentCollection.id),
         ]);
         setFields(nextFields);
         setLayouts({ form, card, list });
+        setQuickDefinition(quick);
       } else {
         setFields([]);
         setLayouts(emptyLayouts);
+        setQuickDefinition({ fields: [] });
       }
       setLibraries(nextLibraries);
       setCollections(nextCollections);
@@ -348,6 +354,8 @@ export function App({ api }: { api: Repository }) {
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
+        : ui.editor === 'quick-entry'
+          ? t('quickEntry')
         : ui.editor === 'move'
           ? t('moveFromInbox')
         : ui.editor === 'entry'
@@ -488,6 +496,8 @@ export function App({ api }: { api: Repository }) {
                   {t(`layouts.${kind}`)}
                 </button>
               ))}
+              <button disabled={disabled || !fieldsReady} onClick={() => open('quick')}>{t('layouts.quick')}</button>
+              <button disabled={disabled || !fieldsReady} onClick={() => open('quick-entry')}>+ {t('quickEntry')}</button>
               <button disabled={disabled || !fieldsReady} onClick={() => open('csv')}>
                 {t('csv')}
               </button>
@@ -799,6 +809,12 @@ export function App({ api }: { api: Repository }) {
               }}
             />
           )}
+          {ui.editor === 'quick-entry' && collection && <RecordForm api={api} collection={collection}
+            fields={fields.filter(field => quickDefinition.fields.some(item => item.visible && item.field_id === field.id))}
+            layout={{ fields: quickDefinition.fields.map(item => ({ ...layouts.form.fields.find(base => base.field_id === item.field_id), ...item })) }}
+            busy={busy} cancel={close} save={data => { void run(async () => { await api.saveQuickEntry(collection.id, data); setSaved(true); }); }} />}
+          {ui.editor === 'quick' && collection && <><p>{t('quickFormHint')}</p><LayoutEditor api={api} kind="card" fields={fields.filter(field => field.type !== 'backlink')}
+            definition={quickDefinition} busy={busy} cancel={close} save={definition => { void run(() => api.saveQuickForm(collection.id, definition)); }} /></>}
           {ui.editor === 'fields' && collection && (
             <FieldsEditor
               api={api}

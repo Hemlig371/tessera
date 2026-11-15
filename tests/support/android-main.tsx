@@ -11,6 +11,7 @@ import { stage2Scenario } from './stage2-scenario';
 import { scaleScenario } from './scale';
 import { sqliteContract } from './sqlite-contract';
 import { inboxScenario } from './inbox-scenario';
+import { quickScenario } from './quick-scenario';
 
 async function run() {
   const first = await openAndroidDatabase();
@@ -36,6 +37,8 @@ async function run() {
   } else document.documentElement.dataset.scale = String(complete.value);
   document.documentElement.dataset.acceptanceStage = 'inbox';
   await inboxScenario(api);
+  document.documentElement.dataset.acceptanceStage = 'quick';
+  await quickScenario(api);
   document.documentElement.dataset.acceptanceStage = 'reopen';
   await first.close();
   const reopened = await openAndroidDatabase();

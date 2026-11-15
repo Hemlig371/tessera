@@ -82,6 +82,8 @@ try {
   await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
   await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
+  await clickText('+ Быстрая запись'); await input('Native quick entry'); await clickText('Сохранить');
+  await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native quick entry'))");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

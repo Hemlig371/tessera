@@ -74,4 +74,11 @@ export const migrations = [
       'CREATE UNIQUE INDEX collections_system ON collections(system_kind) WHERE system_kind IS NOT NULL',
     ],
   },
+  {
+    version: 5,
+    statements: [
+      `CREATE TABLE quick_forms(${stamp}, collection_id TEXT NOT NULL UNIQUE REFERENCES collections(id),
+        kind TEXT NOT NULL DEFAULT 'quick' CHECK(kind='quick'), config TEXT NOT NULL ${jsonObject('config')})`,
+    ],
+  },
 ] as const;

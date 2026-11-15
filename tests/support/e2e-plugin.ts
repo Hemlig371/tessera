@@ -6,6 +6,7 @@ import { openNodeDatabase } from './node-database';
 import { Repository } from '../../src/core/repository';
 import { stage3Scenario } from './stage3-scenario';
 import { scaleScenario } from './scale';
+import { quickFormFixture } from './quick-scenario';
 import type { SqlValue } from '../../src/core/ports';
 
 /** Explicit test-only HTTP harness with real SQLite; absent from production config. */
@@ -65,6 +66,12 @@ export function e2ePlugin(): Plugin {
               fixture.projects.id,
               Array.from({ length: 51 }, (_, i) => ({ [fixture.projects.primary_field_id]: 'Цель ' + i }))
             );
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ value: fixture.library.id }));
+            return;
+          }
+          if (op === 'quick-seed') {
+            const fixture = await quickFormFixture(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;

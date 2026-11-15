@@ -47,8 +47,9 @@ import {
 } from './validation';
 import { fieldExpression, fieldIndexName, sortData } from './search-keys';
 import { validateUiDefinition } from './ui-definition';
+import { readQuickForm, validateQuickForm } from './quick-forms';
 
-type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs';
+type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms';
 export class Repository {
   private constructor(
     readonly db: DatabaseAdapter,
@@ -394,7 +395,7 @@ export class Repository {
     requireId(id);
     const table = { library: 'libraries', collection: 'collections', field: 'fields', record: 'records' }[
       kind
-    ] as Exclude<Table, 'ui_configs'>;
+    ] as Exclude<Table, 'ui_configs' | 'quick_forms'>;
     const collectionId = await this.db.transaction(async (s) => {
       const [stored] = await s.query<Library | Collection | Field | StoredEntry>(
         `SELECT * FROM ${table} WHERE id=?`,
@@ -799,6 +800,46 @@ export class Repository {
         await this.log(s, 'ui_config', row, row);
       }
       await this.indexesInSession(s, collectionId);
+    });
+  }
+  private async quickContext(s: SqlSession, collectionId: string, allowSystem = false) {
+    const collection = await activeCollection(s, collectionId);
+    if (collection.system_kind && !allowSystem) throw new AppError('systemContainer');
+    const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,id', [collectionId]);
+    const [stored] = await s.query<{ config: string }>("SELECT config FROM ui_configs WHERE collection_id=? AND kind='form' AND deleted_at IS NULL", [collectionId]);
+    const form: UiDefinition = stored ? JSON.parse(stored.config) as UiDefinition : { fields: [] };
+    return { collection, fields, form };
+  }
+  async getQuickForm(collectionId: string): Promise<UiDefinition> {
+    requireId(collectionId);
+    return this.db.read(async s => {
+      const { collection, fields, form } = await this.quickContext(s, collectionId, true);
+      if (collection.system_kind) return { fields: [] };
+      return readQuickForm(s, collection, fields, form);
+    });
+  }
+  async saveQuickForm(collectionId: string, definition: UiDefinition): Promise<void> {
+    requireId(collectionId);
+    await this.db.transaction(async s => {
+      const { collection, fields, form } = await this.quickContext(s, collectionId);
+      validateQuickForm(definition, collection, fields, form);
+      const config = canonical(definition as unknown as JsonValue);
+      const [old] = await s.query<Stamp & { collection_id: string; kind: 'quick'; config: string }>('SELECT * FROM quick_forms WHERE collection_id=?', [collectionId]);
+      if (old) await this.update(s, 'quick_forms', 'ui_config', old, { config, deleted_at: null });
+      else {
+        const row = { ...(await this.stamp(s)), collection_id: collectionId, kind: 'quick', config };
+        await this.insert(s, 'quick_forms', row);
+        await this.log(s, 'ui_config', row, row);
+      }
+    });
+  }
+  async saveQuickEntry(collectionId: string, data: RecordData): Promise<Entry> {
+    requireId(collectionId);
+    validateData(data);
+    return this.db.transaction(async s => {
+      const { collection, fields, form } = await this.quickContext(s, collectionId);
+      validateQuickForm(await readQuickForm(s, collection, fields, form), collection, fields, form);
+      return this.saveEntryInSession(s, collectionId, data);
     });
   }
   /** Resumable local cache rebuild; each transaction handles at most 200 records. */

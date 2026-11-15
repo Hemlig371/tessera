@@ -27,11 +27,11 @@ async function clickText(text) {
     if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
   }
   const encoded = JSON.stringify(text);
-  await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled)`);
-  await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled).click();`);
+  await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled'))`);
+  await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled')).click();`);
 }
 async function openLibrary(name) {
-  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.disabled)`;
+  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.matches(':disabled'))`;
   await until(`!!(${selector})`); await execute(`(${selector}).click()`);
 }
 async function input(text) {
@@ -83,7 +83,7 @@ try {
   await clickText('Перенести в коллекцию');
   async function selectOption(label, text) {
     const selector = `[...document.querySelectorAll('[role=dialog] label')].find(l=>l.textContent.includes(${JSON.stringify(label)}))?.querySelector('select')`;
-    await until(`!!(${selector}) && [...(${selector}).options].some(o=>o.text===${JSON.stringify(text)})`);
+    await until(`!!(${selector}) && !(${selector}).matches(':disabled') && [...(${selector}).options].some(o=>o.text===${JSON.stringify(text)})`);
     await execute(`const s=${selector}; s.value=[...s.options].find(o=>o.text===${JSON.stringify(text)}).value; s.dispatchEvent(new Event('change',{bubbles:true}));`);
   }
   await selectOption('Библиотека назначения', 'Native library');
@@ -112,7 +112,7 @@ try {
   assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
   await openLibrary('Native library');
   await clickText('Native collection');
-  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
+  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.matches(':disabled'))");
   assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
   await clickText('+ Новая запись');
   await until("document.querySelector('[role=dialog] input')?.value==='Native draft survives restart'");

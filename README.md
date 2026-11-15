@@ -140,6 +140,8 @@ Workflow: **любой push (включая tags), pull_request и вручну�
 
 **Проверки этапа 3:** локально выполняются typecheck, lint, unit, DB/API, HLC, Rust, Playwright и production build. Измерения 50K сохраняются в `work/scale-*.json` и CI-артефактах `scale-metrics-*`; они привязаны к машине/адаптеру, без обещания скорости на любом устройстве. Набор содержит 50 000 записей, 21 поле, 4 999 связей и проверяет обратную выборку; формирование индекса и связанное создание проверяются на реальной SQLite. Android измеряется в отдельном emulator job и выводит `STAGE3_SCALE` в instrumentation report.
 
+**Последняя подтверждённая нативная матрица:** `55aba86` (0.11.0), [8/8 jobs](https://github.com/Hemlig371/tessera/actions/runs/43744964144): Markdown, A-04 CSV и оформление, включая Android Emulator и Linux WebView. Конструктор 0.12.0 проверяется отдельным следующим прогоном.
+
 **Статус конкретного коммита:** [GitHub Actions](https://github.com/Hemlig371/tessera/actions). Зелёный предыдущий прогон не подтверждает новый код. Сборка APK сама по себе не доказывает выполнение SQLite bridge. При падении JUnit-assert выводится в GitHub Checks, полный отчёт сохраняется артефактом.
 
 **Ручная приёмка:** физический Android/OEM lifecycle, системный выбор CSV на конкретных устройствах, установка и поведение подписанных Windows/macOS сборок. В локальном Cloud нет KVM и GTK/WebKit headers; GUI/emulator-проверки выполняются в CI. APK — debug, desktop-пакеты без релизной подписи. На Android отмена/ошибка экспорта пытается удалить незавершённый SAF-документ; успешное удаление зависит от document provider. Desktop пишет временный файл рядом с целевым и заменяет его после завершения.

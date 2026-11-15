@@ -6,6 +6,8 @@ import { App } from '../../src/ui/App';
 import { openAndroidDatabase } from '../../src/platform/android-database';
 import { migrate } from '../../src/core/migrate';
 import { Repository } from '../../src/core/repository';
+import { stage2Scenario } from './stage2-scenario';
+import { scaleScenario } from './scale';
 import { sqliteContract } from './sqlite-contract';
 
 async function run() {
@@ -16,6 +18,13 @@ async function run() {
   const collection = (await api.listCollections(library.id))[0] ?? await api.createCollection(library.id, 'Записи', 'Название');
   const old = (await api.listEntries(collection.id)).items[0];
   const record = old ?? await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Bridge roundtrip' });
+  const [complete] = await first.read(s => s.query("SELECT value FROM local_settings WHERE key='acceptance.stage2'"));
+  if (!complete) {
+    await stage2Scenario(api);
+    const result = await scaleScenario(api);
+    document.documentElement.dataset.scale = JSON.stringify({ importMs: result.importMs, queryMs: result.queryMs });
+    await first.transaction(s => s.execute("INSERT INTO local_settings VALUES('acceptance.stage2',?)", [JSON.stringify({ collection: result.collection.id, importMs: result.importMs, queryMs: result.queryMs })]));
+  } else document.documentElement.dataset.scale = String(complete.value);
   await first.close();
   const reopened = await openAndroidDatabase();
   const again = await Repository.open(reopened);

@@ -1,6 +1,6 @@
 // Real Tauri WebView via tauri-driver (Linux CI). No mock IPC or database.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import assert from 'node:assert/strict';
@@ -22,8 +22,8 @@ async function until(script) {
 }
 async function clickText(text) {
   const encoded = JSON.stringify(text);
-  await until(`[...document.querySelectorAll('button')].some(b=>b.textContent.trim()===${encoded} && !b.disabled)`);
-  await execute(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${encoded} && !b.disabled).click();`);
+  await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled)`);
+  await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled).click();`);
 }
 async function input(text) {
   await until("!!document.querySelector('[role=dialog] input')");
@@ -47,6 +47,17 @@ try {
   await clickText('+ Новая запись'); await input('Native persistent entry'); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   assert.equal(await execute("return document.querySelector('[role=status]').textContent"), 'Запись сохранена');
+  const csvPath = join(directory, 'native-export.csv');
+  const bridgeResult = await request('POST', `/session/${session}/execute/async`, {
+    script: `const done=arguments[arguments.length-1]; (async()=>{
+      const invoke=window.__TAURI_INTERNALS__.invoke;
+      await invoke('csv_open',{path:${JSON.stringify(csvPath)}});
+      await invoke('csv_write',{text:'Название;Число\\r\\nЁж 🦔;0\\r\\n'});
+      await invoke('csv_finish');
+    })().then(()=>done('ok'),e=>done(String(e)));`, args: [],
+  });
+  assert.equal(bridgeResult, 'ok');
+  assert.equal(await readFile(csvPath, 'utf8'), 'Название;Число\r\nЁж 🦔;0\r\n');
   await request('DELETE', `/session/${session}`); session = undefined;
   await start();
   await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");

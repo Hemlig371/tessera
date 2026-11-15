@@ -1,20 +1,104 @@
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type RecordData = Record<string, JsonValue>;
 export interface Stamp {
-  id: string; hlc: string; device_id: string; deleted_at: string | null;
-  created_at: string; updated_at: string;
+  id: string;
+  hlc: string;
+  device_id: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
-export interface Library extends Stamp { name: string; config: string }
+export interface Library extends Stamp {
+  name: string;
+  config: string;
+  position: number;
+}
 export interface Collection extends Stamp {
-  library_id: string; name: string; primary_field_id: string; incoming_field_id: string; config: string;
+  library_id: string;
+  name: string;
+  primary_field_id: string;
+  incoming_field_id: string;
+  config: string;
+  position: number;
 }
 export interface Field extends Stamp {
-  collection_id: string; name: string; type: string; config: string;
+  collection_id: string;
+  name: string;
+  type: string;
+  config: string;
+  position: number;
 }
 export interface Entry extends Stamp {
-  collection_id: string; data: RecordData; created_local: string; updated_local: string; purged: number;
+  collection_id: string;
+  data: RecordData;
+  created_local: string;
+  updated_local: string;
+  purged: number;
 }
-export interface Page<T> { items: T[]; next: { updated_at: string; id: string } | null }
+export interface EntryCursor {
+  updated_at: string;
+  id: string;
+  sort_value?: string | number | null;
+  query_key?: string;
+  keys?: (string | number | null)[];
+}
+export interface Page<T> {
+  items: T[];
+  next: EntryCursor | null;
+}
+export const FIELD_TYPES = ['text', 'multiline', 'boolean', 'integer', 'date'] as const;
+export type FieldType = (typeof FIELD_TYPES)[number];
+export interface FieldConfig {
+  required?: boolean;
+  hint?: string;
+  default?: JsonValue;
+  fts?: boolean;
+  indexed?: boolean;
+  min?: number;
+  max?: number;
+}
+export interface Appearance {
+  icon?: string;
+  color?: string;
+}
+export type UiKind = 'form' | 'card' | 'list';
+export interface LayoutItem {
+  field_id: string;
+  visible: boolean;
+  width?: 'full' | 'half';
+  group?: string;
+  required?: boolean;
+  hint?: string;
+  default?: JsonValue;
+}
+export interface EntryFilter {
+  field_id: string;
+  op: 'eq' | 'ne' | 'gt' | 'lt' | 'empty' | 'filled';
+  value?: JsonValue;
+}
+export interface ListOptions {
+  sort_field?: string;
+  direction?: 'asc' | 'desc';
+  filters?: EntryFilter[];
+  mode?: 'rows' | 'cards' | 'table';
+  group_field?: string;
+}
+export interface UiDefinition {
+  fields: LayoutItem[];
+  list?: ListOptions;
+}
+export interface UiConfiguration extends Stamp {
+  collection_id: string;
+  kind: UiKind;
+  config: string;
+}
+export interface EntryQuery extends ListOptions {
+  collection_id?: string;
+  library_id?: string;
+  search?: string;
+  cursor?: EntryCursor | null;
+  limit?: number;
+}
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** Stable serialization also makes unchanged saves independent of object key order. */
@@ -23,7 +107,14 @@ export function canonical(value: JsonValue): string {
   if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
   if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
-    return '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k]!)).join(',') + '}';
+    return (
+      '{' +
+      Object.keys(value)
+        .sort()
+        .map((k) => JSON.stringify(k) + ':' + canonical(value[k]!))
+        .join(',') +
+      '}'
+    );
   }
   throw new Error('invalidData');
 }

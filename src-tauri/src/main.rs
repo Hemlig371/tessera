@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod csv_files;
+use csv_files::CsvFiles;
 use serde_json::Value;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
@@ -10,12 +12,12 @@ fn with_db<T>(state: State<'_, Storage>, work: impl FnOnce(&Database) -> Result<
     work(guard.as_ref().ok_or("databaseUnavailable")?)
 }
 #[tauri::command]
-fn db_query(state: State<'_, Storage>, sql: String, params: Vec<Value>) -> Result<Vec<Value>, String> {
-    with_db(state, |db| db.query(&sql, &params))
+async fn db_query(app: tauri::AppHandle, sql: String, params: Vec<Value>) -> Result<Vec<Value>, String> {
+    tauri::async_runtime::spawn_blocking(move || with_db(app.state(), |db| db.query(&sql, &params))).await.map_err(|_| "databaseUnavailable")?
 }
 #[tauri::command]
-fn db_execute(state: State<'_, Storage>, sql: String, params: Vec<Value>) -> Result<(), String> {
-    with_db(state, |db| db.execute(&sql, &params))
+async fn db_execute(app: tauri::AppHandle, sql: String, params: Vec<Value>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || with_db(app.state(), |db| db.execute(&sql, &params))).await.map_err(|_| "databaseUnavailable")?
 }
 #[tauri::command]
 fn db_begin(state: State<'_, Storage>) -> Result<(), String> { with_db(state, |db| db.begin()) }
@@ -36,6 +38,8 @@ fn db_close(state: State<'_, Storage>) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .manage(CsvFiles::default())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") { let _ = window.show(); let _ = window.set_focus(); }
         }))
@@ -48,6 +52,6 @@ fn main() {
             app.manage(Storage { db: Mutex::new(Some(db)), backups: root.join("operational/backups") });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close])
+        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, csv_files::csv_open, csv_files::csv_write, csv_files::csv_finish, csv_files::csv_abort])
         .run(tauri::generate_context!()).expect("Tessera startup failed");
 }

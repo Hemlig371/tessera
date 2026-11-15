@@ -1,6 +1,6 @@
 {
   "name": "tessera",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -28,7 +28,8 @@
     "test:android": "npm run android:acceptance && node scripts/run-android-tests.mjs",
     "android:acceptance": "vite build --config vite.android-test.config.ts && cap sync android",
     "licenses": "node scripts/licenses.mjs",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:scale": "vitest run tests/db/scale.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",
@@ -36,6 +37,7 @@
     "@capacitor/core": "8.6.2",
     "@tanstack/react-virtual": "3.14.26",
     "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/plugin-dialog": "2.6.0",
     "i18next": "27.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",

@@ -1,6 +1,6 @@
 
 ===== Native platform dependencies =====
-Tauri 2 / rusqlite / Capacitor: MIT or Apache-2.0 (licenses distributed with source).
+Tauri 2 (including dialog plugin) / rfd / rusqlite / Capacitor: MIT or Apache-2.0 (licenses distributed with source).
 SQLite: public domain — https://www.sqlite.org/copyright.html
 SQLCipher Community (transitive Android dependency; encryption disabled): BSD-style,
 https://github.com/sqlcipher/sqlcipher/blob/master/LICENSE.md

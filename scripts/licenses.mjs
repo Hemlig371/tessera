@@ -3,7 +3,7 @@ import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['ls', '--omit=dev', '--all', '--parseable'], { encoding: 'utf8', shell: process.platform === 'win32' });
 if (result.status !== 0) throw new Error(result.stderr);
-let text = 'Tessera 0.1.0 — third-party notices\nGenerated from installed production npm dependencies.\n\n';
+let text = 'Tessera 0.2.0 — third-party notices\nGenerated from installed production npm dependencies.\n\n';
 for (const path of [...new Set(result.stdout.trim().split(/\r?\n/))].filter(p => p !== resolve('.')).sort()) {
   const pkg = JSON.parse(await readFile(join(path, 'package.json'), 'utf8'));
   const license = typeof pkg.license === 'string' ? pkg.license : pkg.license?.type;

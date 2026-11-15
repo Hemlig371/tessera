@@ -33,6 +33,11 @@ jobs:
       - run: npm run test:db
       - run: npm run test:native
       - run: npm run test:native-api
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scale-metrics-${{ matrix.os }}
+          path: work/scale-*.json
+          if-no-files-found: error
       - run: npx playwright install --with-deps chromium
         if: runner.os != 'Windows'
       - run: npm run test:e2e

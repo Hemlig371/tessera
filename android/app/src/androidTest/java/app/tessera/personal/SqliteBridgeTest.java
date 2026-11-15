@@ -98,7 +98,7 @@ public class SqliteBridgeTest {
             js(scenario, "document.querySelector('[role=dialog] input[type=checkbox]').click()");
             awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:checked')");
             js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(button=>button.textContent==='Сохранить представление').click()");
-            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:disabled:checked')");
+            awaitJs(scenario, "!!document.querySelector('[role=dialog] input[type=checkbox]:disabled:checked') && [...document.querySelectorAll('[role=dialog] button')].some(button=>button.textContent==='Сохранить представление' && !button.disabled)");
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
             awaitJs(scenario, "!document.querySelector('[role=dialog]')");
             scenario.recreate();

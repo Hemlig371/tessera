@@ -37,6 +37,7 @@ describe.each(adapters)('%s display profiles', kind => {
   });
   it('rejects a foreign profile, invalid settings and stale cursors; rolls metadata/default/index changes back atomically', async () => {
     f = await fixture(kind); const api = f.api!, library = await api.createLibrary('Атомарность');
+    await api.startLocalSync();
     const a = await api.createCollection(library.id, 'A', 'Название'), b = await api.createCollection(library.id, 'B', 'Название');
     await api.importEntries(a.id, Array.from({ length: 3 }, (_, n) => ({ [a.primary_field_id]: String(n) })));
     const profile = await api.createDisplayProfile(a.id, 'Другой');

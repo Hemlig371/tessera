@@ -15,6 +15,7 @@ describe.each(adapters)('%s native SQLite contract', kind => {
     f = await fixture(kind); const api = f.api!;
     const library = await api.createLibrary('Личное');
     const collection = await api.createCollection(library.id, 'Заметки', 'Название');
+    await api.startLocalSync();
     return { api, library, collection };
   }
   it('passes all mandatory SQLite probes through the adapter', async () => {

@@ -37,6 +37,7 @@ describe.each(adapters)('%s Markdown and Inbox mapping', kind => {
   });
   it('falls back without losing content when mapping fields disappear, rejects invalid mapping and stale sources without writes', async () => {
     const { api, collection, body, inbox } = await setup();
+    await api.startLocalSync();
     const original = 'Вводная\n# Поздний заголовок\nНе терять текст';
     const row = await api.saveEntry(inbox.id, { [inbox.incoming_field_id]: original });
     await api.setDeleted('field', body.id, true);

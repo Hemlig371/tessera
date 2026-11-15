@@ -50,6 +50,7 @@ describe.each(adapters)('%s creation presets', kind => {
   });
   it('rejects foreign/invalid fields and rolls preset/default/clock/journal back together', async () => {
     f = await fixture(kind); const api = f.api!, sample = await createProjectsLibrary(api);
+    await api.startLocalSync();
     await expect(api.setCreationChoice(sample.projects.id, { kind: 'preset', preset_id: sample.bug.id })).rejects.toThrow('invalidPreset');
     await expect(api.createCreationPreset(sample.tasks.id, 'Чужое поле', { form: 'standard', data: { [sample.projects.primary_field_id]: 'Нет' }, today_fields: [] })).rejects.toThrow('invalidPreset');
     await expect(api.createCreationPreset(sample.tasks.id, 'Дата в числе', { form: 'standard', data: {}, today_fields: [sample.priority.id] })).rejects.toThrow('invalidPreset');

@@ -1,5 +1,6 @@
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
 import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
+import { acknowledgeChanges, activateJournal, compactChanges, detachJournal, journalCheckpoint, journalEnabled, pauseJournal, readChanges, syncMode, type JournalCheckpoint } from './change-journal';
 import { defaultAppearance, validateAppearance, type DeviceAppearance } from './device-appearance';
 import { inboxMoveDefaults, validateInboxMapping, type InboxMapping } from './inbox-mapping';
 import {
@@ -64,8 +65,9 @@ export class Repository {
   private constructor(
     readonly db: DatabaseAdapter,
     readonly deviceId: string,
-    readonly datasetId: string
+    private currentDatasetId: string
   ) {}
+  get datasetId(): string { return this.currentDatasetId; }
   static async open(db: DatabaseAdapter): Promise<Repository> {
     const ids = await db.transaction(async (s) => {
       const [format] = await s.query<{ value: string }>(
@@ -125,7 +127,8 @@ export class Repository {
       values
     );
   }
-  private async log(s: SqlSession, entity: string, row: Stamp, payload: object): Promise<void> {
+  private async log(s: SqlSession, entity: string, row: Pick<Stamp, 'id' | 'hlc' | 'device_id'>, payload: object): Promise<void> {
+    if (!await journalEnabled(s)) return;
     await s.execute(
       'INSERT INTO change_log(id,entity_type,entity_id,hlc,device_id,payload) VALUES(?,?,?,?,?,?)',
       [
@@ -138,6 +141,48 @@ export class Repository {
       ]
     );
   }
+  getSyncMode() { return this.db.read(s => syncMode(s)); }
+  /** Foundation for local protocol tests. Enabling transport is a separate feature. */
+  startLocalSync(): Promise<JournalCheckpoint> {
+    return this.db.transaction(async s => {
+      if (await syncMode(s) === 'active') return journalCheckpoint(s);
+      await activateJournal(s);
+      const tables = [
+        ['libraries', 'library'], ['collections', 'collection'], ['fields', 'field'],
+        ['ui_configs', 'ui_config'], ['quick_forms', 'ui_config'],
+        ['display_profiles', 'display_profile'], ['creation_presets', 'creation_preset'],
+        ['records', 'record'], ['record_versions', 'record_version'],
+      ] as const;
+      for (const [table, entity] of tables) {
+        let after = '';
+        while (true) {
+          const rows = await s.query<Stamp & { snapshot?: string }>(`SELECT * FROM ${table} WHERE id>? ORDER BY id LIMIT 100`, [after]);
+          if (!rows.length) break;
+          for (const row of rows) {
+            const payload = table === 'records' ? decodeEntry(row as StoredEntry) :
+              table === 'record_versions' ? { ...row, snapshot: JSON.parse(row.snapshot!) } : { ...row };
+            await this.log(s, entity, row, payload);
+          }
+          after = rows.at(-1)!.id;
+        }
+      }
+      const markers = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key LIKE 'history:%' ORDER BY key");
+      for (const marker of markers) {
+        const hlc = marker.key.startsWith('history:clear:') ? marker.value : (JSON.parse(marker.value) as { hlc: string }).hlc;
+        await this.log(s, 'history_marker', { id: marker.key, hlc, device_id: this.deviceId }, { ...marker });
+      }
+      return journalCheckpoint(s);
+    });
+  }
+  pauseLocalSync(paused: boolean): Promise<void> { return this.db.transaction(s => pauseJournal(s, paused)); }
+  async detachLocalSync(): Promise<void> {
+    this.currentDatasetId = await this.db.transaction(s => detachJournal(s));
+  }
+  readLocalChanges(after: JournalCheckpoint, limit = 200) { return this.db.read(s => readChanges(s, after, limit)); }
+  acknowledgeLocalChanges(peerId: string, checkpoint: JournalCheckpoint): Promise<void> {
+    return this.db.transaction(s => acknowledgeChanges(s, peerId, checkpoint));
+  }
+  compactLocalChanges(): Promise<void> { return this.db.transaction(s => compactChanges(s)); }
   private async update<T extends Stamp>(
     s: SqlSession,
     table: Table,
@@ -725,6 +770,7 @@ export class Repository {
         form ? (JSON.parse(form.config) as UiDefinition) : { fields: [] }
       );
       const [last] = await s.query<{ value: string }>("SELECT value FROM local_settings WHERE key='hlc'");
+      const keepJournal = await journalEnabled(s);
       let clock = last?.value,
         count = 0;
       let batch: StoredEntry[] = [];
@@ -757,31 +803,33 @@ export class Repository {
             canonical({ ...v.snapshot }),
           ])
         );
-        const logs = batch.flatMap((row, i) => {
-          const v = versions[i]!;
-          return [
-            [
-              crypto.randomUUID(),
-              'record',
-              row.id,
-              row.hlc,
-              row.device_id,
-              canonical({ ...decodeEntry(row) }),
-            ],
-            [
-              crypto.randomUUID(),
-              'record_version',
-              v.id,
-              v.hlc,
-              v.device_id,
-              canonical(v as unknown as JsonValue),
-            ],
-          ];
-        });
-        await s.execute(
-          `INSERT INTO change_log(id,entity_type,entity_id,hlc,device_id,payload) VALUES ${logs.map(() => '(?,?,?,?,?,?)').join(',')}`,
-          logs.flat()
-        );
+        if (keepJournal) {
+          const logs = batch.flatMap((row, i) => {
+            const v = versions[i]!;
+            return [
+              [
+                crypto.randomUUID(),
+                'record',
+                row.id,
+                row.hlc,
+                row.device_id,
+                canonical({ ...decodeEntry(row) }),
+              ],
+              [
+                crypto.randomUUID(),
+                'record_version',
+                v.id,
+                v.hlc,
+                v.device_id,
+                canonical(v as unknown as JsonValue),
+              ],
+            ];
+          });
+          await s.execute(
+            `INSERT INTO change_log(id,entity_type,entity_id,hlc,device_id,payload) VALUES ${logs.map(() => '(?,?,?,?,?,?)').join(',')}`,
+            logs.flat()
+          );
+        }
         await this.refreshRecords(s, batch, fields);
         count += batch.length;
         batch = [];

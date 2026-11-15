@@ -26,7 +26,7 @@ describe.each(adapters)('%s 50K × 21', (kind) => {
       s.query<{ n: number; versions: number; logs: number }>(`SELECT (SELECT count(*) FROM records) AS n,
       (SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log WHERE entity_type IN('record','record_version')) AS logs`)
     );
-    expect(counts[0]).toMatchObject({ n: 50000, versions: 50000, logs: 100000 });
+    expect(counts[0]).toMatchObject({ n: 50000, versions: 50000, logs: 0 });
     const plan = await f.db.read((s) =>
       s.query<{ detail: string }>(
         `EXPLAIN QUERY PLAN SELECT id FROM records WHERE collection_id=? AND deleted_at IS NULL AND ${fieldExpression(sort)}=?`,

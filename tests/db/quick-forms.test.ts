@@ -59,6 +59,7 @@ describe.each(adapters)('%s quick forms', kind => {
   });
   it('rolls config and record saves back together with their HLC/journal when a final write fails', async () => {
     const { api, collection } = await setup();
+    await api.startLocalSync();
     const before = await f.db.read(s => s.query('SELECT * FROM change_log'));
     await f.db.read(s => s.execute("CREATE TRIGGER fail_quick_log BEFORE INSERT ON change_log BEGIN SELECT RAISE(ABORT,'quick failure'); END"));
     await expect(api.saveQuickForm(collection.id, await api.getQuickForm(collection.id))).rejects.toThrow('quick failure');

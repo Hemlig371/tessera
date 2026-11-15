@@ -63,7 +63,7 @@ test('Notes creation drafts survive close/restart; existing edits and stale-form
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   const reserved = (await read())!.action.create_id;
   await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('При сворачивании');
-  await request({ op: 'execute', sql: "CREATE TRIGGER fail_draft_save BEFORE INSERT ON change_log BEGIN SELECT RAISE(ABORT,'draft save failure'); END" });
+  await request({ op: 'execute', sql: "CREATE TRIGGER fail_draft_save BEFORE INSERT ON record_versions BEGIN SELECT RAISE(ABORT,'draft save failure'); END" });
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('alert')).toBeVisible();
   expect(await read()).not.toBeNull();
   expect(await request({ op: 'query', sql: 'SELECT * FROM records WHERE id=?', params: [reserved] })).toEqual([]);

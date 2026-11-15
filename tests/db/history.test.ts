@@ -19,6 +19,7 @@ describe.each(adapters)('%s deterministic Top-20 history', kind => {
   }
   it('rotates explicit saves atomically, keeps latest 20 and does not count unchanged saves', async () => {
     const f = await setup(); let entry = f.entry;
+    await f.api.startLocalSync();
     for (let n = 1; n <= 34; n++) entry = await f.api.saveEntry(f.collection.id, { [f.collection.primary_field_id]: String(n) }, entry.id, entry.hlc);
     const history = await f.api.getHistory(entry.id);
     expect(history.versions).toHaveLength(20);

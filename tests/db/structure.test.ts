@@ -150,6 +150,7 @@ describe.each(adapters)('%s stage 2 structure', (kind) => {
   });
   it('rolls metadata, configuration and journal back together', async () => {
     const { api, library, collection } = await setup();
+    await api.startLocalSync();
     await f.db.read((s) =>
       s.execute(
         "CREATE TRIGGER reject_log BEFORE INSERT ON change_log BEGIN SELECT RAISE(ABORT,'failure'); END"

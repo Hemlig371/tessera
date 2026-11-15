@@ -422,7 +422,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     }
   }
   const recordContext =
-    linked?.context ?? (ui.editingId ? context : collection ? { collection, fields, layouts } : null);
+    linked?.context ?? (ui.editingId ? context : collection && fields[0]?.collection_id === collection.id ? { collection, fields, layouts } : null);
   const disabled = busy || !!ui.editor;
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
@@ -878,7 +878,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               action={openingDraft?.action ?? (linked ? { kind: 'linked', parent_id: linked.parentId, field_id: linked.fieldId, create_id: crypto.randomUUID() } : { kind: 'save', create_id: crypto.randomUUID() })}
               restored={openingDraft ?? undefined}
               registerClose={registerCreationClose} warn={warnDraftCleanup}
-              key={ui.editingId ?? 'new'}
+              key={'new:' + recordContext.collection.id}
               collection={recordContext.collection}
               fields={recordContext.fields}
               layout={recordContext.layouts.form}
@@ -905,7 +905,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               layout={context.layouts.form} entry={selected} busy={busy} cancel={close}
               change={data => setStaleEdit(old => old ? { ...old, data } : null)} save={data => saveEdited(data)} />
           </>}
-          {ui.editor === 'quick-entry' && collection && <DraftRecordForm api={api} collection={collection} store={drafts} initialData={creationInitial}
+          {ui.editor === 'quick-entry' && collection && fieldsReady && <DraftRecordForm key={'quick:' + collection.id} api={api} collection={collection} store={drafts} initialData={creationInitial}
             action={{ kind: 'save', create_id: crypto.randomUUID() }} registerClose={registerCreationClose} warn={warnDraftCleanup}
             fields={fields}
             layout={{ fields: fields.map(field => ({ ...layouts.form.fields.find(base => base.field_id === field.id),

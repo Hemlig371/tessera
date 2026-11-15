@@ -98,6 +98,10 @@ export function e2ePlugin(): Plugin {
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;
           }
+          if (op === 'inbox-context') {
+            const value = await (await Repository.open(db)).getInbox();
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
           if (op === 'presets-seed') {
             const value = await presetsScenario(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;

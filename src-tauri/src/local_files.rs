@@ -51,6 +51,9 @@ pub fn local_remove(files: State<'_, LocalFiles>, path: String) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn temporary_root() -> PathBuf {
+        std::env::temp_dir().join(format!("tessera-files-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()))
+    }
     #[test] fn replaces_durable_bytes_and_refuses_escape() {
         let root = std::env::temp_dir().join(format!("tessera-files-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         let files = LocalFiles(root.clone());
@@ -59,6 +62,57 @@ mod tests {
         assert_eq!(files.read("drafts/a/b.json").unwrap().unwrap(),b"next");
         for path in ["../databases/app.sqlite","/absolute","drafts/../outside","a\\outside","a//b"] { assert!(files.write(path,b"bad").is_err()); }
         files.remove("drafts/a/b.json").unwrap(); files.remove("drafts/a/b.json").unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn failed_rename_preserves_destination_and_removes_temporary_bytes() {
+        let root = temporary_root();
+        let files = LocalFiles(root.clone());
+        let destination = root.join("draft.json");
+        fs::create_dir_all(&destination).unwrap();
+        fs::write(destination.join("keep"), b"original").unwrap();
+        assert!(files.write("draft.json", b"replacement").is_err());
+        assert_eq!(fs::read(destination.join("keep")).unwrap(), b"original");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[cfg(windows)]
+    #[test] fn locked_windows_destination_preserves_old_draft_on_replace_failure() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root = temporary_root(); let files = LocalFiles(root.clone());
+        files.write("draft.json", b"old draft").unwrap();
+        let lock = fs::OpenOptions::new().read(true).share_mode(0).open(root.join("draft.json")).unwrap();
+        assert!(files.write("draft.json", b"new draft").is_err());
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        drop(lock);
+        assert_eq!(files.read("draft.json").unwrap().unwrap(), b"old draft");
+        files.write("draft.json", b"retry").unwrap();
+        assert_eq!(files.read("draft.json").unwrap().unwrap(), b"retry");
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test] fn process_kill_preserves_complete_file() {
+        const CHILD_ROOT: &str = "TESSERA_FILE_CRASH_ROOT";
+        if let Some(root) = std::env::var_os(CHILD_ROOT) {
+            let files = LocalFiles(PathBuf::from(root));
+            loop { files.write("draft.json", &vec![b'N'; 512 * 1024]).unwrap(); }
+        }
+        let root = temporary_root(); let files = LocalFiles(root.clone());
+        let old = vec![b'O'; 512 * 1024]; files.write("draft.json", &old).unwrap();
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "local_files::tests::process_kill_preserves_complete_file"])
+            .env(CHILD_ROOT, &root).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut saw_write = false;
+        while std::time::Instant::now() < deadline {
+            if fs::read_dir(&root).unwrap().any(|entry| entry.unwrap().file_name().to_string_lossy().starts_with(".write-")) { saw_write = true; break; }
+            if child.try_wait().unwrap().is_some() { break; }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        let _ = child.kill(); child.wait().unwrap();
+        assert!(saw_write, "child never started an atomic file write");
+        let recovered = files.read("draft.json").unwrap().unwrap();
+        assert!(recovered == old || recovered == vec![b'N'; 512 * 1024]);
+        files.write("draft.json", b"after restart").unwrap();
+        assert_eq!(files.read("draft.json").unwrap().unwrap(), b"after restart");
         fs::remove_dir_all(root).unwrap();
     }
 }

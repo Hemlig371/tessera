@@ -39,7 +39,7 @@ public class SqliteBridgeTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             // This value is set only after all SQL assertions and reopen have passed.
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'");
-            System.out.println("STAGE2_SCALE " + js(scenario, "document.documentElement.dataset.scale"));
+            System.out.println("STAGE3_SCALE " + js(scenario, "document.documentElement.dataset.scale"));
             assertEquals("null", js(scenario, "document.documentElement.dataset.acceptanceError || null"));
             awaitJs(scenario, "!!document.querySelector('nav button')");
             js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Контракт')).click()");
@@ -65,6 +65,15 @@ public class SqliteBridgeTest {
             assertTrue("Actual SAF CSV did not contain the record: " + csv, csv.contains("Bridge roundtrip"));
             assertTrue("CSV header missing", csv.contains("Название"));
             js(scenario, "[...document.querySelectorAll('[role=dialog] button')].find(b=>b.getAttribute('aria-label')==='Закрыть').click()");
+            // A real reverse relation block opens its source record in the mobile WebView.
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Связи этапа 3')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Проекты')");
+            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Проекты').click()");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Родитель связи'))");
+            js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Родитель связи')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('.relation-row')].some(b=>b.textContent.includes('Правка со ссылкой'))");
+            js(scenario, "[...document.querySelectorAll('.relation-row')].find(b=>b.textContent.includes('Правка со ссылкой')).click()");
+            awaitJs(scenario, "document.querySelector('.detail h2')?.textContent==='Правка со ссылкой'");
             scenario.recreate();
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'");
         }

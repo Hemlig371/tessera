@@ -1,3 +1,4 @@
+import { canonical } from './model';
 import { AppError } from './errors';
 import type { Collection, Field, RecordData, UiDefinition } from './model';
 import { formConfig } from './ui-definition';
@@ -37,6 +38,14 @@ export function prepareEntryData(
   validateData(input);
   const data = { ...previous, ...input };
   for (const { field, config, primary } of rules) {
+    if (field.type === 'backlink') {
+      if (
+        Object.hasOwn(input, field.id) &&
+        (!previous || canonical(input[field.id]!) !== canonical(previous[field.id] ?? null))
+      )
+        throw new FieldError('readOnlyField', field.name);
+      continue;
+    }
     if (!previous && !Object.hasOwn(data, field.id) && Object.hasOwn(config, 'default'))
       data[field.id] = config.default!;
     try {

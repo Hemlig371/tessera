@@ -111,7 +111,7 @@ test('50,000 native SQLite records stay paged and virtualized in UI', async ({ p
   console.info('Browser scale fixture', result.value.importMs, result.value.queryMs);
   await page.reload();
   await page.getByRole('button', { name: 'Scale fixture', exact: true }).click();
-  await page.getByRole('button', { name: '50K × 20', exact: true }).click();
+  await page.getByRole('button', { name: '50K × 21', exact: true }).click();
   await expect(page.getByText('Загружено записей: 100', { exact: true })).toBeVisible();
   expect(await page.locator('.entry').count()).toBeLessThan(30);
   await page.getByRole('button', { name: 'Показать ещё', exact: true }).click();

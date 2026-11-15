@@ -36,7 +36,11 @@ export interface Entry extends Stamp {
   purged: number;
 }
 /** Query-only labels; never included in record snapshots or synchronization payloads. */
-export interface EntryListItem extends Entry { title: string; collection_name: string }
+export interface EntryListItem extends Entry {
+  title: string;
+  collection_name: string;
+  relation_previews?: Record<string, { items: RelationItem[]; count: number }>;
+}
 export interface EntryCursor {
   updated_at: string;
   id: string;
@@ -48,7 +52,15 @@ export interface Page<T> {
   items: T[];
   next: EntryCursor | null;
 }
-export const FIELD_TYPES = ['text', 'multiline', 'boolean', 'integer', 'date'] as const;
+export const FIELD_TYPES = [
+  'text',
+  'multiline',
+  'boolean',
+  'integer',
+  'date',
+  'relation',
+  'backlink',
+] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 export interface FieldConfig {
   required?: boolean;
@@ -58,6 +70,9 @@ export interface FieldConfig {
   indexed?: boolean;
   min?: number;
   max?: number;
+  target_collection_id?: string;
+  multiple?: boolean;
+  source_field_id?: string;
 }
 export interface Appearance {
   icon?: string;
@@ -123,4 +138,25 @@ export function canonical(value: JsonValue): string {
 export function localTimestamp(date: Date): string {
   const pad = (v: number, n = 2) => String(v).padStart(n, '0');
   return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+}
+
+export interface RelationItem {
+  id: string;
+  title: string;
+  status: 'available' | 'deleted' | 'missing';
+  collection_id: string;
+  collection_name: string;
+}
+export interface RelationCursor {
+  key: string;
+  ordinal: number;
+  query_key: string;
+}
+export interface RelationPage {
+  items: RelationItem[];
+  next: RelationCursor | null;
+  available: boolean;
+}
+export interface RelationSource extends Field {
+  collection_name: string;
 }

@@ -52,4 +52,17 @@ export const migrations = [
       `CREATE VIRTUAL TABLE records_fts USING fts5(record_id UNINDEXED, field_id UNINDEXED, body, tokenize='unicode61')`,
     ],
   },
+  {
+    version: 3,
+    statements: [
+      'ALTER TABLE records ADD COLUMN relation_version INTEGER NOT NULL DEFAULT 0',
+      'CREATE INDEX records_relations_rebuild ON records(relation_version,id)',
+      `CREATE TABLE relation_index(source_record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+        field_id TEXT NOT NULL REFERENCES fields(id) ON DELETE CASCADE, target_record_id TEXT NOT NULL,
+        ordinal INTEGER NOT NULL CHECK(ordinal>=0), PRIMARY KEY(source_record_id,field_id,target_record_id)) WITHOUT ROWID`,
+      'CREATE INDEX relations_forward ON relation_index(source_record_id,field_id,ordinal,target_record_id)',
+      'CREATE INDEX relations_reverse ON relation_index(target_record_id,field_id,source_record_id)',
+      'CREATE INDEX relations_field ON relation_index(field_id,target_record_id,source_record_id)',
+    ],
+  },
 ] as const;

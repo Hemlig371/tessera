@@ -1,3 +1,4 @@
+import { fieldConfig } from '../core/validation';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -9,6 +10,7 @@ import type {
   Field,
   Library,
   Page,
+  RecordData,
   UiDefinition,
   UiKind,
 } from '../core/model';
@@ -20,6 +22,7 @@ import { RecordForm } from './RecordForm';
 import { StructureEditor } from './StructureEditor';
 import { FieldsEditor } from './FieldsEditor';
 import { LayoutEditor } from './LayoutEditor';
+import { RelationBlock } from './RelationBlock';
 import { CsvPanel } from './CsvPanel';
 export { ErrorMessage } from './common';
 const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { fields: [] } } as Record<
@@ -46,6 +49,14 @@ export function App({ api }: { api: Repository }) {
     [undo, setUndo] = useState<{ kind: 'library' | 'collection' | 'field' | 'record'; id: string } | null>(
       null
     );
+  const [linked, setLinked] = useState<{
+    parentId: string;
+    fieldId: string;
+    context: Context;
+    initial: RecordData;
+  } | null>(null);
+  const [trail, setTrail] = useState<string[]>([]);
+  const previousQuery = useRef<string | null>(null);
   const [search, setSearch] = useState('');
   const searchFor = ui.searchFor;
   const scroll = useRef<HTMLDivElement>(null),
@@ -63,6 +74,17 @@ export function App({ api }: { api: Repository }) {
     search: ui.search,
   };
   const queryToken = JSON.stringify(query);
+  function formatRelations(row: EntryListItem, fieldId: string) {
+    const preview = row.relation_previews?.[fieldId];
+    if (!preview?.count) return t('noRelations');
+    return (
+      preview.items
+        .map((item) =>
+          item.status === 'available' ? item.title || t('unset') : t(`relationStatus.${item.status}`)
+        )
+        .join(' · ') + (preview.count > 3 ? t('moreRelations', { count: preview.count - 3 }) : '')
+    );
+  }
   const listItems = layoutItems(layouts.list, fields).filter((item) => item.visible),
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
   const rowHeight =
@@ -150,9 +172,13 @@ export function App({ api }: { api: Repository }) {
     const request = ++queryRequest.current;
     let active = true;
     setPage({ items: [], next: null });
-    setSelected(null);
-    selectionRequest.current++;
-    setContext(null);
+    if (previousQuery.current !== queryToken) {
+      setSelected(null);
+      selectionRequest.current++;
+      setContext(null);
+      setTrail([]);
+      previousQuery.current = queryToken;
+    }
     if (browsing) {
       setLoading(true);
       api
@@ -198,7 +224,18 @@ export function App({ api }: { api: Repository }) {
       }
       setLibraries(nextLibraries);
       setCollections(nextCollections);
-      if (close) ui.openEditor(null);
+      if (selected) {
+        const currentEntry = await api.getEntry(selected.id);
+        if (currentEntry) await selectEntry(selected.id, true);
+        else {
+          setSelected(null);
+          setContext(null);
+        }
+      }
+      if (close) {
+        ui.openEditor(null);
+        setLinked(null);
+      }
       refresh((n) => n + 1);
     } catch (e) {
       setError(errorKey(e));
@@ -207,11 +244,13 @@ export function App({ api }: { api: Repository }) {
     }
   }
   function open(editor: typeof ui.editor, editingId?: string) {
+    setLinked(null);
     setError(null);
     setSaved(false);
     ui.openEditor(editor, '', editingId);
   }
   function close() {
+    setLinked(null);
     ui.openEditor(null);
     setError(null);
   }
@@ -237,7 +276,7 @@ export function App({ api }: { api: Repository }) {
       setBusy(false);
     }
   }
-  async function selectEntry(id: string) {
+  async function selectEntry(id: string, preserveSaved = false) {
     const request = ++selectionRequest.current;
     try {
       const entry = await api.getEntry(id);
@@ -252,13 +291,44 @@ export function App({ api }: { api: Repository }) {
       if (request === selectionRequest.current) {
         setSelected(entry);
         setContext({ collection: parent, fields: entryFields, layouts: { form, card, list } });
-        setSaved(false);
+        if (!preserveSaved) setSaved(false);
       }
     } catch (e) {
       if (request === selectionRequest.current) setError(errorKey(e));
     }
   }
-  const recordContext = ui.editingId ? context : collection ? { collection, fields, layouts } : null;
+  async function createRelated(fieldId: string) {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const target = await api.getLinkedCollection(selected.id, fieldId);
+      const [targetFields, form, card, list] = await Promise.all([
+        api.listFields(target.id),
+        api.getUiConfig(target.id, 'form'),
+        api.getUiConfig(target.id, 'card'),
+        api.getUiConfig(target.id, 'list'),
+      ]);
+      const origin = context?.fields.find((f) => f.id === fieldId),
+        source =
+          origin?.type === 'backlink'
+            ? targetFields.find((f) => f.id === fieldConfig(origin).source_field_id)
+            : undefined;
+      setLinked({
+        parentId: selected.id,
+        fieldId,
+        context: { collection: target, fields: targetFields, layouts: { form, card, list } },
+        initial: source ? { [source.id]: fieldConfig(source).multiple ? [selected.id] : selected.id } : {},
+      });
+      ui.openEditor('entry');
+    } catch (e) {
+      setError(errorKey(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const recordContext =
+    linked?.context ?? (ui.editingId ? context : collection ? { collection, fields, layouts } : null);
   const disabled = busy || !!ui.editor;
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
@@ -541,13 +611,18 @@ export function App({ api }: { api: Repository }) {
                                   <span key={f.id} className={item.width === 'half' ? 'half' : 'full'}>
                                     {item.group && <small>{item.group} · </small>}
                                     <small>{f.name}: </small>
-                                    {format(f, row.data[f.id])}
+                                    {['relation', 'backlink'].includes(f.type)
+                                      ? formatRelations(row, f.id)
+                                      : format(f, row.data[f.id])}
                                   </span>
                                 );
                               })}
                             </div>
                           ) : (
-                            <span>{row.title || t('unset')}<small> · {row.collection_name}</small></span>
+                            <span>
+                              {row.title || t('unset')}
+                              <small> · {row.collection_name}</small>
+                            </span>
                           )}
                           <small className="entry-date">
                             {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(
@@ -576,7 +651,21 @@ export function App({ api }: { api: Repository }) {
         {selected && context && !ui.editor && (
           <section className="detail">
             <div className="dialog-heading">
-              <h2>{String(selected.data[context.collection.primary_field_id] ?? '')}</h2>
+              <div>
+                {!!trail.length && (
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      const id = trail.at(-1)!;
+                      setTrail((old) => old.slice(0, -1));
+                      void selectEntry(id);
+                    }}
+                  >
+                    {t('backToRecord')}
+                  </button>
+                )}
+                <h2>{String(selected.data[context.collection.primary_field_id] ?? '')}</h2>
+              </div>
               <button aria-label={t('closeCard')} onClick={() => setSelected(null)}>
                 ×
               </button>
@@ -590,7 +679,26 @@ export function App({ api }: { api: Repository }) {
                     <dl key={f.id} className={item.width === 'half' ? 'half' : 'full'}>
                       {item.group && <small>{item.group}</small>}
                       <dt>{f.name}</dt>
-                      <dd>{format(f, selected.data[f.id])}</dd>
+                      <dd>
+                        {['relation', 'backlink'].includes(f.type) ? (
+                          <RelationBlock
+                            key={f.id + revision}
+                            api={api}
+                            entry={selected}
+                            field={f}
+                            busy={busy}
+                            open={(id) => {
+                              setTrail((old) => [...old, selected.id]);
+                              void selectEntry(id);
+                            }}
+                            create={() => {
+                              void createRelated(f.id);
+                            }}
+                          />
+                        ) : (
+                          format(f, selected.data[f.id])
+                        )}
+                      </dd>
                     </dl>
                   );
                 })}
@@ -650,20 +758,20 @@ export function App({ api }: { api: Repository }) {
           )}
           {ui.editor === 'entry' && recordContext && (
             <RecordForm
+              api={api}
               key={ui.editingId ?? 'new'}
               collection={recordContext.collection}
               fields={recordContext.fields}
               layout={recordContext.layouts.form}
+              initialData={linked?.initial}
               entry={ui.editingId ? (selected ?? undefined) : undefined}
               busy={busy}
               cancel={close}
               save={(data) => {
                 void run(async () => {
-                  const row = await api.saveEntry(
-                    recordContext.collection.id,
-                    data,
-                    ui.editingId ?? undefined
-                  );
+                  const row = linked
+                    ? await api.createLinkedEntry(linked.parentId, linked.fieldId, data)
+                    : await api.saveEntry(recordContext.collection.id, data, ui.editingId ?? undefined);
                   if (!(await api.getEntry(row.id))) throw new Error('notFound');
                   setSaved(true);
                 });
@@ -672,6 +780,7 @@ export function App({ api }: { api: Repository }) {
           )}
           {ui.editor === 'fields' && collection && (
             <FieldsEditor
+              api={api}
               key={revision}
               collection={collection}
               fields={fields}
@@ -690,6 +799,7 @@ export function App({ api }: { api: Repository }) {
           )}
           {(ui.editor === 'form' || ui.editor === 'card' || ui.editor === 'list') && collection && (
             <LayoutEditor
+              api={api}
               key={ui.editor}
               kind={ui.editor}
               fields={fields}

@@ -6,3 +6,7 @@ it('preserves the migration checksum shipped in Tessera stage 1', () => {
   const checksum = createHash('sha256').update(migrations[0].statements.join('\n')).digest('hex');
   expect(checksum).toBe('3adba7668c58d0ba84cbc51beb8efcc070ba96d9eb9caad313570bb5c23c4bf1');
 });
+
+it('preserves the migration checksum shipped in Tessera stage 2', () => {
+  expect(createHash('sha256').update(migrations[1].statements.join('\n')).digest('hex')).toBe('25661a24a575bfaffd029de7b35303acd5cf9b72ddffea3297ed65ba2016a0da');
+});

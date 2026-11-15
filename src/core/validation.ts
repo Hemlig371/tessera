@@ -46,10 +46,25 @@ export function validateValue(
 ): void {
   requireFieldType(type);
   if (primary && (typeof value !== 'string' || !value.trim())) throw new AppError('requiredText');
-  const empty = value == null || value === '';
+  const empty = value == null || value === '' || (Array.isArray(value) && value.length === 0);
   if ((config.required || primary) && (empty || (typeof value === 'string' && !value.trim())))
     throw new AppError(primary ? 'requiredText' : 'requiredField');
   if (value == null) return;
+  if (type === 'backlink') throw new AppError('readOnlyField');
+  if (type === 'relation') {
+    if (config.multiple) {
+      if (
+        !Array.isArray(value) ||
+        value.some((id) => typeof id !== 'string') ||
+        new Set(value).size !== value.length
+      )
+        throw new AppError('invalidRelation');
+      for (const id of value) requireId(id as string);
+    } else {
+      if (typeof value !== 'string') throw new AppError('invalidRelation');
+      requireId(value);
+    }
+  }
   if (isText(type) && typeof value !== 'string') throw new AppError('invalidData');
   if (type === 'boolean' && typeof value !== 'boolean') throw new AppError('invalidBoolean');
   if (type === 'integer') {
@@ -61,6 +76,23 @@ export function validateValue(
 }
 export function validateFieldConfig(type: string, input: FieldConfig): FieldConfig {
   requireFieldType(type);
+  if (type === 'relation') {
+    requireId(input.target_collection_id!);
+    if (input.indexed) throw new AppError('invalidRelation');
+    if (input.multiple != null && typeof input.multiple !== 'boolean') throw new AppError('invalidRelation');
+    if (input.source_field_id != null) throw new AppError('invalidRelation');
+  } else if (type === 'backlink') {
+    requireId(input.source_field_id!);
+    if (
+      input.required ||
+      Object.hasOwn(input, 'default') ||
+      input.indexed ||
+      input.target_collection_id != null ||
+      input.multiple != null
+    )
+      throw new AppError('readOnlyField');
+  } else if (input.target_collection_id != null || input.multiple != null || input.source_field_id != null)
+    throw new AppError('invalidRelation');
   for (const key of ['required', 'fts', 'indexed'] as const) {
     if (input[key] != null && typeof input[key] !== 'boolean') throw new AppError('invalidData');
   }

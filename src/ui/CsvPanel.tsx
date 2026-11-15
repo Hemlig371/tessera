@@ -48,8 +48,11 @@ export function CsvPanel({
       setMapping(
         parsed.headers.map(
           (h) =>
-            fields.find((f) => f.name.toLocaleLowerCase(locale) === h.trim().toLocaleLowerCase(locale))?.id ??
-            null
+            fields.find(
+              (f) =>
+                f.type !== 'backlink' &&
+                f.name.toLocaleLowerCase(locale) === h.trim().toLocaleLowerCase(locale)
+            )?.id ?? null
         )
       );
     }, false);
@@ -146,11 +149,13 @@ export function CsvPanel({
                   }}
                 >
                   <option value="">{t('skipColumn')}</option>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
+                  {fields
+                    .filter((f) => f.type !== 'backlink')
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
                 </select>
               </label>
             ))}

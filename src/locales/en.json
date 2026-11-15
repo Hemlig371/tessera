@@ -67,7 +67,14 @@
     "csvTooLarge": "File exceeds 100 MB. Split it into smaller CSV files.",
     "fileError": "Could not write the file. Check permissions and free space.",
     "fileBusy": "Complete the current file operation first.",
-    "invalidSearch": "Search allows at most 200 characters and 12 words."
+    "invalidSearch": "Search allows at most 200 characters and 12 words.",
+    "invalidRelation": "Check UUIDs, target collection and cardinality. Duplicates are not allowed.",
+    "readOnlyField": "A backlink is derived from forward relations and cannot be entered.",
+    "crossLibraryRelation": "Relations must stay within one library.",
+    "relationDefinitionChange": "Changing an existing target or cardinality requires conversion. Create a new field.",
+    "relationTargetMismatch": "The record does not belong to this relation target collection.",
+    "relationUnavailable": "The new target is unavailable or deleted. Existing links are retained.",
+    "relationsUpdating": "The relation index is updating. Retry when it finishes."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -140,7 +147,7 @@
   "tab": "Tab",
   "csvImport": "Import CSV",
   "csvExport": "Export CSV",
-  "csvImportHint": "Import creates new records. The whole file is saved in one transaction after confirmation. Maximum size: 100 MB. The import delimiter is detected automatically.",
+  "csvImportHint": "Import creates new records. The whole file is saved in one transaction after confirmation. Maximum size: 100 MB. The import delimiter is detected automatically. Relations use existing record UUIDs; backlink columns are skipped.",
   "csvExportHint": "Choose fields. Save through the system dialog; dates and booleans follow the selected locale.",
   "csvEncoding": "Import encoding",
   "csvFile": "CSV file",
@@ -164,7 +171,9 @@
     "multiline": "Multiline text",
     "boolean": "Boolean",
     "integer": "Integer",
-    "date": "Date"
+    "date": "Date",
+    "relation": "Relation",
+    "backlink": "Backlink"
   },
   "modes": {
     "rows": "Rows",
@@ -179,5 +188,26 @@
     "empty": "Empty",
     "filled": "Filled"
   },
-  "csvImportProgress": "Imported in transaction: {{count}}…"
+  "csvImportProgress": "Imported in transaction: {{count}}…",
+  "relationTarget": "Target collection",
+  "multipleRelations": "Multiple records",
+  "backlinkSource": "Source relation field",
+  "chooseRelationSource": "Choose a relation field",
+  "relationSearch": "Search related records",
+  "unlinkValue": "Remove link: {{name}}",
+  "selectedRelations": "Selected: {{count}}",
+  "nextPage": "Next page",
+  "previousPage": "Previous page",
+  "noRelations": "No related records yet",
+  "relationDefinitionUnavailable": "The collection or source field is unavailable. Links are retained.",
+  "createRelated": "Create related record",
+  "backToRecord": "Back to record",
+  "relationCount": "Relations: {{count}}",
+  "backlinkListHint": "Backlinks in the record card",
+  "relationDerivedHint": "Backlinks are computed after saving the record.",
+  "relationStatus": {
+    "deleted": "Deleted",
+    "missing": "Missing record"
+  },
+  "moreRelations": " · {{count}} more"
 }

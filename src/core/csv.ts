@@ -1,3 +1,4 @@
+import { backlinkValues, requireRelationsReady } from './relations';
 import { RowError } from './entry-data';
 import { AppError } from './errors';
 import type { EntryQuery, Field, JsonValue, RecordData } from './model';
@@ -78,6 +79,19 @@ export function parseCsv(text: string, delimiter?: string): CsvDocument {
   return { headers, rows, delimiter };
 }
 export function csvValue(text: string, field: Field, locale: CsvLocale): JsonValue {
+  if (field.type === 'backlink') throw new AppError('readOnlyField');
+  if (field.type === 'relation') {
+    let value: JsonValue = text.trim() || null;
+    if (fieldConfig(field).multiple && text.trim()) {
+      try {
+        value = JSON.parse(text) as JsonValue;
+      } catch {
+        throw new AppError('invalidRelation');
+      }
+    }
+    validateValue(field.type, value, { ...fieldConfig(field), required: false });
+    return value;
+  }
   if (isText(field.type)) return text;
   if (!text.trim()) return null;
   const value = text.trim();
@@ -110,7 +124,7 @@ export function* csvRecords(
   if (
     mapping.length !== doc.headers.length ||
     new Set(ids).size !== ids.length ||
-    ids.some((id) => !byId.has(id))
+    ids.some((id) => !byId.has(id) || byId.get(id)?.type === 'backlink')
   )
     throw new AppError('csvMapping');
   for (let i = 0; i < doc.rows.length; i++) {
@@ -152,6 +166,7 @@ export async function exportCsv(
   let count = 0;
   try {
     await api.db.transaction(async (s) => {
+      if (fields.some((f) => f.type === 'backlink')) await requireRelationsReady(s);
       await writer.write(
         '\uFEFF' +
           csvLine(
@@ -163,11 +178,18 @@ export async function exportCsv(
       do {
         const page = await queryEntries(s, { ...query, cursor, limit: 200 });
         let chunk = '';
+        const derived = await backlinkValues(
+          s,
+          fields,
+          page.items.map((e) => e.id)
+        );
         for (const entry of page.items) {
           chunk += csvLine(
             fields.map((field) => {
-              const v = entry.data[field.id];
+              const v =
+                field.type === 'backlink' ? (derived.get(entry.id)?.[field.id] ?? []) : entry.data[field.id];
               if (v == null) return '';
+              if (Array.isArray(v)) return JSON.stringify(v);
               if (typeof v === 'boolean') return locale === 'ru' ? (v ? 'да' : 'нет') : v ? 'true' : 'false';
               if (field.type === 'date' && locale === 'ru') return String(v).split('-').reverse().join('.');
               return String(v);

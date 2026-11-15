@@ -1,3 +1,4 @@
+import { requireRelationsReady, relationPreviews } from './relations';
 import { AppError } from './errors';
 import type { EntryListItem, EntryQuery, Field, JsonValue, Page, UiDefinition } from './model';
 import { canonical } from './model';
@@ -47,7 +48,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   function expression(id: string): string {
     if (id === 'updated_at') return 'r.updated_at';
     const field = byId.get(id);
-    if (!field) throw new AppError('invalidFilter');
+    if (!field || ['relation', 'backlink'].includes(field.type)) throw new AppError('invalidFilter');
     return fieldExpression(field, 'r.');
   }
   const terms = searchTerms(q.search ?? '');
@@ -60,6 +61,21 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   for (const filter of q.filters ?? []) {
     const field = byId.get(filter.field_id);
     if (!field) throw new AppError('invalidFilter');
+    if (['relation', 'backlink'].includes(field.type)) {
+      await requireRelationsReady(s);
+      if (!['eq', 'ne', 'empty', 'filled'].includes(filter.op)) throw new AppError('invalidFilter');
+      const target = field.type === 'relation' ? 'ri.source_record_id=r.id' : 'ri.target_record_id=r.id';
+      const sourceField = field.type === 'relation' ? field.id : fieldConfig(field).source_field_id!;
+      let clause = `EXISTS(SELECT 1 FROM relation_index ri ${field.type === 'backlink' ? 'JOIN records sr ON sr.id=ri.source_record_id JOIN collections sc ON sc.id=sr.collection_id JOIN fields sf ON sf.id=ri.field_id' : ''} WHERE ${target} AND ri.field_id=? ${field.type === 'backlink' ? 'AND sr.deleted_at IS NULL AND sr.purged=0 AND sc.deleted_at IS NULL AND sf.deleted_at IS NULL' : ''}`;
+      params.push(sourceField);
+      if (['eq', 'ne'].includes(filter.op)) {
+        requireId(filter.value as string);
+        clause += field.type === 'relation' ? ' AND ri.target_record_id=?' : ' AND ri.source_record_id=?';
+        params.push(filter.value as string);
+      }
+      where.push((['empty', 'ne'].includes(filter.op) ? 'NOT ' : '') + clause + ')');
+      continue;
+    }
     const expr = expression(field.id),
       empty = `(${expr} IS NULL${isText(field.type) ? ` OR ${expr}=''` : ''})`;
     if (filter.op === 'empty' || filter.op === 'filled') {
@@ -125,8 +141,18 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   );
   const visible = rows.slice(0, limit),
     last = visible.at(-1);
+  const previews = await relationPreviews(
+    s,
+    fields,
+    visible.map((row) => row.id)
+  );
   return {
-    items: visible.map(row => ({ ...decodeEntry(row), title: String(row.display_title ?? ''), collection_name: String(row.collection_name) })),
+    items: visible.map((row) => ({
+      ...decodeEntry(row),
+      title: String(row.display_title ?? ''),
+      collection_name: String(row.collection_name),
+      ...(previews.has(row.id) ? { relation_previews: previews.get(row.id)! } : {}),
+    })),
     next:
       rows.length > limit && last
         ? {

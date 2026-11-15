@@ -1,15 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FIELD_TYPES, type Collection, type Field, type FieldConfig, type JsonValue } from '../core/model';
 import { fieldConfig, isText } from '../core/validation';
+import type { Repository } from '../core/repository';
+import type { RelationSource } from '../core/model';
+import { ErrorMessage, errorKey } from './common';
+import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
 export function FieldsEditor({
+  api,
   collection,
   fields,
   save,
   remove,
   busy,
 }: {
+  api: Repository;
   collection: Collection;
   fields: Field[];
   save: (id: string | undefined, name: string, type: string, config: FieldConfig, position: number) => void;
@@ -17,9 +23,29 @@ export function FieldsEditor({
   busy: boolean;
 }) {
   const { t } = useTranslation();
+  const [targets, setTargets] = useState<Collection[]>([]),
+    [sources, setSources] = useState<RelationSource[]>([]),
+    [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    Promise.all([api.listCollections(collection.library_id), api.listRelationSources(collection.id)])
+      .then(([c, f]) => {
+        if (active) {
+          setTargets(c);
+          setSources(f);
+        }
+      })
+      .catch((e) => {
+        if (active) setError(errorKey(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, collection.id, collection.library_id]);
   const [editing, setEditing] = useState<string | null>(null);
   return (
     <div>
+      {error && <ErrorMessage code={error} />}
       <div className="field-list">
         {fields.map((f) => (
           <div key={f.id}>
@@ -37,8 +63,11 @@ export function FieldsEditor({
       </button>
       {editing && (
         <FieldEditor
+          api={api}
           key={editing}
           field={fields.find((f) => f.id === editing)}
+          targets={targets}
+          sources={sources}
           count={fields.length}
           protectedField={editing === collection.primary_field_id || editing === collection.incoming_field_id}
           busy={busy}
@@ -51,7 +80,10 @@ export function FieldsEditor({
   );
 }
 function FieldEditor({
+  api,
   field,
+  targets,
+  sources,
   count,
   protectedField,
   save,
@@ -59,7 +91,10 @@ function FieldEditor({
   cancel,
   busy,
 }: {
+  api: Repository;
   field?: Field;
+  targets: Collection[];
+  sources: RelationSource[];
   count: number;
   protectedField: boolean;
   busy: boolean;
@@ -79,6 +114,9 @@ function FieldEditor({
     [value, setValue] = useState<JsonValue>(config.default ?? null);
   const [min, setMin] = useState(config.min == null ? '' : String(config.min)),
     [max, setMax] = useState(config.max == null ? '' : String(config.max));
+  const [target, setTarget] = useState(config.target_collection_id ?? ''),
+    [multiple, setMultiple] = useState(config.multiple ?? false),
+    [source, setSource] = useState(config.source_field_id ?? '');
   const [position, setPosition] = useState(field?.position ?? count);
   return (
     <form
@@ -89,11 +127,13 @@ function FieldEditor({
           name,
           type,
           {
-            required,
+            required: type === 'backlink' ? false : required,
             hint,
-            indexed,
+            indexed: ['relation', 'backlink'].includes(type) ? false : indexed,
+            ...(type === 'relation' ? { target_collection_id: target, multiple } : {}),
+            ...(type === 'backlink' ? { source_field_id: source } : {}),
             fts: isText(type) && fts,
-            ...(hasDefault ? { default: value } : {}),
+            ...(hasDefault && type !== 'backlink' ? { default: value } : {}),
             ...(type === 'integer' && min !== '' ? { min: Number(min) } : {}),
             ...(type === 'integer' && max !== '' ? { max: Number(max) } : {}),
           },
@@ -131,11 +171,54 @@ function FieldEditor({
         </select>
       </label>
       {field && <small>{t('stableFieldType')}</small>}
+      {type === 'relation' && (
+        <>
+          <label>
+            {t('relationTarget')}
+            <select
+              required
+              value={target}
+              disabled={busy || !!field}
+              onChange={(e) => setTarget(e.target.value)}
+            >
+              <option value="">{t('chooseCollection')}</option>
+              {targets.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={multiple}
+              disabled={busy || !!field}
+              onChange={(e) => setMultiple(e.target.checked)}
+            />
+            {t('multipleRelations')}
+          </label>
+        </>
+      )}
+      {type === 'backlink' && (
+        <label>
+          {t('backlinkSource')}
+          <select required value={source} disabled={busy} onChange={(e) => setSource(e.target.value)}>
+            <option value="">{t('chooseRelationSource')}</option>
+            {sources.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.collection_name} · {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <label className="check">
         <input
           type="checkbox"
-          checked={required}
-          disabled={busy}
+          checked={type === 'backlink' ? false : required}
+          disabled={busy || type === 'backlink'}
           onChange={(e) => setRequired(e.target.checked)}
         />
         {t('required')}
@@ -144,23 +227,29 @@ function FieldEditor({
         {t('hint')}
         <input maxLength={1000} value={hint} disabled={busy} onChange={(e) => setHint(e.target.value)} />
       </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={hasDefault}
-          disabled={busy}
-          onChange={(e) => setHasDefault(e.target.checked)}
-        />
-        {t('useDefault')}
-      </label>
-      {hasDefault && (
-        <FieldInput
-          field={{ name: t('defaultValue'), type }}
-          value={value}
-          disabled={busy}
-          change={setValue}
-        />
+      {type !== 'backlink' && (type !== 'relation' || !!field) && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={hasDefault}
+            disabled={busy}
+            onChange={(e) => setHasDefault(e.target.checked)}
+          />
+          {t('useDefault')}
+        </label>
       )}
+      {hasDefault &&
+        type !== 'backlink' &&
+        (type === 'relation' && field ? (
+          <RelationInput api={api} field={field} value={value} disabled={busy} change={setValue} />
+        ) : (
+          <FieldInput
+            field={{ name: t('defaultValue'), type }}
+            value={value}
+            disabled={busy}
+            change={setValue}
+          />
+        ))}
       {type === 'integer' && (
         <div className="field-grid">
           <label className="half">
@@ -185,15 +274,17 @@ function FieldEditor({
           </label>
         </div>
       )}
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={indexed}
-          disabled={busy}
-          onChange={(e) => setIndexed(e.target.checked)}
-        />
-        {t('indexed')}
-      </label>
+      {!['relation', 'backlink'].includes(type) && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={indexed}
+            disabled={busy}
+            onChange={(e) => setIndexed(e.target.checked)}
+          />
+          {t('indexed')}
+        </label>
+      )}
       {isText(type) && (
         <label className="check">
           <input type="checkbox" checked={fts} disabled={busy} onChange={(e) => setFts(e.target.checked)} />

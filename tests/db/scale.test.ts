@@ -4,7 +4,7 @@ import { fixture, adapters } from '../support/fixture';
 import { scaleScenario } from '../support/scale';
 import { fieldExpression, fieldIndexName } from '../../src/core/search-keys';
 
-describe.each(adapters)('%s 50K × 20', (kind) => {
+describe.each(adapters)('%s 50K × 21', (kind) => {
   let f: Awaited<ReturnType<typeof fixture>>;
   afterEach(async () => {
     await f?.cleanup();
@@ -15,6 +15,10 @@ describe.each(adapters)('%s 50K × 20', (kind) => {
     const result = await scaleScenario(api);
     const { collection, sort, page } = result;
     expect(page.next).not.toBeNull();
+    expect(result.edges).toBe(4999);
+    const reverse=await api.getRelationPage(result.root.id,result.backlink.id,null,50);
+    expect(reverse.next).not.toBeNull();
+    expect((await api.getRelationPage(result.root.id,result.backlink.id,reverse.next,50)).items).toHaveLength(50);
     const next = await api.queryEntries({ collection_id: collection.id, cursor: page.next, limit: 200 });
     expect(next.items[0]?.data[sort.id]).toBe(202);
     expect(new Set([...page.items, ...next.items].map((x) => x.id)).size).toBe(400);
@@ -33,7 +37,8 @@ describe.each(adapters)('%s 50K × 20', (kind) => {
     const metrics = {
       adapter: kind,
       records: 50000,
-      fields: 20,
+      fields: 21,
+      relations: result.edges,
       importMs: result.importMs,
       twoQueriesMs: result.queryMs,
     };

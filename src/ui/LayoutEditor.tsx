@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EntryFilter, Field, LayoutItem, ListOptions, UiDefinition, UiKind } from '../core/model';
 import { layoutItems } from '../core/ui-definition';
+import type { Repository } from '../core/repository';
+import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
 export function LayoutEditor({
+  api,
   kind,
   fields,
   definition,
@@ -11,6 +14,7 @@ export function LayoutEditor({
   cancel,
   busy,
 }: {
+  api: Repository;
   kind: UiKind;
   fields: Field[];
   definition: UiDefinition;
@@ -97,7 +101,7 @@ export function LayoutEditor({
                 />
               </label>
             </div>
-            {kind === 'form' && (
+            {kind === 'form' && field.type !== 'backlink' && (
               <>
                 <label className="check">
                   <input
@@ -134,14 +138,23 @@ export function LayoutEditor({
                   />
                   {t('overrideDefault')}
                 </label>
-                {Object.hasOwn(item, 'default') && (
-                  <FieldInput
-                    field={field}
-                    label={t('defaultValue')}
-                    value={item.default}
-                    change={(value) => patch(field.id, { default: value })}
-                  />
-                )}
+                {Object.hasOwn(item, 'default') &&
+                  (field.type === 'relation' ? (
+                    <RelationInput
+                      api={api}
+                      field={field}
+                      value={item.default}
+                      change={(value) => patch(field.id, { default: value })}
+                      disabled={busy}
+                    />
+                  ) : (
+                    <FieldInput
+                      field={field}
+                      label={t('defaultValue')}
+                      value={item.default}
+                      change={(value) => patch(field.id, { default: value })}
+                    />
+                  ))}
               </>
             )}
           </fieldset>
@@ -170,11 +183,13 @@ export function LayoutEditor({
               onChange={(e) => setList((old) => ({ ...old, sort_field: e.target.value }))}
             >
               <option value="updated_at">{t('updatedAt')}</option>
-              {fields.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
+              {fields
+                .filter((f) => !['relation', 'backlink'].includes(f.type))
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
             </select>
           </label>
           <label>
@@ -194,11 +209,13 @@ export function LayoutEditor({
               onChange={(e) => setList((old) => ({ ...old, group_field: e.target.value }))}
             >
               <option value="">{t('noGrouping')}</option>
-              {fields.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
+              {fields
+                .filter((f) => !['relation', 'backlink'].includes(f.type))
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
             </select>
           </label>
           <h3>{t('filters')}</h3>
@@ -234,7 +251,12 @@ export function LayoutEditor({
                     });
                   }}
                 >
-                  {['eq', 'ne', 'gt', 'lt', 'empty', 'filled'].map((op) => (
+                  {(['relation', 'backlink'].includes(
+                    fields.find((field) => field.id === f.field_id)?.type ?? ''
+                  )
+                    ? ['eq', 'ne', 'empty', 'filled']
+                    : ['eq', 'ne', 'gt', 'lt', 'empty', 'filled']
+                  ).map((op) => (
                     <option key={op} value={op}>
                       {t(`operators.${op}`)}
                     </option>
@@ -243,7 +265,13 @@ export function LayoutEditor({
               </label>
               {!['empty', 'filled'].includes(f.op) && (
                 <FieldInput
-                  field={fields.find((field) => field.id === f.field_id)!}
+                  field={
+                    ['relation', 'backlink'].includes(
+                      fields.find((field) => field.id === f.field_id)?.type ?? ''
+                    )
+                      ? { ...fields.find((field) => field.id === f.field_id)!, type: 'text' }
+                      : fields.find((field) => field.id === f.field_id)!
+                  }
                   label={t('filterValue')}
                   value={f.value}
                   change={(value) => filter(index, { value })}

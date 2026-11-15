@@ -1,9 +1,15 @@
+import { relationIds } from '../core/relations';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Collection, Entry, Field, RecordData, UiDefinition } from '../core/model';
 import { formConfig, layoutItems } from '../core/ui-definition';
+import type { Repository } from '../core/repository';
+import { RelationBlock } from './RelationBlock';
+import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
 export function RecordForm({
+  api,
+  initialData,
   collection,
   fields,
   layout,
@@ -12,6 +18,8 @@ export function RecordForm({
   cancel,
   busy,
 }: {
+  api: Repository;
+  initialData?: RecordData;
   collection: Collection;
   fields: Field[];
   layout: UiDefinition;
@@ -32,7 +40,7 @@ export function RecordForm({
       );
       if (Object.hasOwn(config, 'default')) values[field.id] = config.default!;
     });
-    return values;
+    return { ...values, ...initialData };
   });
   return (
     <form
@@ -51,17 +59,34 @@ export function RecordForm({
             return (
               <div key={field.id} className={item.width === 'half' ? 'half' : 'full'}>
                 {item.group && <small className="group-label">{item.group}</small>}
-                <label>
+                <div className="form-field">
                   {field.name}
                   {required && <span aria-hidden="true"> *</span>}
-                  <FieldInput
-                    field={field}
-                    value={data[field.id]}
-                    disabled={busy}
-                    required={required}
-                    change={(value) => setData((old) => ({ ...old, [field.id]: value }))}
-                  />
-                </label>
+                  {field.type === 'backlink' ? (
+                    entry ? (
+                      <RelationBlock api={api} field={field} entry={entry} busy={busy} readOnly />
+                    ) : (
+                      <small>{t('relationDerivedHint')}</small>
+                    )
+                  ) : field.type === 'relation' ? (
+                    <RelationInput
+                      pinnedIds={relationIds(initialData?.[field.id])}
+                      api={api}
+                      field={field}
+                      value={data[field.id]}
+                      disabled={busy}
+                      change={(value) => setData((old) => ({ ...old, [field.id]: value }))}
+                    />
+                  ) : (
+                    <FieldInput
+                      field={field}
+                      value={data[field.id]}
+                      disabled={busy}
+                      required={required}
+                      change={(value) => setData((old) => ({ ...old, [field.id]: value }))}
+                    />
+                  )}
+                </div>
                 {config.hint && <small>{config.hint}</small>}
               </div>
             );

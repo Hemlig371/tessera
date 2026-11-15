@@ -1,3 +1,13 @@
+import {
+  relationIds,
+  validateRelationDefinition,
+  validateRelationTargets,
+  refreshRelationRecords,
+  relationSources,
+  relationPage,
+  relationContext,
+  resolveRelationValues,
+} from './relations';
 import { entryRules, FieldError, prepareEntryData, RowError } from './entry-data';
 import { activeCollection, activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 import { queryEntries } from './queries';
@@ -16,6 +26,10 @@ import type {
   Library,
   Page,
   RecordData,
+  RelationCursor,
+  RelationPage,
+  RelationSource,
+  RelationItem,
   Stamp,
   UiConfiguration,
   UiDefinition,
@@ -61,6 +75,7 @@ export class Repository {
     });
     const repository = new Repository(db, ids.deviceId, ids.datasetId);
     await repository.rebuildDerived();
+    await repository.rebuildRelationIndex(false);
     return repository;
   }
   private async stamp(s: SqlSession, id: string = crypto.randomUUID()): Promise<Stamp> {
@@ -265,7 +280,8 @@ export class Repository {
     const label = nameValue(name),
       checked = validateFieldConfig(type, config);
     const row = await this.db.transaction(async (s) => {
-      await activeCollection(s, collectionId);
+      const parent = await activeCollection(s, collectionId);
+      await validateRelationDefinition(s, parent, type, checked);
       const [order] = await s.query<{ n: number }>(
         'SELECT coalesce(max(position),-1)+1 AS n FROM fields WHERE collection_id=?',
         [collectionId]
@@ -293,9 +309,10 @@ export class Repository {
     const row = await this.db.transaction(async (s) => {
       const [old] = await s.query<Field>('SELECT * FROM fields WHERE id=? AND deleted_at IS NULL', [id]);
       if (!old) throw new AppError('notFound');
-      await activeCollection(s, old.collection_id);
+      const parent = await activeCollection(s, old.collection_id);
       if (patch.type && patch.type !== old.type) throw new AppError('fieldTypeChange');
       const checked = patch.config ? validateFieldConfig(old.type, patch.config) : fieldConfig(old);
+      await validateRelationDefinition(s, parent, old.type, checked, old);
       const updated = await this.update(s, 'fields', 'field', old, {
         ...(patch.name != null ? { name: nameValue(patch.name) } : {}),
         ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
@@ -366,7 +383,7 @@ export class Repository {
         deleted_at: deleted ? new Date().toISOString() : null,
       });
       if (kind === 'field' || kind === 'collection')
-        await s.execute('UPDATE records SET sort_version=0 WHERE collection_id=?', [
+        await s.execute('UPDATE records SET sort_version=0,relation_version=0 WHERE collection_id=?', [
           kind === 'field' ? (stored as Field).collection_id : id,
         ]);
       if (kind === 'library')
@@ -377,6 +394,7 @@ export class Repository {
       return kind === 'field' ? (stored as Field).collection_id : null;
     });
     await this.rebuildDerived();
+    await this.rebuildRelationIndex(false);
     if (collectionId) await this.reconcileIndexes(collectionId);
   }
   async saveEntry(collectionId: string, data: RecordData, id?: string): Promise<Entry> {
@@ -417,6 +435,7 @@ export class Repository {
       form ? (JSON.parse(form.config) as UiDefinition) : { fields: [] }
     );
     const merged = prepareEntryData(data, rules, previous?.data);
+    await validateRelationTargets(s, collection, fields, merged, previous?.data);
     const encoded = canonical(merged);
     if (previous && encoded === canonical(previous.data)) return previous;
     const stamp = await this.stamp(s, id),
@@ -496,6 +515,7 @@ export class Repository {
       for (const input of source) {
         try {
           const data = prepareEntryData(input, rules);
+          await validateRelationTargets(s, collection, fields, data);
           if (preview.length < 10) preview.push(data);
         } catch (e) {
           if (e instanceof FieldError) throw new RowError(count + 2, e.field, e.code);
@@ -596,6 +616,7 @@ export class Repository {
         let data: RecordData;
         try {
           data = prepareEntryData(input, rules);
+          await validateRelationTargets(s, collection, fields, data);
         } catch (e) {
           if (e instanceof FieldError) throw new RowError(count + batch.length + 2, e.field, e.code);
           throw e;
@@ -783,6 +804,110 @@ export class Repository {
       FROM search_documents d JOIN records r ON r.id=d.record_id WHERE d.record_id IN(${marks})`,
       ids
     );
+    await refreshRelationRecords(s, ids);
+  }
+  listRelationSources(collectionId: string): Promise<RelationSource[]> {
+    requireId(collectionId);
+    return this.db.read((s) => relationSources(s, collectionId));
+  }
+  getRelationPage(
+    recordId: string,
+    fieldId: string,
+    cursor?: RelationCursor | null,
+    limit = 50
+  ): Promise<RelationPage> {
+    return this.db.read((s) => relationPage(s, recordId, fieldId, cursor, limit));
+  }
+  resolveRelationValues(fieldId: string, ids: readonly string[]): Promise<RelationItem[]> {
+    return this.db.read((s) => resolveRelationValues(s, fieldId, ids));
+  }
+  async queryRelationTargets(
+    fieldId: string,
+    query: Pick<EntryQuery, 'search' | 'cursor' | 'limit'> = {}
+  ): Promise<Page<EntryListItem>> {
+    return this.db.read(async (s) => {
+      const { field, forward } = await relationContext(s, fieldId);
+      if (field.type !== 'relation' || !forward) throw new AppError('invalidRelation');
+      const target = fieldConfig(field).target_collection_id!;
+      await activeCollection(s, target);
+      return queryEntries(s, {
+        ...query,
+        collection_id: target,
+        filters: [],
+        sort_field: 'updated_at',
+        group_field: '',
+        direction: 'desc',
+        limit: query.limit ?? 50,
+      });
+    });
+  }
+  async getLinkedCollection(recordId: string, fieldId: string): Promise<Collection> {
+    return this.db.read(async (s) => {
+      const { field, collection, forward } = await relationContext(s, fieldId);
+      if (!forward) throw new AppError('relationUnavailable');
+      if (
+        !(
+          await s.query('SELECT r.id ' + activeRecords + ' AND r.id=? AND r.collection_id=?', [
+            recordId,
+            collection.id,
+          ])
+        )[0]
+      )
+        throw new AppError('notFound');
+      return activeCollection(
+        s,
+        field.type === 'relation' ? fieldConfig(field).target_collection_id! : forward.collection_id
+      );
+    });
+  }
+  async createLinkedEntry(recordId: string, fieldId: string, data: RecordData): Promise<Entry> {
+    requireId(recordId);
+    validateData(data);
+    return this.db.transaction(async (s) => {
+      const { field, collection, forward } = await relationContext(s, fieldId);
+      if (!forward) throw new AppError('relationUnavailable');
+      const [stored] = await s.query<StoredEntry>(
+        'SELECT r.* ' + activeRecords + ' AND r.id=? AND r.collection_id=?',
+        [recordId, collection.id]
+      );
+      if (!stored) throw new AppError('notFound');
+      const parent = decodeEntry(stored);
+      if (field.type === 'backlink') {
+        const config = fieldConfig(forward);
+        return this.saveEntryInSession(s, forward.collection_id, {
+          ...data,
+          [forward.id]: config.multiple
+            ? [...new Set([...relationIds(data[forward.id]), recordId])]
+            : recordId,
+        });
+      }
+      const config = fieldConfig(field);
+      const created = await this.saveEntryInSession(s, config.target_collection_id!, data);
+      await this.saveEntryInSession(
+        s,
+        collection.id,
+        { [field.id]: config.multiple ? [...relationIds(parent.data[field.id]), created.id] : created.id },
+        parent.id
+      );
+      return created;
+    });
+  }
+  /** Restartable local cache rebuild. No user versions, HLC or change_log events. */
+  async rebuildRelationIndex(force = true): Promise<void> {
+    if (force) await this.db.transaction((s) => s.execute('UPDATE records SET relation_version=0'));
+    for (;;) {
+      const count = await this.db.transaction(async (s) => {
+        const rows = await s.query<{ id: string }>(
+          'SELECT id FROM records WHERE relation_version=0 ORDER BY id LIMIT 200'
+        );
+        await refreshRelationRecords(
+          s,
+          rows.map((row) => row.id)
+        );
+        return rows.length;
+      });
+      if (!count) break;
+    }
   }
   async reconcileIndexes(collectionId: string): Promise<void> {
     return this.db.transaction((s) => this.indexesInSession(s, collectionId));
@@ -800,7 +925,11 @@ export class Repository {
       ...(list?.filters?.map((f) => f.field_id) ?? []),
     ]);
     for (const field of fields) {
-      if (!field.deleted_at && (fieldConfig(field).indexed || automatic.has(field.id))) {
+      if (
+        !field.deleted_at &&
+        !['relation', 'backlink'].includes(field.type) &&
+        (fieldConfig(field).indexed || automatic.has(field.id))
+      ) {
         await s.execute(
           `CREATE INDEX IF NOT EXISTS ${fieldIndexName(field.id)} ON records(collection_id,deleted_at,${fieldExpression(field)},id)`
         );

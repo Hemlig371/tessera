@@ -44,6 +44,8 @@ export function validateUiDefinition(
     if (item.required != null && typeof item.required !== 'boolean') throw new AppError('invalidUiConfig');
     if (item.hint != null && (typeof item.hint !== 'string' || item.hint.length > 1000))
       throw new AppError('invalidUiConfig');
+    if (field.type === 'backlink' && (item.required || Object.hasOwn(item, 'default')))
+      throw new AppError('readOnlyField');
     if (Object.hasOwn(item, 'default'))
       validateValue(field.type, item.default, { ...fieldConfig(field), required: false });
     if (kind === 'form' && !item.visible) {
@@ -64,12 +66,23 @@ export function validateUiDefinition(
     if (list.mode && !['rows', 'cards', 'table'].includes(list.mode)) throw new AppError('invalidUiConfig');
     if (list.direction && !['asc', 'desc'].includes(list.direction)) throw new AppError('invalidUiConfig');
     for (const id of [list.sort_field, list.group_field])
-      if (id && id !== 'updated_at' && !byId.has(id)) throw new AppError('invalidUiConfig');
+      if (
+        id &&
+        id !== 'updated_at' &&
+        (!byId.has(id) || ['relation', 'backlink'].includes(byId.get(id)!.type))
+      )
+        throw new AppError('invalidUiConfig');
     for (const filter of list.filters ?? []) {
       const field = byId.get(filter.field_id);
       if (!field || !['eq', 'ne', 'gt', 'lt', 'empty', 'filled'].includes(filter.op))
         throw new AppError('invalidUiConfig');
+      if (['relation', 'backlink'].includes(field.type) && ['gt', 'lt'].includes(filter.op))
+        throw new AppError('invalidFilter');
       if (!['empty', 'filled'].includes(filter.op)) {
+        if (['relation', 'backlink'].includes(field.type)) {
+          requireId(filter.value as string);
+          continue;
+        }
         if (filter.value == null) throw new AppError('invalidFilter');
         validateValue(field.type, filter.value, { ...fieldConfig(field), required: false });
       }

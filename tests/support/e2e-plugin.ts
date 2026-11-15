@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { openNodeDatabase } from './node-database';
 import { Repository } from '../../src/core/repository';
+import { stage3Scenario } from './stage3-scenario';
 import { scaleScenario } from './scale';
 import type { SqlValue } from '../../src/core/ports';
 
@@ -55,6 +56,17 @@ export function e2ePlugin(): Plugin {
             await cleanup();
             res.setHeader('Content-Type', 'application/json');
             res.end('{"value":null}');
+            return;
+          }
+          if (op === 'relation-page-seed') {
+            const api = await Repository.open(db),
+              fixture = await stage3Scenario(api);
+            await api.importEntries(
+              fixture.projects.id,
+              Array.from({ length: 51 }, (_, i) => ({ [fixture.projects.primary_field_id]: 'Цель ' + i }))
+            );
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ value: fixture.library.id }));
             return;
           }
           const result =

@@ -63,7 +63,7 @@ npm ci
 npm run dev:desktop
 ```
 
-Команда запускает Vite и Tauri с настоящим Rust SQLite. Dev-профиль изолирован: `%APPDATA%\app.tessera.personal.dev\databases\app.sqlite`; обычная сборка — `%APPDATA%\app.tessera.personal\databases\app.sqlite`. Не копируйте активный `.sqlite` отдельно от WAL. Согласованные копии перед миграциями — в `operational/backups/`. Копия создаётся и перед первой миграцией пустой базы.
+Команда запускает Vite и Tauri с настоящим Rust SQLite. Dev-профиль изолирован: `%APPDATA%\app.tessera.personal.dev\databases\app.sqlite`; обычная сборка — `%APPDATA%\app.tessera.personal\databases\app.sqlite`. Не копируйте активный `.sqlite` отдельно от WAL. До первого публичного релиза актуальная dev-схема создаётся единым bootstrap без обязательных переходов между dev-версиями; несовместимую dev-базу нельзя молча удалять или перезаписывать — сначала предложить экспорт. После первого релиза обновления выполняются последовательными версионированными миграциями с согласованной резервной копией перед рискованными изменениями.
 
 ```powershell
 npx playwright install chromium   # один раз для UI-тестов
@@ -79,12 +79,14 @@ npm run build:desktop             # Windows x64 / NSIS
 
 ## Команды и границы проверок
 
+> Исторические описания миграций 1–7 ниже фиксируют эволюцию dev-сборок 0.5.0–0.14.0, а не требование сохранять upgrade-пути между промежуточными dev-базами. Перед первым публичным релизом используется единый bootstrap актуальной схемы. После релиза пользовательские базы обновляются последовательными версионированными миграциями. Экспорт БД — пользовательская резервная копия и средство восстановления; отдельная параллельная backup-функция не создаётся.
+
 | Команда | Проверка |
 | --- | --- |
 | `check:platforms` | совпадение major/minor установленных JS и Rust Tauri/API/dialog по Cargo.lock |
 | `typecheck`, `lint` | строгий TypeScript / ESLint |
 | `test:unit` | модель, типы полей, даты, Unicode-ключи, CSV-парсер, локализация, файловые черновики/lifecycle |
-| `test:db` / `test:integration` | файловая SQLite Node 24: API, миграции, FK, JSON, FTS5, expression index/query plan, WAL/checkpoint, rollback, версии/журнал |
+| `test:db` / `test:integration` | файловая SQLite Node 24: API, bootstrap актуальной схемы, FK, JSON, FTS5, expression index/query plan, WAL/checkpoint, rollback, версии/журнал; после первого релиза — также upgrade-миграции |
 | `test:sync` | **только HLC**: property tests, обратный ход часов, remote clock, tie-break; протокол/почта/chaos ещё не реализованы |
 | `test:native` | Rust/rusqlite: перезапуск, backup, FTS5, rollback, типы bridge |
 | `test:native-api` | тот же TS DB-контракт также через скомпилированный Rust/rusqlite, dev-only stdio driver в release-режиме для измерений SQLite |
@@ -105,7 +107,7 @@ Android: JDK 21, Android Studio/SDK 36, build-tools 36.0.0. Gradle wrapper вк�
 | Файлы | Ответственность |
 | --- | --- |
 | `src/core/ports.ts`, `model.ts`, `hlc.ts` | границы адаптеров, типы, HLC |
-| `src/core/schema.ts`, `migrate.ts`, `sqlite-check.ts` | единственный DDL, транзакционные миграции с checksum и backup, приёмка SQLite |
+| `src/core/schema.ts`, `migrate.ts`, `sqlite-check.ts` | актуальный DDL/bootstrap до первого релиза; после релиза — последовательные транзакционные миграции с checksum/backup и приёмка SQLite |
 | `src/core/repository.ts`, `relations.ts`, `quick-forms.ts` | UUID, библиотеки/коллекции/поля/records JSON, профили, атомарные версии/журнал/FTS |
 | `src/platform/` | последовательное соединение, Tauri/community SQLite; без browser fallback |
 | `src/ui/`, `src/locales/` | React, Zustand для навигации/форм, TanStack Virtual, i18next ru/en |

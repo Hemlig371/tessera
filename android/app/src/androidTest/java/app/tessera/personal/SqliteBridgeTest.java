@@ -28,6 +28,7 @@ public class SqliteBridgeTest {
         return new File(context.getFilesDir(), "operational/drafts/" + scope.getString("dataset_id") + "/" + scope.getString("library_id") + "/" + scope.getString("collection_id") + ".json");
     }
     private void openDraftCollection(ActivityScenario<MainActivity> scenario) throws Exception {
+        awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.textContent.includes('Заметки (dev/CI)'))");
         js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Заметки (dev/CI)')).click()");
         awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Заметки')");
         js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Заметки').click()");

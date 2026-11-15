@@ -1,3 +1,4 @@
+import { openConstructor } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('creation choices, quick/standard presets and defaults respect one shared creation draft', async ({ page }) => {
@@ -29,7 +30,7 @@ test('creation choices, quick/standard presets and defaults respect one shared c
   await expect(page.getByRole('textbox', { name: 'Тип', exact: true })).toHaveValue('Ошибка');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(await records()).toHaveLength(1);
-  await page.getByRole('button', { name: 'Пресеты создания', exact: true }).click();
+  await openConstructor(page); await page.getByRole('button', { name: 'Пресеты создания', exact: true }).click();
   await page.getByRole('combobox', { name: 'Короткое нажатие +', exact: true }).selectOption({ label: 'Новый баг' });
   await page.getByRole('button', { name: 'Сохранить действие создания', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Сохранить действие создания', exact: true })).toBeEnabled();
@@ -54,7 +55,7 @@ test('creation choices, quick/standard presets and defaults respect one shared c
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('С клавиатуры');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);
   // Build a new standard preset using the same generic field controls.
-  await page.getByRole('button', { name: 'Пресеты создания', exact: true }).click();
+  await openConstructor(page); await page.getByRole('button', { name: 'Пресеты создания', exact: true }).click();
   await page.getByRole('combobox', { name: 'Настраиваемый пресет' }).selectOption('new');
   await page.getByRole('textbox', { name: 'Название пресета', exact: true }).fill('Рабочая задача');
   const type = page.getByRole('group', { name: 'Тип', exact: true });

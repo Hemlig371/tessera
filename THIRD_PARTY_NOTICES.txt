@@ -1,4 +1,4 @@
-Tessera 0.11.0 — third-party notices
+Tessera 0.12.0 — third-party notices
 Generated from installed production npm dependencies.
 
 

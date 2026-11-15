@@ -300,5 +300,10 @@
   "densityComfortable": "Comfortable",
   "densityCompact": "Compact",
   "fontScale": "Text size",
-  "saveDeviceAppearance": "Save appearance"
+  "saveDeviceAppearance": "Save appearance",
+  "constructor": "Builder",
+  "finishConstructor": "Done, back to data",
+  "constructorCollectionHint": "Configure fields, forms and display profiles. Check the result on records below.",
+  "constructorChooseHint": "Select a library or collection to configure.",
+  "constructorPreview": "Record preview"
 }

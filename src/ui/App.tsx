@@ -323,6 +323,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   function open(editor: typeof ui.editor, editingId?: string) {
     if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) { beginCreate({ kind: editor === 'quick-entry' ? 'quick' : 'standard' }); return; }
+    if (editor && ['library','collection','fields','form','card','list','quick','profiles','presets'].includes(editor)) useUi.setState({ constructorOpen: true });
     setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false);
     ui.openEditor(editor, '', editingId);
   }
@@ -337,7 +338,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }, [busy, ui]);
   useEffect(() => {
     if (ui.editor) return bindSystemBack(close, () => setError('fileError'));
-  }, [ui.editor, close]);
+    if (ui.constructorOpen) return bindSystemBack(() => { if (!busy) useUi.setState({ constructorOpen: false }); }, () => setError('fileError'));
+  }, [ui.editor, ui.constructorOpen, close, busy]);
   async function saveDraftAction(action: DraftAction, collectionId: string, data: RecordData): Promise<Entry> {
     if (action.kind === 'linked') return api.createLinkedEntry(action.parent_id, action.field_id, data, action.create_id);
     return api.saveNewEntry(collectionId, data, action.create_id);
@@ -435,6 +437,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const recordContext =
     linked?.context ?? (ui.editingId ? context : collection && fields[0]?.collection_id === collection.id ? { collection, fields, layouts } : null);
   const disabled = busy || !!ui.editor;
+  function toggleConstructor() {
+    if (disabled) return;
+    useUi.setState({ constructorOpen: !ui.constructorOpen, navOpen: false });
+  }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
     ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
@@ -534,6 +540,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           </button>
           <span className="quiet-label">{t('offline')}</span>
           <button disabled={disabled} onClick={() => showInbox(true)}>+ {t('captureInbox')}</button>
+          <button id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}>{t('constructor')}</button>
           <button disabled={disabled || !appearanceReady} onClick={() => open('appearance')}>{t('deviceAppearance')}</button>
           <label className="language">
             {t('language')}
@@ -563,7 +570,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
                 {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
               </select>
-            </label><button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button></div>}
+            </label>{ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}</div>}
           </div>
           {collection && !collection.system_kind && (
             <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} options={[
@@ -572,14 +579,19 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             ]} />
           )}
         </header>
+        {ui.constructorOpen && <section className="constructor-banner" aria-label={t('constructor')}>
+          <div><h2>{t('constructor')}</h2><p>{t(collection && !collection.system_kind ? 'constructorCollectionHint' : 'constructorChooseHint')}</p></div>
+          <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
+        </section>}
         <div className="toolbar">
-          {library && (
+          {ui.constructorOpen && library && !library.system_kind && (
             <button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
             </button>
           )}
           {collection && !collection.system_kind && (
             <>
+              {ui.constructorOpen && <>
               <button disabled={disabled || !fieldsReady} onClick={() => open('collection', collection.id)}>
                 {t('editCollection')}
               </button>
@@ -594,12 +606,14 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               <button disabled={disabled || !fieldsReady} onClick={() => open('quick')}>{t('layouts.quick')}</button>
               <button disabled={disabled || !fieldsReady} onClick={() => open('presets')}>{t('creationPresets')}</button>
               <button disabled={disabled || !fieldsReady} onClick={() => open('quick-entry')}>+ {t('quickEntry')}</button>
+              </>}
               <button disabled={disabled || !fieldsReady} onClick={() => open('csv')}>
                 {t('csv')}
               </button>
             </>
           )}
         </div>
+        {ui.constructorOpen && browsing && <h2 className="constructor-preview-heading">{t('constructorPreview')}</h2>}
         {(!!libraries.length || browsing) && (
           <div className="searchbar">
             <label>

@@ -1,3 +1,4 @@
+import { openConstructor } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('safe Markdown capture, preview, configured move and editing retain the exact original', async ({ page }) => {
@@ -13,7 +14,7 @@ test('safe Markdown capture, preview, configured move and editing retain the exa
     await page.getByRole('button', { name: 'Заметки', exact: true }).click();
   };
   await page.reload(); await navigate();
-  await page.getByRole('button', { name: 'Настройки коллекции', exact: true }).click();
+  await openConstructor(page); await page.getByRole('button', { name: 'Настройки коллекции', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Разделять заголовок и текст' }).check();
   await page.getByRole('combobox', { name: 'Поле текста Markdown' }).selectOption({ label: 'Текст' });
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(0);

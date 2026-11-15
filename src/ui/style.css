@@ -853,3 +853,9 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.constructor-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px; margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--accent-soft); }
+.constructor-banner h2, .constructor-banner p { margin: 0; }
+.constructor-banner p { color: var(--text); }
+.constructor-preview-heading { font-size: 1.1rem; margin: 20px 0 12px; }
+#constructor-toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }

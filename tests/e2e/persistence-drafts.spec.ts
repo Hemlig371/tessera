@@ -1,3 +1,4 @@
+import { openQuickCreation } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 import type { Entry } from '../../src/core/model';
 test('Notes creation drafts survive close/restart; existing edits and stale-form rejection leave the draft unchanged', async ({ page }) => {
@@ -47,7 +48,7 @@ test('Notes creation drafts survive close/restart; existing edits and stale-form
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Моя подтверждённая редакция');
   await page.getByRole('button', { name: 'Сохранить мою редакцию' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0); expect(await bytes()).toEqual(originalFile);
-  await page.getByRole('button', { name: '+ Быстрая запись', exact: true }).click();
+  await openQuickCreation(page);
   await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Новая заметка 🦔');
   await expect(page.getByRole('textbox', { name: 'Текст', exact: true })).toHaveValue('Не терять длинный текст');
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('После системного возврата');

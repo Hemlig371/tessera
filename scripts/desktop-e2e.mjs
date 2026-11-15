@@ -21,6 +21,11 @@ async function until(script) {
   throw new Error('UI timeout: ' + script + '\n' + await execute('return document.body.innerText'));
 }
 async function clickText(text) {
+  if (text === '+ Быстрая запись') { await clickText('Варианты создания'); await clickText('Быстрая запись'); return; }
+  if (['Настройки библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text)) {
+    await until("!!document.querySelector('#constructor-toggle:not(:disabled)')");
+    if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
+  }
   const encoded = JSON.stringify(text);
   await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled)`);
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled).click();`);
@@ -54,6 +59,8 @@ try {
   await clickText('+ Новая запись'); await input('Native persistent entry'); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   assert.equal(await execute("return document.querySelector('[role=status]').textContent"), 'Запись сохранена');
+  await clickText('Готово, к данным');
+  await until("document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='false' && ![...document.querySelectorAll('button')].some(button=>button.textContent==='Поля')");
   const csvPath = join(directory, 'native-export.csv');
   const bridgeResult = await request('POST', `/session/${session}/execute/async`, {
     script: `const done=arguments[arguments.length-1]; (async()=>{

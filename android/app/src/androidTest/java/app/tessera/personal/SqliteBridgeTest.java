@@ -91,6 +91,7 @@ public class SqliteBridgeTest {
             openProfileCollection(scenario);
             js(scenario, "(()=>{const select=document.querySelector('.profile-switcher select'); select.value=[...select.options].find(option=>option.text==='Только Бета').value; select.dispatchEvent(new Event('change',{bubbles:true}));})()");
             awaitJs(scenario, "document.querySelectorAll('.entry').length===1 && document.querySelector('.entry').textContent.includes('Бета')");
+            openConstructor(scenario);
             js(scenario, "[...document.querySelectorAll('button')].find(button=>button.textContent==='Представления').click()");
             awaitJs(scenario, "!!document.querySelector('[role=dialog] select')");
             js(scenario, "(()=>{const select=document.querySelector('[role=dialog] select'); select.value=[...select.options].find(option=>option.text==='Только Бета').value; select.dispatchEvent(new Event('change',{bubbles:true}));})()");
@@ -134,6 +135,21 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!document.querySelector('[role=dialog]') && [...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Android preset draft'))");
         }
     }
+    @Test public void constructorModeExitsWithSystemBackWithoutLosingTheProfile() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            openProfileCollection(scenario);
+            awaitJs(scenario, "!!document.querySelector('#constructor-toggle:not(:disabled)')");
+            assertEquals("false", js(scenario, "[...document.querySelectorAll('button')].some(button=>button.textContent==='Поля')"));
+            String profile = js(scenario, "document.querySelector('.profile-switcher select').value");
+            openConstructor(scenario);
+            awaitJs(scenario, "[...document.querySelectorAll('button')].some(button=>button.textContent==='Поля' && !button.disabled)");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='false'");
+            assertEquals(profile, js(scenario, "document.querySelector('.profile-switcher select').value"));
+            assertEquals("false", js(scenario, "[...document.querySelectorAll('button')].some(button=>button.textContent==='Поля')"));
+        }
+    }
     @Test public void deviceAppearancePersistsAcrossRecreationAndFollowsNativeNightMode() throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         String original = device.executeShellCommand("cmd uimode night");
@@ -174,6 +190,13 @@ public class SqliteBridgeTest {
             assertEquals("false", js(scenario, "Reflect.get(window,'nativeMarkdownXss')"));
             assertEquals("0", js(scenario, "document.querySelectorAll('.detail .markdown script,.detail .markdown img').length"));
             assertEquals("true", js(scenario, "document.querySelector('.detail .original-content').textContent.startsWith('# Native Markdown **ёж**')"));
+        }
+    }
+    private void openConstructor(ActivityScenario<MainActivity> scenario) throws Exception {
+        awaitJs(scenario, "!!document.querySelector('#constructor-toggle:not(:disabled)')");
+        if (!"true".equals(js(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'"))) {
+            js(scenario, "document.querySelector('#constructor-toggle').click()");
+            awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'");
         }
     }
     private String js(ActivityScenario<MainActivity> scenario, String script) throws Exception {

@@ -1,3 +1,4 @@
+import { openConstructor } from '../support/ui-actions';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -15,7 +16,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Склад');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   async function addField(name: string, type: string) {
-    await page.getByRole('button', { name: 'Поля', exact: true }).click();
+    await openConstructor(page); await page.getByRole('button', { name: 'Поля', exact: true }).click();
     await page.getByRole('button', { name: '+ Новое поле', exact: true }).click();
     await page.getByRole('textbox', { name: 'Название поля' }).fill(name);
     await page.getByRole('combobox', { name: 'Тип поля' }).selectOption(type);
@@ -29,7 +30,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await addField('Остаток', 'integer');
   await addField('Готово', 'boolean');
   await addField('Дата', 'date');
-  await page.getByRole('button', { name: 'Форма', exact: true }).click();
+  await openConstructor(page); await page.getByRole('button', { name: 'Форма', exact: true }).click();
   const formCount = page.getByRole('group', { name: 'Остаток', exact: true });
   await formCount.getByRole('checkbox', { name: 'Обязательное', exact: true }).check();
   await formCount.getByRole('checkbox', { name: 'Задать значение по умолчанию для формы' }).check();
@@ -43,7 +44,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await page.getByLabel('Дата', { exact: true }).fill('2024-02-29');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('.entry')).toContainText('Красный блокнот');
-  await page.getByRole('button', { name: 'Карточка', exact: true }).click();
+  await openConstructor(page); await page.getByRole('button', { name: 'Карточка', exact: true }).click();
   await page
     .getByRole('group', { name: 'Описание', exact: true })
     .getByRole('checkbox', { name: 'Показывать' })

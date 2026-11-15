@@ -9,6 +9,7 @@ interface UiState {
   search: string;
   scope: 'collection' | 'library' | 'all';
   navOpen: boolean;
+  constructorOpen: boolean;
   select: (libraryId: string, collectionId?: string) => void;
   openEditor: (editor: UiState['editor'], text?: string, id?: string) => void;
   setText: (text: string) => void;
@@ -25,6 +26,7 @@ export const useUi = create<UiState>((set) => ({
   search: '',
   scope: 'collection',
   navOpen: false,
+  constructorOpen: false,
   select: (libraryId, collectionId) =>
     set({
       libraryId,

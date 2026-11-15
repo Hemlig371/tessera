@@ -1,0 +1,46 @@
+import { test, expect } from '@playwright/test';
+import { openConstructor } from '../support/ui-actions';
+
+test('builder isolates schema tools, preserves collection context and uses back without touching records or drafts', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
+  const mode = page.getByRole('button', { name: 'Конструктор', exact: true });
+  await expect(mode).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
+  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Конструктор dev');
+  await page.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Записи');
+  await page.getByRole('button', { name: 'Создать', exact: true }).click();
+  await expect(mode).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Готово, к данным' }).click();
+  await expect(mode).toHaveAttribute('aria-pressed', 'false');
+  for (const name of ['Поля','Форма','Карточка','Список','Представления','Настройки коллекции','Пресеты создания']) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Черновик конструктора');
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const snapshot = async () => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql: "SELECT (SELECT count(*) FROM records) AS records,(SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log) AS changes,(SELECT value FROM local_settings WHERE key='hlc') AS hlc" } })).json()).value as unknown;
+  const before = await snapshot();
+  const profile = await page.getByRole('combobox', { name: 'Представление', exact: true }).inputValue();
+  await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('контекст');
+  await openConstructor(page);
+  await expect(page.getByRole('heading', { name: 'Предпросмотр записей', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Поля', exact: true }).click();
+  await expect(page.locator('.field-list')).toContainText('Название');
+  // First back closes the editor; second exits the builder.
+  await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(mode).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
+  await expect(mode).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('searchbox', { name: 'Поиск', exact: true })).toHaveValue('контекст');
+  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(profile);
+  expect(await snapshot()).toEqual(before);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Черновик конструктора');
+  await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await page.reload(); await expect(mode).toHaveAttribute('aria-pressed', 'false');
+});

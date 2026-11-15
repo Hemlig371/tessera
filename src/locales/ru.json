@@ -300,5 +300,10 @@
   "densityComfortable": "Обычная",
   "densityCompact": "Компактная",
   "fontScale": "Размер текста",
-  "saveDeviceAppearance": "Сохранить оформление"
+  "saveDeviceAppearance": "Сохранить оформление",
+  "constructor": "Конструктор",
+  "finishConstructor": "Готово, к данным",
+  "constructorCollectionHint": "Настройте поля, формы и представления. Ниже можно проверить результат на записях.",
+  "constructorChooseHint": "Выберите библиотеку или коллекцию для настройки.",
+  "constructorPreview": "Предпросмотр записей"
 }

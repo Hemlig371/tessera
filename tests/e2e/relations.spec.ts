@@ -1,3 +1,4 @@
+import { openConstructor } from '../support/ui-actions';
 import { expect, test } from '@playwright/test';
 
 test('mobile single/multiple relations, reverse card, linked creation, cancel and deleted targets', async ({
@@ -26,7 +27,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
   await newCollection('Задачи');
   async function field(name: string, type: string, selectLabel: string, option: string, multiple = false) {
-    await page.getByRole('button', { name: 'Поля', exact: true }).click();
+    await openConstructor(page); await page.getByRole('button', { name: 'Поля', exact: true }).click();
     await page.getByRole('button', { name: '+ Новое поле', exact: true }).click();
     await page.getByRole('textbox', { name: 'Название поля' }).fill(name);
     await page.getByRole('combobox', { name: 'Тип поля' }).selectOption(type);

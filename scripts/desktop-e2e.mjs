@@ -25,6 +25,10 @@ async function clickText(text) {
   await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled)`);
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.disabled).click();`);
 }
+async function openLibrary(name) {
+  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.disabled)`;
+  await until(`!!(${selector})`); await execute(`(${selector}).click()`);
+}
 async function input(text) {
   await until("!!document.querySelector('[role=dialog] input, [role=dialog] textarea')");
   const element = await request('POST', `/session/${session}/element`, { using: 'css selector', value: '[role=dialog] input, [role=dialog] textarea' });
@@ -60,7 +64,7 @@ try {
   assert.equal(await readFile(csvPath, 'utf8'), 'Название;Число\r\nЁж 🦔;0\r\n');
   await request('DELETE', `/session/${session}`); session = undefined;
   await start();
-  await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
+  await openLibrary('Native library');
   await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   await clickText('+ Во входящие'); await input('Native Inbox transfer'); await clickText('Сохранить');
@@ -79,7 +83,7 @@ try {
   await until("!document.querySelector('[role=dialog]') && document.querySelector('[role=status]')?.textContent==='Запись сохранена'");
   await request('DELETE', `/session/${session}`); session = undefined;
   await start();
-  await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
+  await openLibrary('Native library');
   await clickText('Native collection');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
   await clickText('+ Быстрая запись'); await input('Native quick entry'); await clickText('Сохранить');
@@ -96,7 +100,7 @@ try {
   await request('DELETE', `/session/${session}`); session=undefined;
   await start();
   assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);
-  await execute("[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Native library')).click()");
+  await openLibrary('Native library');
   await clickText('Native collection');
   await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.disabled)");
   assert.equal(await execute("return !!document.querySelector('[role=dialog]')"),false);

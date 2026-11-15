@@ -25,6 +25,10 @@ if (code !== 0) {
     if (result.error || result.status !== 0) throw new Error('ADB failed: ' + String(result.error ?? result.stderr));
     return result.stdout;
   };
+  // connectedDebugAndroidTest uninstalls its APKs on completion. Reinstall the same
+  // acceptance artifacts before host-controlled, separate-process lifecycle phases.
+  adb(['install', '-r', '-t', 'android/app/build/outputs/apk/debug/app-debug.apk']);
+  adb(['install', '-r', '-t', 'android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk']);
   const target = 'app.tessera.personal.acceptance';
   const runner = adb(['shell', 'pm', 'list', 'instrumentation']).split(/\r?\n/).find(line => line.includes(`(target=${target})`))?.match(/instrumentation:(\S+)/)?.[1];
   if (!runner) throw new Error('Acceptance instrumentation runner not found');

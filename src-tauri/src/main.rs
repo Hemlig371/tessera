@@ -58,6 +58,6 @@ fn main() {
             app.manage(Storage { db: Mutex::new(Some(db)), backups: root.join("operational/backups") });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, csv_files::csv_open, csv_files::csv_write, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url, binary_files::binary_begin, binary_files::binary_write, binary_files::binary_finish, binary_files::binary_inspect, binary_files::binary_read, binary_files::binary_remove, binary_files::binary_export])
+        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, csv_files::csv_open, csv_files::csv_write, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url, binary_files::binary_begin, binary_files::binary_write, binary_files::binary_finish, binary_files::binary_inspect, binary_files::binary_stat, binary_files::binary_read, binary_files::binary_remove, binary_files::binary_export])
         .run(tauri::generate_context!()).expect("Tessera startup failed");
 }

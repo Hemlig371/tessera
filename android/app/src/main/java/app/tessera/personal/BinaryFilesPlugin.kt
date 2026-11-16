@@ -27,7 +27,7 @@ class BinaryFilesPlugin : Plugin() {
     private fun facts(value: BinaryStore.Facts?) = JSObject().put("facts", value?.let { JSObject().put("size", it.size).put("sha256", it.sha256) } ?: org.json.JSONObject.NULL)
     private fun reject(call: PluginCall, error: Exception) {
         val code = error.message
-        call.reject(if (code in setOf("fileMissing", "fileExists", "fileCorrupt", "invalidId", "invalidFileChunk", "invalidFileOffset")) code else "fileError")
+        call.reject((if (code in setOf("fileMissing", "fileExists", "fileCorrupt", "invalidId", "invalidFileChunk", "invalidFileOffset")) code else "fileError") ?: "fileError")
     }
     private fun work(call: PluginCall, action: () -> JSObject) {
         worker.execute { try { call.resolve(action()) } catch (error: Exception) { reject(call, error) } }
@@ -39,6 +39,7 @@ class BinaryFilesPlugin : Plugin() {
         store.write(id(call), long(call, "offset"), Base64.decode(data, Base64.NO_WRAP)); JSObject()
     }
     @PluginMethod fun finish(call: PluginCall) = work(call) { facts(store.finish(id(call), long(call, "size"), call.getString("sha256"))) }
+    @PluginMethod fun stat(call: PluginCall) = work(call) { JSObject().put("size", store.stat(id(call)) ?: org.json.JSONObject.NULL) }
     @PluginMethod fun inspect(call: PluginCall) = work(call) { facts(store.inspect(id(call))) }
     @PluginMethod fun read(call: PluginCall) = work(call) {
         val bytes = store.read(id(call), long(call, "offset"), call.getInt("length") ?: throw IllegalArgumentException())

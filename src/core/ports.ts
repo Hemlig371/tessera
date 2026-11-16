@@ -28,6 +28,7 @@ export interface BinaryFileAdapter {
   begin(id: string): Promise<void>;
   write(id: string, offset: number, bytes: Uint8Array): Promise<void>;
   finish(id: string, size: number, sha256?: string): Promise<FileFacts>;
+  stat(id: string): Promise<number | null>;
   inspect(id: string): Promise<FileFacts | null>;
   read(id: string, offset: number, length: number): Promise<Uint8Array>;
   remove(id: string, staged: boolean): Promise<void>;

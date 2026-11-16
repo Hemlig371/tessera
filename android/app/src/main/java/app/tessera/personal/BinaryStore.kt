@@ -54,6 +54,7 @@ class BinaryStore(private val root: File) {
         try { android.system.Os.fsync(fd) } finally { android.system.Os.close(fd) }
         return facts
     }
+    @Synchronized fun stat(id: String): Long? { val file = path(id, false); return if (file.isFile) file.length() else if (!file.exists()) null else fail("fileError") }
     @Synchronized fun inspect(id: String): Facts? = hash(path(id, false))
     @Synchronized fun read(id: String, offset: Long, length: Int): ByteArray {
         if (length < 1 || length > CHUNK_SIZE) fail("invalidFileChunk")

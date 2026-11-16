@@ -45,11 +45,15 @@ impl BinaryStore {
         let facts = Self::facts(&staged)?.ok_or("fileMissing")?;
         if facts.0 != expected_size || expected_hash.map(|hash| hash != facts.1).unwrap_or(false) { return Err("fileCorrupt".into()); }
         if target.exists() { return Err("fileExists".into()); }
-        File::open(&staged).and_then(|f| f.sync_all()).map_err(|_| "fileError")?;
+        OpenOptions::new().append(true).open(&staged).and_then(|f| f.sync_all()).map_err(|_| "fileError")?;
         fs::create_dir_all(target.parent().ok_or("fileError")?).map_err(|_| "fileError")?;
         fs::rename(&staged, &target).map_err(|_| "fileError")?;
         #[cfg(unix)] { File::open(target.parent().ok_or("fileError")?).and_then(|f| f.sync_all()).map_err(|_| "fileError")?; }
         Ok(facts)
+    }
+    pub fn stat(&self, id: &str) -> Result<Option<u64>> {
+        let _guard = self.gate.lock().map_err(|_| "fileError")?;
+        match fs::metadata(self.path(id, false)?) { Ok(meta) if meta.is_file() => Ok(Some(meta.len())), Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None), _ => Err("fileError".into()) }
     }
     pub fn inspect(&self, id: &str) -> Result<Option<(u64, String)>> {
         let _guard = self.gate.lock().map_err(|_| "fileError")?;
@@ -105,6 +109,7 @@ mod tests {
         let mut expected = Sha256::new(); for _ in 0..45 { expected.update(&chunk); }
         assert_eq!(facts.1, format!("{:x}", expected.finalize()));
         let again = BinaryStore::new(root.path().into());
+        assert_eq!(again.stat(ID).unwrap(), Some(facts.0));
         assert_eq!(again.inspect(ID).unwrap(), Some(facts));
         assert_eq!(again.read(ID, 44 * CHUNK_SIZE as u64, CHUNK_SIZE).unwrap(), chunk);
         assert!(again.read(ID, 46 * CHUNK_SIZE as u64, 1).is_err());

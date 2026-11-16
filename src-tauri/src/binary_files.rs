@@ -30,3 +30,8 @@ pub async fn binary_remove(app: tauri::AppHandle, id: String, staged: bool) -> R
 pub async fn binary_export(app: tauri::AppHandle, id: String, path: String, size: u64, sha256: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || app.state::<BinaryStore>().export(&id, path.into(), size, &sha256)).await.map_err(|_| "fileError")?
 }
+
+#[tauri::command]
+pub async fn binary_stat(app: tauri::AppHandle, id: String) -> Result<Option<u64>, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<BinaryStore>().stat(&id)).await.map_err(|_| "fileError")?
+}

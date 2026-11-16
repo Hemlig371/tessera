@@ -707,6 +707,32 @@ export class Repository {
     requireId(recordId);
     return this.db.read(s => readHistory(s, recordId));
   }
+  /** An explicit restore is a new save of the retained snapshot, never a rewrite of a version. */
+  restoreEntryVersion(recordId: string, versionId: string, expectedHlc: string): Promise<Entry> {
+    requireId(recordId); requireId(versionId);
+    if (!expectedHlc) throw new AppError('staleRecord');
+    return this.db.transaction(async s => {
+      const [stored] = await s.query<StoredEntry>('SELECT r.* ' + activeRecords + ' AND r.id=?', [recordId]);
+      if (!stored) throw new AppError('notFound');
+      const previous = decodeEntry(stored);
+      if (previous.hlc !== expectedHlc) throw new AppError('staleRecord');
+      const version = (await readHistory(s, recordId)).versions.find(value => value.id === versionId);
+      if (!version) throw new AppError('notFound');
+      const target = await activeCollection(s, version.snapshot.collection_id);
+      const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL ORDER BY position,id', [target.id]);
+      const [form] = await s.query<UiConfiguration>("SELECT * FROM ui_configs WHERE collection_id=? AND kind='form' AND deleted_at IS NULL", [target.id]);
+      // Validate against the current schema without filling new defaults or retaining later values.
+      const data = prepareEntryData(version.snapshot.data,
+        entryRules(target, fields, form ? JSON.parse(form.config) as UiDefinition : { fields: [] }), version.snapshot.data);
+      await validateRelationTargets(s, target, fields, data, previous.collection_id === target.id ? previous.data : undefined);
+      if (previous.collection_id === target.id && canonical(data) === canonical(previous.data)) return previous;
+      const stamp = await this.stamp(s, recordId, version.hlc);
+      const row: Entry = { ...previous, collection_id: target.id, data, hlc: stamp.hlc, device_id: stamp.device_id,
+        updated_at: stamp.updated_at, updated_local: localTimestamp(new Date(stamp.updated_at)) };
+      await this.persistEntry(s, row, true, fields);
+      return row;
+    });
+  }
   private async compactHistory(): Promise<void> {
     while (await this.db.transaction(async s => {
       const records = await s.query<{ record_id: string }>(

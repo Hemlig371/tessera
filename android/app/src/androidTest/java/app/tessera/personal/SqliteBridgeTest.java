@@ -323,7 +323,7 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
             awaitJs(scenario, "!document.querySelector('#constructor-toggle').disabled && document.querySelector('h1')?.textContent!=='Библиотеки'");
             // Other native cases intentionally retain the chosen start across recreation.
-            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='К коллекциям')?.click()");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='К коллекциям')?.click()");
             awaitJs(scenario, "!!document.querySelector('[data-catalog=collections]') && [...document.querySelectorAll('[data-catalog=collections] button')].some(b=>b.textContent.includes('Раздел') && !b.disabled)");
             openConstructor(scenario);
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Стартовый экран библиотеки').click()");

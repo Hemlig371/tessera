@@ -84,7 +84,7 @@ try {
   await execute("[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Native Inbox transfer')).click()");
   await clickText('Перенести в коллекцию');
   async function selectOption(label, text) {
-    const selector = `[...document.querySelectorAll('[data-editor] label')].find(l=>l.textContent.includes(${JSON.stringify(label)}))?.querySelector('select')`;
+    const selector = `[...document.querySelectorAll('[data-editor] label')].find(l=>[...l.childNodes].filter(node=>node.nodeType===Node.TEXT_NODE).map(node=>node.textContent).join('').trim()===${JSON.stringify(label)})?.querySelector('select')`;
     await until(`!!(${selector}) && !(${selector}).matches(':disabled') && [...(${selector}).options].some(o=>o.text===${JSON.stringify(text)})`);
     await execute(`const s=${selector}; s.value=[...s.options].find(o=>o.text===${JSON.stringify(text)}).value; s.dispatchEvent(new Event('change',{bubbles:true}));`);
   }

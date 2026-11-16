@@ -331,6 +331,41 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!" + item);
         }
     }
+    @Test public void attachmentDraftPublishesOnlyOnSaveAndKeepsNativeBytesAcrossRecreation() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.attachmentFixture")).nextValue());
+            String library = "Открыть библиотеку «" + scope.getString("library_name") + "»";
+            openCatalogTarget(scenario, "libraries", library);
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Материалы с файлами»");
+            awaitJs(scenario, "[...document.querySelectorAll('button:not(:disabled)')].some(b=>b.textContent==='+ Новая запись')");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]:not(:disabled)')");
+            js(scenario, "(()=>{const input=document.querySelector('[data-editor] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android file draft');input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            js(scenario, "(()=>{const input=document.querySelector('[data-editor] input[type=file][aria-label=Документы]'),transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array([0,255,17,13,10,42])],'Документ.bin',{type:'application/octet-stream'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            awaitJs(scenario, "document.querySelector('[data-editor] [data-attachment-id] .file-state')?.textContent==='Копия на этом устройстве'");
+            String id = (String)new JSONTokener(js(scenario, "document.querySelector('[data-editor] [data-attachment-id]').getAttribute('data-attachment-id')")).nextValue();
+            File file = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(), "attachments/" + id.substring(0,2) + "/" + id);
+            byte[] bytes = new byte[]{0,(byte)255,17,13,10,42};
+            assertArrayEquals(bytes, java.nio.file.Files.readAllBytes(file.toPath()));
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Закрыть').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelectorAll('.entry').length===0");
+            scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            openCatalogTarget(scenario, "libraries", library);
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Материалы с файлами»");
+            awaitJs(scenario, "[...document.querySelectorAll('button:not(:disabled)')].some(b=>b.textContent==='+ Новая запись')");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
+            awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Android file draft' && !!document.querySelector('[data-attachment-id=\"" + id + "\"]')");
+            awaitJs(scenario, "[...document.querySelectorAll('[data-editor] button:not(:disabled)')].some(b=>b.textContent==='Сохранить')");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Android file draft'))");
+            js(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Android file draft')).click()");
+            awaitJs(scenario, "document.querySelector('.detail [data-attachment-id=\"" + id + "\"] .file-state')?.textContent==='Копия на этом устройстве'");
+            assertArrayEquals(bytes, java.nio.file.Files.readAllBytes(file.toPath()));
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===1");
+        }
+    }
     private void openConstructor(ActivityScenario<MainActivity> scenario) throws Exception {
         awaitJs(scenario, "!!document.querySelector('#constructor-toggle:not(:disabled)')");
         if (!"true".equals(js(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'"))) {

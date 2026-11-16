@@ -4,6 +4,7 @@ import { mkdtemp, rm, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 const directory = await mkdtemp(join(tmpdir(), 'tessera-desktop-'));
 const driver = spawn('tauri-driver', ['--port', '4444'], { stdio: ['ignore', 'inherit', 'inherit'], env: { ...process.env, XDG_DATA_HOME: directory } });
 let session;
@@ -289,7 +290,27 @@ try {
   await until("!!document.querySelector('[data-catalog=libraries]')");
   await clickText('Корзина');
   await until("document.querySelector('[data-trash] fieldset select')?.value==='forever' && document.querySelector('[data-trash] [role=status]')?.textContent==='Корзина пуста.'");
-  console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
+  await clickText('Назад'); await until("!document.querySelector('[data-editor]')");
+  await clickText('+ Во входящие'); await input('Native attachment draft');
+  await until("!!document.querySelector('[data-editor] input[type=file]:not(:disabled)')");
+  await execute("const input=document.querySelector('[data-editor] input[type=file]'),transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array([0,255,17,13,10,42])],'Native — документ.bin',{type:'application/octet-stream'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}))");
+  await until("document.querySelector('[data-editor] [data-attachment-id] .file-state')?.textContent==='Копия на этом устройстве'");
+  const attachmentId = await execute("return document.querySelector('[data-editor] [data-attachment-id]').getAttribute('data-attachment-id')");
+  const privateRoot = operationalRoot.slice(0, -'operational/'.length);
+  const attachmentPath = join(privateRoot, 'attachments', attachmentId.slice(0,2), attachmentId);
+  assert.deepEqual(await readFile(attachmentPath), Buffer.from([0,255,17,13,10,42]));
+  await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
+  await request('DELETE', `/session/${session}`); session = undefined; await start();
+  await clickText('+ Во входящие');
+  await until(`!!document.querySelector('[data-editor] [data-attachment-id="${attachmentId}"]') && document.querySelector('[data-editor] textarea')?.value==='Native attachment draft'`);
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Native attachment draft'))");
+  await execute("[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Native attachment draft')).click()");
+  await until(`document.querySelector('.detail [data-attachment-id="${attachmentId}"] .file-state')?.textContent==='Копия на этом устройстве'`);
+  const binaryExport = join(directory, 'Native — документ.bin');
+  assert.equal(await request('POST', `/session/${session}/execute/async`, { script: `const done=arguments[arguments.length-1];(async()=>{const invoke=window.__TAURI_INTERNALS__.invoke,facts=await invoke('binary_inspect',{id:'${attachmentId}'});await invoke('binary_export',{id:'${attachmentId}',path:${JSON.stringify(binaryExport)},...facts});})().then(()=>done('ok'),error=>done(String(error)));`, args: [] }), 'ok');
+  assert.deepEqual(await readFile(binaryExport), await readFile(attachmentPath));
+  await clickText('История записи'); await until("document.querySelectorAll('.history-versions button').length===1");
+  console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite and native attachment bytes; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.
   console.error('::error::' + String(error).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A'));

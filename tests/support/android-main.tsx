@@ -1,3 +1,5 @@
+import { attachmentScenario, attachmentFixture } from './attachments-scenario';
+import { openBinaryFiles } from '../../src/platform/binary-files';
 import { trashScenario } from './trash-scenario';
 import { historyRestoreScenario, historyFixture } from './history-scenario';
 import { createKnowledgeFixture } from '../fixtures/knowledge';
@@ -31,7 +33,7 @@ async function run() {
   await sqliteContract(first);
   document.documentElement.dataset.acceptanceStage = 'migration';
   await migrate(first);
-  const api = await Repository.open(first);
+  const api = await Repository.open(first, openBinaryFiles());
   const library = (await api.listLibraries()).find(l => l.name === 'Контракт') ?? await api.createLibrary('Контракт');
   const collection = (await api.listCollections(library.id))[0] ?? await api.createCollection(library.id, 'Записи', 'Название');
   const old = (await api.listEntries(collection.id)).items[0];
@@ -47,6 +49,9 @@ async function run() {
     document.documentElement.dataset.scale = JSON.stringify({ importMs: result.importMs, queryMs: result.queryMs });
     await first.transaction(s => s.execute("INSERT INTO local_settings VALUES('acceptance.stage3',?)", [JSON.stringify({ collection: result.collection.id, importMs: result.importMs, queryMs: result.queryMs })]));
   } else document.documentElement.dataset.scale = String(complete.value);
+  document.documentElement.dataset.acceptanceStage = 'attachments';
+  await attachmentScenario(api);
+  document.documentElement.dataset.attachmentFixture = JSON.stringify(await attachmentFixture(api));
   document.documentElement.dataset.acceptanceStage = 'trash';
   await trashScenario(api);
   document.documentElement.dataset.acceptanceStage = 'history';
@@ -78,7 +83,7 @@ async function run() {
   document.documentElement.dataset.acceptanceStage = 'reopen';
   await first.close();
   const reopened = await openAndroidDatabase();
-  const again = await Repository.open(reopened);
+  const again = await Repository.open(reopened, openBinaryFiles());
   document.documentElement.dataset.draftFixture = JSON.stringify(await draftFixture(again));
   if ((await again.getEntry(record.id))?.data[collection.primary_field_id] !== 'Bridge roundtrip') throw new Error('native reopen failed');
   document.documentElement.dataset.acceptanceStage = 'render';

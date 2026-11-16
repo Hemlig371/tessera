@@ -10,7 +10,7 @@ test('retained rows become interactive after the refreshed range and browse posi
   await page.getByRole('button', { name: 'Открыть коллекцию «Редакции»', exact: true }).click();
   const row = page.locator('.entry').filter({ hasText: 'Вторая редакция' });
   await expect(row).toBeEnabled();
-  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
   let release!: () => void, pending!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   const requested = new Promise<void>(resolve => { pending = resolve; });

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { Entry, Field, JsonValue } from '../core/model';
 import type { HistoryState } from '../core/history';
 import type { Repository } from '../core/repository';
-import { ErrorMessage, errorKey, useFormatValue } from './common';
+import { errorKey, useFormatValue } from './common';
 
 export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
   api: Repository; entry: Entry; busy: boolean; restore: (versionId: string) => void;
@@ -34,23 +34,27 @@ export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
   }, [api, version]);
   const savedAt = (value: string) => new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value));
   const rawValue = (value: JsonValue) => typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-  return <div className="record-history">
-    <p>{t('historyHint')}</p>
-    {error && <ErrorMessage code={error} />}
-    <button disabled={busy} onClick={refresh}>{t('refreshHistory')}</button>
-    {history && !history.versions.length && <p role="status">{t('emptyHistory')}</p>}
-    {history && history.versions.length > 0 && <>
+  return <div className="record-history" aria-busy={!history && !error}>
+    <div className="history-toolbar"><p className="screen-hint">{t('historyHint')}</p>
+    <button disabled={busy || (!history && !error)} onClick={refresh}>{t('refreshHistory')}</button></div>
+    {error && <div className="error" role="alert"><strong>{t('historyUnavailable')}</strong>
+      <p>{error === 'generic' ? t('readUnavailableHint') : t(`errors.${error}`, { defaultValue: t('readUnavailableHint') })}</p></div>}
+    {!history && !error && <p role="status">{t('loadingHistory')}</p>}
+    {history && !history.versions.length && <div className="empty" role="status">{t('emptyHistory')}</div>}
+    {history && history.versions.length > 0 && <><div className="history-layout">
       <ol className="history-versions" aria-label={t('recordVersions')}>
         {history.versions.map((value, index) => <li key={value.id}>
           <button data-version-id={value.id} disabled={busy} aria-pressed={value.id === selected}
             onClick={() => { if (selected !== value.id) { setFields([]); setCollectionName(null); setSelected(value.id); } setConfirmClear(false); }}>
-            {t('versionNumber', { number: history.versions.length - index })} · {savedAt(value.saved_at)}
+            <strong>{t('versionNumber', { number: history.versions.length - index })}</strong>
+            <time dateTime={value.saved_at}>{savedAt(value.saved_at)}</time>
           </button>
         </li>)}
       </ol>
       {version && <section key={version.id} aria-label={t('versionSnapshot')} className="history-snapshot">
+        <div className="history-snapshot-heading"><h2>{t('versionSnapshot')}</h2>
         <p>{t('historyCollection')}: {collectionName ?? version.snapshot.collection_id}</p>
-        <small>{t('versionSavedAt')}: {savedAt(version.saved_at)}</small>
+        <small>{t('versionSavedAt')}: <time dateTime={version.saved_at}>{savedAt(version.saved_at)}</time></small></div>
         <dl>{Object.entries(version.snapshot.data).map(([id, value]) => {
           const field = fields.find(value => value.id === id);
           return <div key={id}><dt>{field?.name ?? id}</dt><dd>
@@ -61,7 +65,7 @@ export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
         {unmappedFiles?.version === version.id && !!unmappedFiles.ids.length && <section aria-label={t('retainedAttachments')}><h3>{t('retainedAttachments')}</h3><AttachmentList api={api} ownerId={entry.id} ids={unmappedFiles.ids} busy={busy} /></section>}
         <button className="primary" disabled={busy} onClick={() => restore(version.id)}>{t('restoreVersion')}</button>
         <p>{t('restoreVersionHint')}</p>
-      </section>}
+      </section>}</div>
       <div className="form-actions">
         {!confirmClear ? <button className="danger" disabled={busy} onClick={() => setConfirmClear(true)}>{t('clearRecordHistory')}</button> : <>
           <p>{t('clearHistoryHint')}</p>

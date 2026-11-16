@@ -40,6 +40,37 @@ describe('native process death and recovery', () => {
       } finally { await reopened.close(); }
     } finally { await f.cleanup(); }
   });
+  it.each(['soft delete', 'restore', 'purge'] as const)('rolls an interrupted trash %s back and retries after process restart', async phase => {
+    if (!process.env.TESSERA_RUST_BRIDGE) throw new Error('Run with npm run test:native-api');
+    const f = await fixture('rust');
+    try {
+      const api = f.api!, library = await api.createLibrary('Trash crash');
+      const collection = await api.createCollection(library.id, 'Entries', 'Title');
+      const entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Committed' });
+      if (phase !== 'soft delete') await api.setDeleted('record', entry.id, true);
+      await api.startLocalSync();
+      const before = await snapshot(f.db);
+      const killed = killAfter(f.db, sql => sql.startsWith('INSERT INTO change_log'));
+      const row = (await api.queryTrash()).items[0];
+      await expect(phase === 'purge' ? api.purgeEntry(entry.id, row!.hlc) : api.setDeleted('record', entry.id, phase === 'soft delete')).rejects.toThrow('injected process death');
+      await killed();
+      const reopened = await f.reopen();
+      try {
+        expect(await snapshot(reopened)).toEqual(before);
+        await checkDatabaseIntegrity(reopened, true);
+        const again = await Repository.open(reopened);
+        if (phase === 'purge') {
+          await again.purgeEntry(entry.id, row!.hlc);
+          expect((await again.getHistory(entry.id)).versions).toEqual([]);
+          expect(await again.mergeEntryState(entry)).toBe(false);
+        } else {
+          await again.setDeleted('record', entry.id, phase === 'soft delete');
+          expect((await again.queryTrash()).items.length).toBe(phase === 'soft delete' ? 1 : 0);
+          expect((await again.queryEntries({ search: 'Committed' })).items.length).toBe(phase === 'soft delete' ? 0 : 1);
+        }
+      } finally { await reopened.close(); }
+    } finally { await f.cleanup(); }
+  });
   it.each(['activation', 'compaction', 'history rotation', 'derived rebuild'] as const)('preserves the committed state after interrupted %s', async phase => {
     if (!process.env.TESSERA_RUST_BRIDGE) throw new Error('Run with npm run test:native-api');
     const f = await fixture('rust');

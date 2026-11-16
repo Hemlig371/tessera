@@ -271,6 +271,24 @@ try {
   assert.equal(await readFile(join(operationalRoot, recoveredDraft), 'utf8'), damagedDraft);
   await assert.rejects(readFile(nativeDraft), { code: 'ENOENT' });
   await request('POST', `/session/${session}/window/rect`, { width: 1100, height: 800 });
+  await execute("[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Native recovered creation')).click()");
+  await until("document.querySelector('.detail #record-title')?.textContent==='Native recovered creation'");
+  await clickText('Удалить'); await until("!document.querySelector('.detail') && !document.querySelector('[data-editor]')");
+  await clickText('Корзина'); await until("[...document.querySelectorAll('.trash-list h2')].some(h=>h.textContent==='Native recovered creation')");
+  await clickText('Восстановить'); await until("document.querySelector('[data-trash] [role=status]')?.textContent==='Корзина пуста.'");
+  await clickText('Назад'); await until("!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Native recovered creation'))");
+  await execute("[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Native recovered creation')).click()");
+  await until("document.querySelector('.detail #record-title')?.textContent==='Native recovered creation'");
+  await clickText('Удалить'); await until("!document.querySelector('.detail') && !document.querySelector('[data-editor]')");
+  await clickText('Корзина'); await until("!!document.querySelector('.trash-list h2')");
+  await clickText('Удалить окончательно'); await clickText('Подтвердить окончательное удаление');
+  await until("document.querySelector('[data-trash] [role=status]')?.textContent==='Корзина пуста.'");
+  await selectOption('Срок хранения в корзине', 'Бессрочно'); await clickText('Сохранить срок хранения');
+  await until("document.querySelector('[data-trash] fieldset select')?.value==='forever' && !document.querySelector('[data-trash] fieldset select').disabled && document.querySelector('[data-trash] fieldset button').disabled");
+  await request('DELETE', `/session/${session}`); session = undefined; await start();
+  await until("!!document.querySelector('[data-catalog=libraries]')");
+  await clickText('Корзина');
+  await until("document.querySelector('[data-trash] fieldset select')?.value==='forever' && document.querySelector('[data-trash] [role=status]')?.textContent==='Корзина пуста.'");
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

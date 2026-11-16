@@ -289,6 +289,48 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('[data-editor] [role=status]')?.textContent==='Сохранённых версий нет.'");
         }
     }
+    @Test public void sharedTrashRestoresPurgesAndKeepsRetentionAcrossRecreation() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.historyFixture")).nextValue());
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «" + scope.getString("library_name") + "»");
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Редакции»");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Другая запись'))");
+            js(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Другая запись')).click()");
+            awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Другая запись'");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='Удалить').click()");
+            awaitJs(scenario, "!document.querySelector('.detail') && !document.querySelector('[data-editor]')");
+            awaitJs(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].some(b=>b.textContent==='Корзина')");
+            js(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].find(b=>b.textContent==='Корзина').click()");
+            String item = "document.querySelector('[data-trash-id=\"" + scope.getString("other_id") + "\"]')";
+            awaitJs(scenario, "!!" + item + "?.querySelector('button:not(:disabled)')");
+            js(scenario, item + ".querySelector('button').click()");
+            awaitJs(scenario, "!" + item);
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Другая запись'))");
+            js(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Другая запись')).click()");
+            awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Другая запись'");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='Удалить').click()");
+            awaitJs(scenario, "!document.querySelector('.detail') && !document.querySelector('[data-editor]')");
+            awaitJs(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].some(b=>b.textContent==='Корзина')");
+            js(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].find(b=>b.textContent==='Корзина').click()");
+            awaitJs(scenario, "!!" + item + "?.querySelector('button:not(:disabled)')");
+            js(scenario, item + ".querySelectorAll('button')[1].click()");
+            awaitJs(scenario, "!!document.querySelector('.trash-confirm')");
+            js(scenario, "document.querySelector('.trash-confirm button').click()");
+            awaitJs(scenario, "!" + item);
+            awaitJs(scenario, "!!document.querySelector('[data-trash] fieldset select:not(:disabled)')");
+            js(scenario, "const select=document.querySelector('[data-trash] fieldset select');select.value='forever';select.dispatchEvent(new Event('change',{bubbles:true}))");
+            awaitJs(scenario, "!!document.querySelector('[data-trash] fieldset button:not(:disabled)')");
+            js(scenario, "[...document.querySelectorAll('[data-trash] button')].find(b=>b.textContent==='Сохранить срок хранения').click()");
+            awaitJs(scenario, "document.querySelector('[data-trash] fieldset select')?.value==='forever' && !document.querySelector('[data-trash] fieldset select').disabled && document.querySelector('[data-trash] fieldset button').disabled");
+            scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].some(b=>b.textContent==='Корзина')");
+            js(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].find(b=>b.textContent==='Корзина').click()");
+            awaitJs(scenario, "document.querySelector('[data-trash] fieldset select')?.value==='forever' && !document.querySelector('[data-trash] fieldset select').disabled");
+            awaitJs(scenario, "!" + item);
+        }
+    }
     private void openConstructor(ActivityScenario<MainActivity> scenario) throws Exception {
         awaitJs(scenario, "!!document.querySelector('#constructor-toggle:not(:disabled)')");
         if (!"true".equals(js(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'"))) {

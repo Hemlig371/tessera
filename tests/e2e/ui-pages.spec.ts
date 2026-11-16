@@ -4,7 +4,7 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 900 }); await page.goto('/');
   await expect(page.locator('aside')).toBeVisible();
-  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('combobox', { name: 'Плотность', exact: true }).selectOption('compact');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
@@ -66,8 +66,10 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   await entry.click();
   const edit = page.locator('.detail').getByRole('button', { name: 'Редактировать', exact: true });
   await expect(page.locator('.detail .relation-block[aria-busy=true]')).toHaveCount(0);
-  await edit.scrollIntoViewIfNeeded(); const cardScroll = await page.evaluate(() => scrollY);
-  await edit.click();
+  await edit.focus(); const cardScroll = await page.evaluate(() => scrollY);
+  // Capture the actual focused viewport; pointer auto-scrolling may move it
+  // again between a pre-click measurement and activation on a tall card.
+  await page.keyboard.press('Enter');
   const editor = page.getByRole('region', { name: 'Редактировать', exact: true });
   await expect(editor).toBeVisible();
   // The page has an ordinary heading and document flow, with no modal layer.

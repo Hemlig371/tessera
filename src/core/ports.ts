@@ -22,6 +22,17 @@ export interface FileAdapter {
   writeAtomic(relativeId: string, bytes: Uint8Array): Promise<void>;
   remove(relativeId: string): Promise<void>;
 }
+/** Private attachment bytes, separate from small operational draft files. No database rules here. */
+export interface FileFacts { size: number; sha256: string }
+export interface BinaryFileAdapter {
+  begin(id: string): Promise<void>;
+  write(id: string, offset: number, bytes: Uint8Array): Promise<void>;
+  finish(id: string, size: number, sha256?: string): Promise<FileFacts>;
+  inspect(id: string): Promise<FileFacts | null>;
+  read(id: string, offset: number, length: number): Promise<Uint8Array>;
+  remove(id: string, staged: boolean): Promise<void>;
+  export(id: string, name: string, mime: string, expected: FileFacts): Promise<boolean>;
+}
 export interface TransportAdapter {
   send(encryptedPacket: Uint8Array): Promise<{ deliveryId: string }>;
   receive(cursor: string | null): Promise<{ packets: Uint8Array[]; cursor: string }>;

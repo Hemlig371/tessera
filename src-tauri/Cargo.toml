@@ -17,3 +17,5 @@ tessera-sqlite = { path = "sqlite-bridge" }
 tauri-plugin-dialog = "=2.8.4"
 
 url = "=2.5.8"
+
+sha2 = "=0.10.9"

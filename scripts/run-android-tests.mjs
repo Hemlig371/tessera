@@ -37,6 +37,7 @@ if (code !== 0) {
     for (const [testClass, phase] of [
       ['SqliteBridgeTest', 'preparePersistentDraft'], ['SqliteBridgeTest', 'verifyPersistentDraft'],
       ['CsvStagingTest', 'prepareInterruptedCsv'], ['CsvStagingTest', 'verifyInterruptedCsv'],
+      ['BinaryStoreTest', 'prepareInterruptedBinary'], ['BinaryStoreTest', 'verifyInterruptedBinary'],
     ]) {
       adb(['shell', 'am', 'force-stop', target]);
       const output = adb(['shell', 'am', 'instrument', '-w', '-e', 'class', `app.tessera.personal.${testClass}#${phase}`, runner]);

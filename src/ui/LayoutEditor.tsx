@@ -50,12 +50,13 @@ export function LayoutEditor({
   }
   return (
     <form
+      className="layout-editor"
       onSubmit={(e) => {
         e.preventDefault();
         save({ fields: items, ...(kind === 'list' ? { list } : { rows: rows.filter(row => row.field_ids.length) }) });
       }}
     >
-      <p>{t('independentLayouts')}</p>
+      <p className="screen-hint">{t('independentLayouts')}</p>
       {kind !== 'list' && <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows} />}
       {items.map((item, index) => {
         const field = fields.find((f) => f.id === item.field_id)!;

@@ -372,6 +372,8 @@
   "librariesLayout": "Каталог библиотек",
   "closeNavigation": "Закрыть навигацию",
   "recordHistory": "История записи",
+  "fieldProperties": "Свойства поля",
+  "backToFields": "К списку полей",
   "unreadSetting": "Не загружен",
   "loadingHistory": "Загружаем историю…",
   "historyUnavailable": "Не удалось загрузить историю",

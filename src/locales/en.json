@@ -372,6 +372,8 @@
   "librariesLayout": "Library catalog",
   "closeNavigation": "Close navigation",
   "recordHistory": "Record history",
+  "fieldProperties": "Field properties",
+  "backToFields": "Back to fields",
   "unreadSetting": "Not loaded",
   "loadingHistory": "Loading history…",
   "historyUnavailable": "Could not load history",

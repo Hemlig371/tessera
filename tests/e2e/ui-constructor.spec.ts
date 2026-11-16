@@ -45,3 +45,49 @@ test('builder isolates schema tools, preserves collection context and uses back 
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await page.reload(); await expect(mode).toHaveAttribute('aria-pressed', 'false');
 });
+
+test('field properties replace the phone list, cancel without writes and return focus through Escape and system Back', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  const seeded = await page.request.post('/__test-sqlite', { data: { op: 'knowledge-seed', params: ['Свойства полей (dev/CI)'] } });
+  expect(seeded.ok(), await seeded.text()).toBe(true);
+  await page.reload();
+  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
+  await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
+  await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть библиотеку «Свойства полей (dev/CI)»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Материалы»', exact: true }).click();
+  await openConstructor(page); await page.getByRole('button', { name: 'Поля', exact: true }).click();
+  const snapshot = async () => {
+    const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql: `SELECT
+      (SELECT json_group_array(json_object('id',id,'name',name,'config',config,'hlc',hlc)) FROM fields) AS fields,
+      (SELECT count(*) FROM records) AS records,(SELECT count(*) FROM record_versions) AS versions,
+      (SELECT count(*) FROM change_log) AS changes,(SELECT value FROM local_settings WHERE key='hlc') AS hlc` } });
+    expect(response.ok(), await response.text()).toBe(true); return (await response.json()).value;
+  };
+  const before = await snapshot(), edit = page.locator('.field-list button').last();
+  await edit.focus(); const top = await page.evaluate(() => scrollY);
+  await page.keyboard.press('Enter');
+  const properties = page.getByRole('form', { name: 'Свойства поля', exact: true });
+  await expect(properties).toBeVisible();
+  await expect(page.locator('.fields-master')).not.toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Название поля', exact: true })).toBeFocused();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  await page.getByRole('textbox', { name: 'Название поля', exact: true }).fill('Несохранённое имя');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(properties).toHaveCount(0); await expect(edit).toBeFocused();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(top);
+  expect(await snapshot()).toEqual(before);
+  await page.keyboard.press('Enter'); await expect(properties).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
+  await expect(properties).toHaveCount(0); await expect(edit).toBeFocused();
+  await page.keyboard.press('Enter'); await expect(properties).toBeVisible();
+  await page.getByRole('button', { name: 'К списку полей', exact: true }).click();
+  await expect(properties).toHaveCount(0); await expect(edit).toBeFocused();
+  expect(await snapshot()).toEqual(before);
+  await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Конструктор', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});

@@ -94,6 +94,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const creationClose = useRef<(() => Promise<void>) | null>(null);
   const creationMenuClose = useRef<(() => void) | null>(null);
   const registerCreationMenuClose = useCallback((close: (() => void) | null) => { creationMenuClose.current = close; }, []);
+  const fieldPropertiesClose = useRef<(() => void) | null>(null);
+  const registerFieldPropertiesClose = useCallback((close: (() => void) | null) => { fieldPropertiesClose.current = close; }, []);
   const registerCreationClose = useCallback((cancel: (() => Promise<void>) | null) => { creationClose.current = cancel; }, []);
   const warnDraftCleanup = () => setError('draftCleanup');
   const [page, setPage] = useState<Page<EntryListItem>>({ items: [], next: null }),
@@ -556,6 +558,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   const close = useCallback(() => {
     if (busy) return;
+    if (fieldPropertiesClose.current) { fieldPropertiesClose.current(); return; }
     setBusy(true);
     void (async () => {
       try { await fileClose.current?.(); await creationClose.current?.(); setLinked(null); setOpeningDraft(null); setStaleEdit(null); ui.openEditor(null); setError(null); }
@@ -1228,6 +1231,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           {ui.editor === 'fields' && collection && (
             <FieldsEditor
               api={api}
+              registerPropertiesClose={registerFieldPropertiesClose}
               key={revision}
               collection={collection}
               fields={fields}

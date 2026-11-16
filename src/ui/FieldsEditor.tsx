@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Icon } from './Icon';
 import { useTranslation } from 'react-i18next';
 import { FIELD_TYPES, type Collection, type Field, type FieldConfig, type JsonValue } from '../core/model';
 import { fieldConfig, isText } from '../core/validation';
@@ -14,6 +15,7 @@ export function FieldsEditor({
   save,
   remove,
   busy,
+  registerPropertiesClose,
 }: {
   api: Repository;
   collection: Collection;
@@ -21,6 +23,7 @@ export function FieldsEditor({
   save: (id: string | undefined, name: string, type: string, config: FieldConfig, position: number) => void;
   remove: (id: string) => void;
   busy: boolean;
+  registerPropertiesClose: (close: (() => void) | null) => void;
 }) {
   const { t } = useTranslation();
   const [targets, setTargets] = useState<Collection[]>([]),
@@ -43,24 +46,43 @@ export function FieldsEditor({
     };
   }, [api, collection.id, collection.library_id]);
   const [editing, setEditing] = useState<string | null>(null);
+  const origin = useRef<{ button: HTMLButtonElement; top: number } | null>(null);
+  const listPane = useRef<HTMLElement>(null);
+  const cancel = useCallback(() => setEditing(null), []);
+  useLayoutEffect(() => {
+    registerPropertiesClose(editing ? cancel : null);
+    return () => registerPropertiesClose(null);
+  }, [editing, cancel, registerPropertiesClose]);
+  useLayoutEffect(() => {
+    if (editing) return;
+    if (origin.current) {
+      origin.current.button.focus({ preventScroll: true });
+      window.scrollTo(0, origin.current.top); origin.current = null;
+    } else { window.scrollTo(0, 0); listPane.current?.focus({ preventScroll: true }); }
+  }, [editing]);
+  function select(id: string, button: HTMLButtonElement) {
+    origin.current = { button, top: window.scrollY }; setEditing(id);
+  }
   return (
-    <div>
+    <div className={'fields-editor' + (editing ? ' properties-open' : '')}>
       {error && <ErrorMessage code={error} />}
+      <section ref={listPane} tabIndex={-1} className="fields-master" aria-label={t('fields')}>
       <div className="field-list">
         {fields.map((f) => (
           <div key={f.id}>
             <span>
               <b>{f.name}</b> <small>{t(`types.${f.type}`)}</small>
             </span>
-            <button disabled={busy} onClick={() => setEditing(f.id)}>
+            <button disabled={busy} aria-pressed={editing === f.id} onClick={event => select(f.id, event.currentTarget)}>
               {t('edit')}
             </button>
           </div>
         ))}
       </div>
-      <button disabled={busy} onClick={() => setEditing('new')}>
+      <button className="primary" disabled={busy} onClick={event => select('new', event.currentTarget)}>
         + {t('newField')}
       </button>
+      </section>
       {editing && (
         <FieldEditor
           api={api}
@@ -73,7 +95,7 @@ export function FieldsEditor({
           busy={busy}
           save={(...args) => save(editing === 'new' ? undefined : editing, ...args)}
           remove={() => remove(editing)}
-          cancel={() => setEditing(null)}
+          cancel={cancel}
         />
       )}
     </div>
@@ -118,9 +140,12 @@ function FieldEditor({
     [multiple, setMultiple] = useState(config.multiple ?? false),
     [source, setSource] = useState(config.source_field_id ?? '');
   const [position, setPosition] = useState(field?.position ?? count);
+  const nameInput = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => { window.scrollTo(0, 0); nameInput.current?.focus({ preventScroll: true }); }, []);
   return (
     <form
-      className="sub-editor"
+      className="field-properties"
+      aria-label={t('fieldProperties')}
       onSubmit={(e) => {
         e.preventDefault();
         save(
@@ -142,10 +167,12 @@ function FieldEditor({
         );
       }}
     >
+      <div className="field-properties-heading"><button type="button" className="icon-button" disabled={busy} onClick={cancel} title={t('backToFields')} aria-label={t('backToFields')}><Icon name="back" /></button>
+        <h2>{t(field ? 'fieldProperties' : 'newField')}</h2></div>
       <label>
         {t('fieldName')}
         <input
-          autoFocus
+          ref={nameInput}
           required
           maxLength={200}
           value={name}

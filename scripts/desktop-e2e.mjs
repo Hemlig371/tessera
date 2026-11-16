@@ -205,6 +205,7 @@ try {
   const deepOffset = await execute("return document.querySelector('.entry-scroll').scrollTop");
   const deepProfile = await execute("return document.querySelector('.profile-switcher select').value");
   await execute("document.querySelector('.entry[data-index=\"219\"]').click()");
+  await until("!!document.querySelector('.detail #record-title')");
   const originalDeepTitle = await execute("return document.querySelector('.detail #record-title').textContent");
   await clickText('Редактировать');
   await until("!!document.querySelector('[data-editor] input:not(:disabled)')");

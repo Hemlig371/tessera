@@ -42,5 +42,6 @@ test('builder isolates schema tools, preserves collection context and uses back 
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Черновик конструктора');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
   await page.reload(); await expect(mode).toHaveAttribute('aria-pressed', 'false');
 });

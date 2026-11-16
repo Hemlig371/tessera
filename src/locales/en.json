@@ -408,6 +408,7 @@
   "trashDays_many": "{{count}} days",
   "attachment": "Attachment",
   "retainedAttachments": "Attachments from previous fields",
+  "globalNavigation": "Global navigation",
   "attachments": "Attachments",
   "noAttachments": "No attachments",
   "attachmentLoading": "Checking file availability…",

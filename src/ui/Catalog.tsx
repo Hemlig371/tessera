@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import type { Collection, Library } from '../core/model';
+import { Icon } from './Icon';
 
-export function Catalog({ kind, items, layout = 'cards', busy, open, create }: {
+export function Catalog({ kind, items, layout = 'cards', busy, open }: {
   kind: 'libraries' | 'collections'; items: (Library | Collection)[]; layout?: 'list' | 'cards';
-  busy: boolean; open: (id: string) => void; create: () => void;
+  busy: boolean; open: (id: string) => void;
 }) {
   const { t } = useTranslation();
   return <section data-catalog={kind} aria-label={t(kind)}>
@@ -13,13 +14,10 @@ export function Catalog({ kind, items, layout = 'cards', busy, open, create }: {
       {items.map(item => {
         const appearance = JSON.parse(item.config) as { icon?: string; color?: string };
         return <button className="catalog-item" key={item.id} disabled={busy} aria-label={t(kind === 'libraries' ? 'openLibrary' : 'openCollection', { name: item.name })} onClick={() => open(item.id)}>
-          <span className="catalog-icon" aria-hidden="true" style={{ color: appearance.color }}>{appearance.icon ?? '◇'}</span>
-          <strong>{item.name}</strong><span aria-hidden="true">→</span>
+          <span className="catalog-icon" aria-hidden="true" style={{ backgroundColor: appearance.color ? `color-mix(in srgb, ${appearance.color} 20%, var(--surface))` : undefined }}>{appearance.icon && appearance.icon !== '◇' ? appearance.icon : <Icon name={kind === 'libraries' ? 'collection' : 'libraries'} />}</span>
+          <strong>{item.name}</strong><Icon name="arrow" />
         </button>;
       })}
     </div>
-    <button className="primary catalog-create" disabled={busy} aria-label={t(kind === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={create}>
-      + {t(kind === 'libraries' ? 'newLibrary' : 'newCollection')}
-    </button>
   </section>;
 }

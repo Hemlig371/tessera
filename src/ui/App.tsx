@@ -1,5 +1,6 @@
 import { quickLayout } from '../core/quick-forms';
 import { Catalog } from './Catalog';
+import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
 import { AttachmentList } from './AttachmentList';
 import { fileIds, isFile } from '../core/attachments';
@@ -678,7 +679,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           : t(ui.editor === 'fields' ? 'fields' : ui.editor === 'csv' ? 'csv' : `layouts.${ui.editor}`);
   const groupField = fields.find((f) => f.id === layouts.list.list?.group_field);
   return (
-    <div className={'app' + (ui.navOpen ? ' nav-open' : '')}>
+    <div className={'app' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '')}>
       <aside className="sidebar">
         <button className="sidebar-close" onClick={() => useUi.setState({ navOpen: false })}>{t('closeNavigation')}</button>
         <div className="brand">
@@ -753,25 +754,28 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         </footer>
       </aside>
       <main>
-        <div className="topbar">
+        <div className="topbar" role="group" aria-label={t('globalNavigation')}>
+          <div className="topbar-navigation">
           <button
-            className="nav-toggle"
+            className="nav-toggle icon-button"
+            title={t('navigation')}
             aria-expanded={ui.navOpen}
             disabled={disabled}
             onClick={ui.toggleNav}
           >
-            {t('navigation')}
+            <Icon name="menu" /><span className="visually-hidden">{t('navigation')}</span>
           </button>
-          <span className="quiet-label">{t('offline')}</span>
-          <button disabled={disabled} onClick={goHome}>{t('allLibraries')}</button>
-          <button disabled={disabled} onClick={openGlobalSearch}>{t('globalSearch')}</button>
-          <button disabled={disabled} onClick={() => showInbox()}>{t('openInbox')}</button>
-          <button disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}>{t('trash')}</button>
-          <button disabled={disabled} onClick={() => showInbox(true)}>+ {t('captureInbox')}</button>
-          <button id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}>{t('constructor')}</button>
-          <button disabled={disabled || !appearanceReady} onClick={() => open('appearance')}>{t('deviceAppearance')}</button>
+          <button className="icon-button" title={t('allLibraries')} disabled={disabled} onClick={goHome}><Icon name="libraries" /><span className="visually-hidden">{t('allLibraries')}</span></button>
+          <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={openGlobalSearch}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
+          <button className="icon-button" title={t('openInbox')} disabled={disabled} onClick={() => showInbox()}><Icon name="inbox" /><span className="visually-hidden">{t('openInbox')}</span></button>
+          <button className="icon-button capture-button" title={'+ ' + t('captureInbox')} disabled={disabled} onClick={() => showInbox(true)}><Icon name="capture" /><span className="visually-hidden">+ {t('captureInbox')}</span></button>
+          </div>
+          <div className="topbar-tools">
+          <button className="icon-button" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
+          <button className="icon-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
+          <button className="icon-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
           <label className="language">
-            {t('language')}
+            <span className="visually-hidden">{t('language')}</span>
             <select
               value={i18n.language}
               onChange={(e) => {
@@ -782,6 +786,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               <option value="en">{t('languageEnglish')}</option>
             </select>
           </label>
+          </div>
         </div>
         {fileCleanupPending > 0 && !ui.editor && <div role="status" className="error"><p>{t('attachmentCleanupHint')}</p><button disabled={busy} onClick={() => { void run(async () => {}, false); }}>{t('retryAttachmentCleanup')}</button></div>}
         {error && !ui.editor && <ErrorMessage code={error} />}
@@ -827,6 +832,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               </select>
             </label>{ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}</div>}
           </div>
+          {(ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
+            + {t(ui.screen === 'libraries' ? 'newLibrary' : 'newCollection')}
+          </button>}
           {browsing && ui.scope === 'collection' && collection && !collection.system_kind && (
             <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} registerMenuClose={registerCreationMenuClose} options={[
               { label: t('standardForm'), choice: { kind: 'standard' } }, { label: t('quickEntry'), choice: { kind: 'quick' } },
@@ -902,10 +910,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           </div>
         )}
         {ui.screen === 'libraries' ? (
-          <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} create={() => open('library')} />
+          <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} />
         ) : ui.screen === 'library' && library ? (
           <Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
-            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} create={() => open('collection')} />
+            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} />
         ) : !browsing ? (
           <div className="empty">
             <h2>{t('chooseCollection')}</h2>

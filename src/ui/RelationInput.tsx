@@ -30,7 +30,7 @@ export function RelationInput({
   const [selected, setSelected] = useState<RelationItem[]>([]),
     [offset, setOffset] = useState(0),
     [error, setError] = useState<string | null>(null),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(true);
   const [pages, setPages] = useState<(EntryCursor | null)[]>([null]);
   const idsKey = JSON.stringify(ids),
     chunkKey = JSON.stringify(ids.slice(offset, offset + 50));
@@ -116,7 +116,7 @@ export function RelationInput({
     }
   }
   return (
-    <div className="relation-input" role="group" aria-label={field.name}>
+    <div className="relation-input" role="group" aria-label={field.name} aria-busy={loading}>
       {!!ids.length && (
         <>
           <ul className="relation-chips">

@@ -128,7 +128,7 @@ export function RecordForm({
                   {!item.collapsed && displayField.name}
                   {required && <span aria-hidden="true"> *</span>}
                   {isFile(field.type) && ownerId ? <div data-attachment-field={field.id}>
-                    <input type="file" aria-label={displayField.name === 'attachments' ? t('attachments') : displayField.name} accept={field.type === 'image' ? 'image/*' : undefined}
+                    <input type="file" aria-label={displayField.name === 'attachments' ? t('attachments') : displayField.name} aria-required={required} accept={field.type === 'image' ? 'image/*' : undefined}
                       multiple={config.multiple === true} disabled={blocked} onChange={event => { const files = [...(event.target.files ?? [])]; event.target.value = ''; upload(field, files); }} />
                     <AttachmentList api={api} ownerId={ownerId} ids={fileIds(data[field.id])} busy={blocked} removeReference={id => update(field.id, fileIds(currentData.current[field.id]).filter(value => value !== id))} />
                   </div> : field.type === 'backlink' ? (

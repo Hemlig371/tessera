@@ -1,7 +1,8 @@
 import { MarkdownInput } from './MarkdownInput';
+import { Icon } from './Icon';
 import { markdownPreview } from '../core/markdown';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import type { Field, JsonValue } from '../core/model';
 export function errorKey(error: unknown): string {
   return error instanceof Error && /^[a-zA-Z]+$/.test(error.message) ? error.message : 'generic';
@@ -19,7 +20,10 @@ export function EditorPage({ title, children, close, busy }: {
   title: string; children: ReactNode; close: () => void; busy: boolean;
 }) {
   const { t } = useTranslation(), heading = useRef<HTMLHeadingElement>(null), page = useRef<HTMLElement>(null);
-  useEffect(() => { if (document.activeElement === document.body) heading.current?.focus(); }, []);
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    heading.current?.focus({ preventScroll: true });
+  }, [title]);
   useEffect(() => {
     const back = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !busy && !event.defaultPrevented &&
@@ -32,7 +36,7 @@ export function EditorPage({ title, children, close, busy }: {
   }, [busy, close]);
   return <section ref={page} tabIndex={-1} className="editor-page" data-editor="" role="region" aria-labelledby="editor-title">
     <div className="editor-heading">
-      <button aria-label={t('backScreen')} disabled={busy} onClick={close}>← {t('backScreen')}</button>
+      <button className="icon-button" title={t('backScreen')} aria-label={t('backScreen')} disabled={busy} onClick={close}><Icon name="back" /><span className="visually-hidden">{t('backScreen')}</span></button>
       <h1 id="editor-title" ref={heading} tabIndex={-1}>{title}</h1>
     </div>
     {children}

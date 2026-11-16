@@ -71,16 +71,18 @@ export function RelationBlock({
     <div className="relation-block" aria-label={field.name} aria-busy={loading}>
       {error && <ErrorMessage code={error} />}
       {!!page.items.length && (
-        <div ref={scroll} className="relation-scroll">
+        <div ref={scroll} className="relation-scroll" style={{ height: Math.min(220, virtual.getTotalSize() + 2) }}>
           <div style={{ height: virtual.getTotalSize(), position: 'relative' }}>
             {virtual.getVirtualItems().map((v) => {
               const item = page.items[v.index]!;
               return (
                 <button
                   key={item.id}
+                  data-index={v.index}
+                  ref={virtual.measureElement}
                   type="button"
                   className="relation-row"
-                  style={{ height: v.size, transform: `translateY(${v.start}px)` }}
+                  style={{ transform: `translateY(${v.start}px)` }}
                   disabled={readOnly || busy || item.status !== 'available'}
                   onClick={() => open?.(item.id)}
                 >

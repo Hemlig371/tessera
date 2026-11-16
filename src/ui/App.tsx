@@ -100,6 +100,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     [selected, setSelected] = useState<Entry | null>(null);
   const [context, setContext] = useState<Context | null>(null),
     [revision, refresh] = useState(0);
+  const [failedBrowse, setFailedBrowse] = useState<{ token: string; revision: number; code: string } | null>(null);
   const [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(false);
@@ -153,6 +154,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   };
   const queryToken = JSON.stringify(query);
   const rowsReady = readyBrowse?.token === queryToken && readyBrowse.revision === revision;
+  const queryFailure = !loading && failedBrowse?.token === queryToken && failedBrowse.revision === revision ? failedBrowse.code : null;
+  const readingEntries = loading || (!rowsReady && !queryFailure);
   const searchContextToken = JSON.stringify([ui.screen, ui.scope, ui.libraryId, ui.collectionId, !!ui.searchOrigin]);
   const rememberBrowse = useCallback(() => {
     if (rowsReady && browsing && !selected && !useUi.getState().editor) {
@@ -354,10 +357,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             const next = await api.queryEntries({ ...JSON.parse(queryToken) as EntryQuery, cursor: rows.next });
             rows = { items: [...rows.items, ...next.items], next: next.next };
           }
-          if (active && request === queryRequest.current) { setPage(rows); setLoadedQuery({ token: queryToken, revision }); }
+          if (active && request === queryRequest.current) { setPage(rows); setLoadedQuery({ token: queryToken, revision }); setFailedBrowse(null); }
         })
         .catch((e) => {
-          if (active) setError(errorKey(e));
+          if (active && request === queryRequest.current) setFailedBrowse({ token: queryToken, revision, code: errorKey(e) });
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -833,7 +836,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         )}
         <section className={'browse-screen' + (ui.editor || selected ? ' screen-inactive' : '')} inert={!!ui.editor || !!selected} aria-hidden={!!ui.editor || !!selected}>
         <header>
-          <div>
+          <div className="browse-heading-title">
             {ui.screen !== 'libraries' && <button className="section-back" disabled={disabled} onClick={backSection} aria-label={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}>← {t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}</button>}
             <small>{library?.name ?? t('brand')}</small>
             <h1>
@@ -843,12 +846,6 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                   ? library?.name
                   : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
             </h1>
-          {browsing && collection && !collection.system_kind && profiles.some(profile => profile.collection_id === collection.id) &&
-            <div className="profile-switcher"><label>{t('displayProfile')}
-              <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
-                {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-              </select>
-            </label>{ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}</div>}
           </div>
           {(ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
             + {t(ui.screen === 'libraries' ? 'newLibrary' : 'newCollection')}
@@ -859,6 +856,15 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               ...presets.filter(preset => preset.collection_id === collection.id).map(preset => ({ label: preset.name, choice: { kind: 'preset' as const, preset_id: preset.id } })),
             ]} />
           )}
+          {browsing && collection && !collection.system_kind && <div className="profile-switcher">
+            {profiles.some(profile => profile.collection_id === collection.id) && <label>{t('displayProfile')}
+              <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
+                {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+              </select>
+            </label>}
+            {ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}
+            <button disabled={disabled || !fieldsReady} onClick={() => open('csv')}>{t('csv')}</button>
+          </div>}
         </header>
         {ui.constructorOpen && <section className="constructor-banner" aria-label={t('constructor')}>
           <div><h2>{t('constructor')}</h2><p>{t(collection && !collection.system_kind ? 'constructorCollectionHint' : 'constructorChooseHint')}</p></div>
@@ -890,9 +896,6 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               <button disabled={disabled || !fieldsReady} onClick={() => open('presets')}>{t('creationPresets')}</button>
               <button disabled={disabled || !fieldsReady} onClick={() => open('quick-entry')}>+ {t('quickEntry')}</button>
               </>}
-              <button disabled={disabled || !fieldsReady} onClick={() => open('csv')}>
-                {t('csv')}
-              </button>
             </>
           )}
         </div>
@@ -939,15 +942,19 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           </div>
         ) : (
           <>
-            <div className="list-meta">
-              {loading ? t('loading') : t('entryCount', { count: page.items.length })}
-            </div>
-            {!loading && !page.items.length ? (
+            {!queryFailure && <div className="list-meta" aria-live="polite">
+              {readingEntries ? t('loadingEntries') : t('entryCount', { count: page.items.length })}
+            </div>}
+            {queryFailure ? <div className="error" role="alert">
+              <strong>{t('entriesUnavailable')}</strong>
+              <p>{queryFailure === 'generic' ? t('entriesUnavailableHint') : t(`errors.${queryFailure}`, { defaultValue: t('entriesUnavailableHint') })}</p>
+              <button disabled={disabled || loading} onClick={() => refresh(value => value + 1)}>{t('retryEntries')}</button>
+            </div> : !page.items.length ? readingEntries ? null : (
               <div className="empty">
                 <h2>
                   {t(ui.search || layouts.list.list?.filters?.length ? 'noResults' : 'emptyCollection')}
                 </h2>
-                <p>{t('emptyCollectionHint')}</p>
+                <p>{t(ui.search || layouts.list.list?.filters?.length ? 'noResultsHint' : 'emptyCollectionHint')}</p>
               </div>
             ) : (
               <>
@@ -1006,9 +1013,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                               {listItems.map((item) => {
                                 const f = fields.find((field) => field.id === item.field_id)!;
                                 return (
-                                  <span key={f.id} className={item.width === 'half' ? 'half' : 'full'}>
+                                  <span key={f.id} className={(item.width === 'half' ? 'half' : 'full') + (f.id === collection?.primary_field_id ? ' entry-primary' : '')}>
                                     {item.group && <small>{item.group} · </small>}
-                                    <small>{f.name}: </small>
+                                    <small className="entry-field-label">{f.name}: </small>
                                     {['relation', 'backlink'].includes(f.type)
                                       ? formatRelations(row, f.id)
                                       : format(f, row.data[f.id])}
@@ -1017,9 +1024,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                               })}
                             </div>
                           ) : (
-                            <span>
-                              {row.title || t('unset')}
-                              <small> · {row.collection_system_kind === 'inbox' ? t('inbox') : row.collection_name}</small>
+                            <span className="entry-summary">
+                              <strong>{row.title || t('unset')}</strong>
+                              <small>{row.collection_system_kind === 'inbox' ? t('inbox') : row.collection_name}</small>
                             </span>
                           )}
                           <small className="entry-date">
@@ -1034,9 +1041,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 </div>
               </>
             )}
-            {page.next && (
+            {!queryFailure && page.next && (
               <button
-                disabled={disabled}
+                disabled={disabled || readingEntries}
                 onClick={() => {
                   void more();
                 }}
@@ -1065,8 +1072,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 )}
                 <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
               </div>
-              <button aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
-                ←
+              <button className="icon-button" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
+                <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
             </div>
             <LayoutRowsView definition={context.layouts.card} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {

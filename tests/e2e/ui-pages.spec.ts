@@ -66,12 +66,14 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   await entry.click();
   const edit = page.locator('.detail').getByRole('button', { name: 'Редактировать', exact: true });
   await expect(page.locator('.detail .relation-block[aria-busy=true]')).toHaveCount(0);
+  await expect.poll(() => page.locator('.detail .relation-row').evaluateAll(rows => rows.every(row => row.scrollHeight <= row.clientHeight))).toBe(true);
   await edit.focus(); const cardScroll = await page.evaluate(() => scrollY);
   // Capture the actual focused viewport; pointer auto-scrolling may move it
   // again between a pre-click measurement and activation on a tall card.
   await page.keyboard.press('Enter');
   const editor = page.getByRole('region', { name: 'Редактировать', exact: true });
   await expect(editor).toBeVisible();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
   // The page has an ordinary heading and document flow, with no modal layer.
   await expect(page.locator('[data-editor] h1')).toBeVisible();
   await expect(page.locator('.shade,[role=dialog],[aria-modal=true]')).toHaveCount(0);

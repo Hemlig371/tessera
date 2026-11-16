@@ -346,5 +346,21 @@
   "libraryLaunchPending": "The shortcut library will open after the current form is closed.",
   "startDefaultProfile": "Default display profile",
   "librariesLayout": "Library catalog",
-  "closeNavigation": "Close navigation"
+  "closeNavigation": "Close navigation",
+  "recordHistory": "Record history",
+  "historyHint": "The latest 20 explicitly saved versions, newest first. Viewing changes nothing.",
+  "recordVersions": "Record versions",
+  "versionNumber": "Version {{number}}",
+  "versionSnapshot": "Version snapshot",
+  "versionSavedAt": "Saved",
+  "emptyHistory": "No retained versions.",
+  "refreshHistory": "Refresh history and record",
+  "showHistoricalValue": "Show historical value",
+  "restoreVersion": "Restore this version",
+  "restoreVersionHint": "This explicitly saves the selected data and collection as current and creates a new version. Current field and relation rules apply.",
+  "clearRecordHistory": "Clear record history",
+  "confirmClearHistory": "Confirm clearing history",
+  "clearHistoryHint": "Current records remain. Cleared versions cannot be restored; synchronization propagates the clear to other devices.",
+  "clearAllHistory": "Clear all history",
+  "clearAllHistoryHint": "This clears the retained versions of every record in this database."
 }

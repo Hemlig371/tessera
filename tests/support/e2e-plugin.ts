@@ -1,3 +1,4 @@
+import { historyFixture } from './history-scenario';
 import { createKnowledgeFixture } from '../fixtures/knowledge';
 import { layoutScenario } from './layout-scenario';
 import type { Plugin } from 'vite';
@@ -95,6 +96,17 @@ export function e2ePlugin(): Plugin {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ value: fixture.library.id }));
             return;
+          }
+          if (op === 'history-concurrent-edit') {
+            const api = await Repository.open(db), entry = await api.getEntry(String(params[0]));
+            if (!entry) throw new Error('notFound');
+            const collection = await api.getCollection(entry.collection_id);
+            const value = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Конкурентная правка' }, entry.id, entry.hlc);
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
+          if (op === 'history-seed') {
+            const value = await historyFixture(await Repository.open(db));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'quick-seed') {
             const fixture = await quickFormFixture(await Repository.open(db));

@@ -850,3 +850,10 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .catalog-item strong { flex: 1; overflow-wrap: anywhere; min-inline-size: 0; }
 .catalog-icon { font-size: 1.65em; flex-shrink: 0; }
 .catalog-create, .section-back { margin-block: 12px; }
+
+.history-versions { padding-left: 24px; display: grid; gap: 8px; }
+.history-versions button { text-align: start; max-width: 100%; overflow-wrap: anywhere; }
+.history-snapshot { overflow-wrap: anywhere; margin-block: 20px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+.history-snapshot dt { color: var(--muted); }
+.history-snapshot dd { margin: 4px 0 16px; }
+.history-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }

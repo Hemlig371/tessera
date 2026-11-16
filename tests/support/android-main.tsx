@@ -1,3 +1,4 @@
+import { historyRestoreScenario, historyFixture } from './history-scenario';
 import { createKnowledgeFixture } from '../fixtures/knowledge';
 import { navigationFixture } from './navigation-scenario';
 import { layoutScenario } from './layout-scenario';
@@ -45,6 +46,9 @@ async function run() {
     document.documentElement.dataset.scale = JSON.stringify({ importMs: result.importMs, queryMs: result.queryMs });
     await first.transaction(s => s.execute("INSERT INTO local_settings VALUES('acceptance.stage3',?)", [JSON.stringify({ collection: result.collection.id, importMs: result.importMs, queryMs: result.queryMs })]));
   } else document.documentElement.dataset.scale = String(complete.value);
+  document.documentElement.dataset.acceptanceStage = 'history';
+  await historyRestoreScenario(api);
+  document.documentElement.dataset.historyFixture = JSON.stringify(await historyFixture(api));
   document.documentElement.dataset.acceptanceStage = 'inbox';
   await inboxScenario(api);
   document.documentElement.dataset.acceptanceStage = 'quick';

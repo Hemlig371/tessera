@@ -1,5 +1,6 @@
 import { quickLayout } from '../core/quick-forms';
 import { Catalog } from './Catalog';
+import { RecordHistory } from './RecordHistory';
 import { LibraryStartEditor } from './LibraryStartEditor';
 import { libraryNavigation } from '../core/library-navigation';
 import { androidLibraryShortcuts, libraryShortcutSupported, pinLibraryShortcut, subscribeLibraryLaunch } from '../platform/external-actions';
@@ -624,7 +625,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -796,6 +797,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
+          {ui.constructorOpen && ui.screen === 'libraries' && <button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button>}
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
@@ -1033,6 +1035,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               <button disabled={busy} onClick={() => open('entry', selected.id)}>
                 {t('edit')}
               </button>
+              <button disabled={busy} onClick={() => open('history', selected.id)}>{t('recordHistory')}</button>
               <button className="danger" disabled={busy} onClick={() => remove('record', selected.id)}>
                 {t('delete')}
               </button>
@@ -1042,6 +1045,13 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       {ui.editor && (
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
+          {ui.editor === 'history' && selected && <RecordHistory key={selected.id + ':' + revision} api={api} entry={selected} busy={busy}
+            refresh={() => { void run(async () => {}, false); }}
+            restore={versionId => { void run(async () => { await api.restoreEntryVersion(selected.id, versionId, selected.hlc); setSaved(true); }); }}
+            clear={() => { void run(async () => { await api.clearHistory(selected.id); }, false); }} />}
+          {ui.editor === 'history-clear' && <div><p>{t('clearAllHistoryHint')}</p><p>{t('clearHistoryHint')}</p>
+            <div className="form-actions"><button disabled={busy} onClick={close}>{t('cancel')}</button>
+              <button className="danger" disabled={busy} onClick={() => { void run(async () => { await api.clearHistory(); }); }}>{t('confirmClearHistory')}</button></div></div>}
           {ui.editor === 'appearance' && <DeviceAppearanceEditor value={appearance} busy={busy} cancel={close} save={value => { void run(async () => { setAppearance(await api.saveDeviceAppearance(value)); }); }} />}
           {ui.editor === 'library-start' && library && <LibraryStartEditor api={api} libraryId={library.id} busy={busy} cancel={close}
             save={value => { void run(async () => { await api.saveLibraryNavigation(library.id, value); }); }} />}

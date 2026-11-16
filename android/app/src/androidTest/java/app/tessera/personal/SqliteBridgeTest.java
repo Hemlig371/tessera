@@ -222,6 +222,43 @@ public class SqliteBridgeTest {
             assertEquals("true", js(scenario, "document.querySelector('.detail .original-content').textContent.startsWith('# Native Markdown **ёж**')"));
         }
     }
+    @Test public void recordHistoryRestoresAndClearsWithoutLosingCurrentDataAcrossRecreation() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.historyFixture")).nextValue());
+            String libraryButton = JSONObject.quote("Открыть библиотеку «" + scope.getString("library_name") + "»");
+            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.getAttribute('aria-label')===" + libraryButton + ").click()");
+            awaitJs(scenario, "!!document.querySelector('[data-catalog=collections] button:not(:disabled)')");
+            js(scenario, "[...document.querySelectorAll('[data-catalog=collections] button')].find(b=>b.textContent.includes('Редакции')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Вторая редакция'))");
+            js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Вторая редакция')).click()");
+            awaitJs(scenario, "!!document.querySelector('.detail')");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===2");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelector('.detail #record-title')?.textContent==='Вторая редакция'");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===2");
+            js(scenario, "document.querySelector('[data-version-id=\"" + scope.getString("first_version_id") + "\"]').click()");
+            awaitJs(scenario, "document.querySelector('.history-snapshot')?.textContent.includes('Первая редакция')");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Восстановить эту версию').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelector('.detail #record-title')?.textContent==='Первая редакция'");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===3");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Очистить историю записи').click()");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Подтвердить очистку истории').click()");
+            awaitJs(scenario, "document.querySelector('[data-editor] [role=status]')?.textContent==='Сохранённых версий нет.'");
+            scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.getAttribute('aria-label')===" + libraryButton + ").click()");
+            awaitJs(scenario, "!!document.querySelector('[data-catalog=collections] button:not(:disabled)')");
+            js(scenario, "[...document.querySelectorAll('[data-catalog=collections] button')].find(b=>b.textContent.includes('Редакции')).click()");
+            awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Первая редакция'))");
+            js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Первая редакция')).click()");
+            awaitJs(scenario, "!!document.querySelector('.detail')");
+            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            awaitJs(scenario, "document.querySelector('[data-editor] [role=status]')?.textContent==='Сохранённых версий нет.'");
+        }
+    }
     private void openConstructor(ActivityScenario<MainActivity> scenario) throws Exception {
         awaitJs(scenario, "!!document.querySelector('#constructor-toggle:not(:disabled)')");
         if (!"true".equals(js(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'"))) {

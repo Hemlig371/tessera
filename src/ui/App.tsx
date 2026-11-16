@@ -116,6 +116,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const restoreBrowse = useRef(false);
   const editorOrigin = useRef<{ id: string | null; top: number } | null>(null);
   const [loadedQuery, setLoadedQuery] = useState<{ token: string; revision: number } | null>(null);
+  const [readyBrowse, setReadyBrowse] = useState<{ token: string; revision: number } | null>(null);
   const cardHeading = useRef<HTMLHeadingElement>(null);
   const [search, setSearch] = useState('');
   const searchFor = ui.searchFor;
@@ -136,16 +137,17 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     search: ui.search,
   };
   const queryToken = JSON.stringify(query);
+  const rowsReady = readyBrowse?.token === queryToken && readyBrowse.revision === revision;
   const searchContextToken = JSON.stringify([ui.screen, ui.scope, ui.libraryId, ui.collectionId, !!ui.searchOrigin]);
   const rememberBrowse = useCallback(() => {
-    if (browsing && !selected && !useUi.getState().editor) {
+    if (rowsReady && browsing && !selected && !useUi.getState().editor) {
       browsePosition.current = { token: queryToken, count: page.items.length, documentTop: window.scrollY, listTop: scroll.current?.scrollTop ?? 0,
         focus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
         focusId: document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>('[data-entry-id]')?.dataset.entryId : undefined };
       browsePositions.current.set(queryToken, { ...browsePosition.current, focus: null });
       restoreBrowse.current = true;
     }
-  }, [browsing, selected, queryToken, page.items.length]);
+  }, [rowsReady, browsing, selected, queryToken, page.items.length]);
   const selectedId = selected?.id ?? null;
   useLayoutEffect(() => {
     if (ui.editor || !selectedId) return;
@@ -158,22 +160,34 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     return () => cancelAnimationFrame(frame);
   }, [ui.editor, selectedId]);
   useLayoutEffect(() => {
-    if (!browsing || ui.editor || selectedId || !restoreBrowse.current || loadedQuery?.token !== queryToken || loadedQuery.revision !== revision) return;
-    let focusFrame = 0;
+    if (!browsing || ui.editor || selectedId) { setReadyBrowse(null); return; }
+    if (loadedQuery?.token !== queryToken || loadedQuery.revision !== revision) return;
+    const ready = () => setReadyBrowse({ token: queryToken, revision });
+    if (!restoreBrowse.current) { ready(); return; }
     const frame = requestAnimationFrame(() => {
       const position = browsePosition.current;
       if (position?.token === queryToken) {
         if (scroll.current) scroll.current.scrollTop = position.listTop;
         window.scrollTo(0, position.documentTop);
-        if (position.focus?.isConnected && !position.focus.closest('[inert]')) position.focus.focus({ preventScroll: true });
-        else if (position.focusId) focusFrame = requestAnimationFrame(() => {
-          scroll.current?.querySelector<HTMLElement>(`[data-entry-id="${position.focusId}"]`)?.focus({ preventScroll: true });
-        });
       }
       restoreBrowse.current = false; editorOrigin.current = null;
+      ready();
     });
-    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(focusFrame); };
+    return () => cancelAnimationFrame(frame);
   }, [ui.editor, selectedId, queryToken, loadedQuery, revision, browsing]);
+  useLayoutEffect(() => {
+    if (!rowsReady || ui.editor || selectedId) return;
+    const position = browsePosition.current;
+    if (position?.token !== queryToken) return;
+    // Rows must be enabled before focus can be restored; focusing a disabled button is ignored.
+    if (position.focus?.isConnected && !position.focus.closest('[inert]')) position.focus.focus({ preventScroll: true });
+    else if (position.focusId) {
+      const frame = requestAnimationFrame(() => {
+        scroll.current?.querySelector<HTMLElement>(`[data-entry-id="${position.focusId}"]`)?.focus({ preventScroll: true });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [rowsReady, ui.editor, selectedId, queryToken]);
   function formatRelations(row: EntryListItem, fieldId: string) {
     const preview = row.relation_previews?.[fieldId];
     if (!preview?.count) return t('noRelations');
@@ -906,7 +920,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                     </div>
                   )}
                 </div>
-                <div className="entry-scroll" ref={scroll}>
+                <div className="entry-scroll" ref={scroll} aria-busy={loading || !rowsReady}>
                   <div style={{ height: virtual.getTotalSize(), position: 'relative' }}>
                     {virtual.getVirtualItems().map((v) => {
                       const row = page.items[v.index]!,
@@ -923,7 +937,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                             (selected?.id === row.id ? ' active' : '')
                           }
                           style={{ minHeight: rowHeight, transform: `translateY(${v.start}px)` }}
-                          disabled={disabled}
+                          disabled={disabled || !rowsReady}
                           onClick={() => {
                             void selectEntry(row.id);
                           }}

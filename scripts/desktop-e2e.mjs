@@ -1,6 +1,6 @@
 // Real Tauri WebView via tauri-driver (Linux CI). No mock IPC or database.
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import assert from 'node:assert/strict';
@@ -259,6 +259,17 @@ try {
   await until("getComputedStyle(document.querySelector('[data-editor] .layout-row')).gridTemplateColumns.split(' ').length===1");
   assert.equal(await execute("return document.documentElement.scrollWidth<=innerWidth"),true);
   await input('Native adaptive draft'); await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
+  assert.ok((await readFile(nativeDraft, 'utf8')).includes('Native adaptive draft'));
+  const damagedDraft = '{broken native draft'; await writeFile(nativeDraft, damagedDraft, 'utf8');
+  await clickText('+ Новая запись'); await until("!!document.querySelector('[data-draft-recovery]') && !!document.querySelector('[data-editor] input:not(:disabled)')");
+  const recoveredDraft = await execute("return document.querySelector('[data-draft-recovery]').getAttribute('data-draft-recovery')");
+  assert.ok(recoveredDraft.startsWith('draft-recovery/'));
+  const operationalRoot = nativeDraft.slice(0, nativeDraft.indexOf('/operational/') + '/operational/'.length);
+  assert.equal(await readFile(join(operationalRoot, recoveredDraft), 'utf8'), damagedDraft);
+  await input('Native recovered creation'); await clickText('Сохранить');
+  await until("!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native recovered creation'))");
+  assert.equal(await readFile(join(operationalRoot, recoveredDraft), 'utf8'), damagedDraft);
+  await assert.rejects(readFile(nativeDraft), { code: 'ENOENT' });
   await request('POST', `/session/${session}/window/rect`, { width: 1100, height: 800 });
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite → disk; persisted after process restart');
 } catch (error) {

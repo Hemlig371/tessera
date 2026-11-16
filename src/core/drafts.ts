@@ -26,6 +26,22 @@ function checkAction(action: DraftAction): void {
   else if (action.kind === 'linked') [action.parent_id, action.field_id, action.create_id].forEach(requireId);
   else throw new AppError('invalidDraft');
 }
+function decodeDraft(bytes: Uint8Array, path: string): Draft {
+  try {
+    const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as Draft;
+    if (value.format !== 1 || draftPath(value) !== path || typeof value.opened_at !== 'string' || typeof value.updated_at !== 'string' ||
+      !value.field_types || typeof value.field_types !== 'object' || Array.isArray(value.field_types)) throw new Error();
+    checkAction(value.action);
+    validateData(value.data);
+    for (const id of Object.keys(value.data)) {
+      if (typeof value.field_types[id] !== 'string' || value.field_types[id] === 'secret') throw new Error();
+    }
+    return value;
+  } catch { throw new AppError('invalidDraft'); }
+}
+function sameBytes(a: Uint8Array | null, b: Uint8Array): boolean {
+  return a !== null && a.length === b.length && a.every((value, index) => value === b[index]);
+}
 export class DraftStore {
   private tail: Promise<unknown> = Promise.resolve();
   constructor(readonly files: FileAdapter, readonly lifecycle: PlatformLifecycleAdapter) {}
@@ -39,17 +55,26 @@ export class DraftStore {
     return this.queue(async () => {
       const bytes = await this.files.read(path);
       if (bytes === null) return null;
+      return decodeDraft(bytes, path);
+    });
+  }
+  /** Preserve invalid bytes before freeing the live path; retries reuse the same recovery copy. */
+  recoverCorrupt(scope: DraftScope): Promise<{ draft: Draft | null; recovered_path: string | null }> {
+    const path = draftPath(scope);
+    return this.queue(async () => {
+      const bytes = await this.files.read(path);
+      if (bytes === null) return { draft: null, recovered_path: null };
+      try { return { draft: decodeDraft(bytes, path), recovered_path: null }; }
+      catch { /* Only invalid drafts are moved; a valid file queued earlier remains live. */ }
       try {
-        const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as Draft;
-        if (value.format !== 1 || draftPath(value) !== path || typeof value.opened_at !== 'string' || typeof value.updated_at !== 'string' ||
-          !value.field_types || typeof value.field_types !== 'object' || Array.isArray(value.field_types)) throw new Error();
-        checkAction(value.action);
-        validateData(value.data);
-        for (const id of Object.keys(value.data)) {
-          if (typeof value.field_types[id] !== 'string' || value.field_types[id] === 'secret') throw new Error();
-        }
-        return value;
-      } catch { throw new AppError('invalidDraft'); }
+        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes)));
+        const hash = Array.from(digest, value => value.toString(16).padStart(2, '0')).join('');
+        const recovery = `draft-recovery/${scope.dataset_id}/${scope.library_id}/${scope.collection_id}/${hash}.json`;
+        if (!sameBytes(await this.files.read(recovery), bytes)) await this.files.writeAtomic(recovery, bytes);
+        if (!sameBytes(await this.files.read(recovery), bytes)) throw new AppError('draftRecovery');
+        await this.files.remove(path);
+        return { draft: null, recovered_path: recovery };
+      } catch { throw new AppError('draftRecovery'); }
     });
   }
   write(draft: Draft): Promise<void> {

@@ -222,6 +222,32 @@ public class SqliteBridgeTest {
             assertEquals("true", js(scenario, "document.querySelector('.detail .original-content').textContent.startsWith('# Native Markdown **ёж**')"));
         }
     }
+    @Test public void corruptedDraftAllowsCreationAndPreservesItsOriginalFileForRecovery() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.historyFixture")).nextValue());
+            scope.put("dataset_id", draftScope(scenario).getString("dataset_id"));
+            File live = draftFile(scope); assertTrue(live.getParentFile().isDirectory() || live.getParentFile().mkdirs());
+            byte[] broken = "{broken native draft".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.write(live.toPath(), broken);
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «" + scope.getString("library_name") + "»");
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Редакции»");
+            awaitJs(scenario, "!!document.querySelector('.split-button .primary:not(:disabled)')");
+            js(scenario, "document.querySelector('.split-button .primary').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-draft-recovery]') && !!document.querySelector('[data-editor] input[aria-label=Название]:not(:disabled)')");
+            String recoveryPath = (String)new JSONTokener(js(scenario, "document.querySelector('[data-draft-recovery]').getAttribute('data-draft-recovery')")).nextValue();
+            assertTrue(recoveryPath.startsWith("draft-recovery/"));
+            var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+            File recovered = new File(context.getFilesDir(), "operational/" + recoveryPath);
+            assertArrayEquals(broken, java.nio.file.Files.readAllBytes(recovered.toPath()));
+            js(scenario, "const input=document.querySelector('[data-editor] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Android recovered creation');input.dispatchEvent(new Event('input',{bubbles:true}))");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Android recovered creation'))");
+            assertFalse(live.exists()); assertArrayEquals(broken, java.nio.file.Files.readAllBytes(recovered.toPath()));
+            scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            assertArrayEquals(broken, java.nio.file.Files.readAllBytes(recovered.toPath()));
+        }
+    }
     private void openCatalogTarget(ActivityScenario<MainActivity> scenario, String catalog, String label) throws Exception {
         String buttons = "[...document.querySelectorAll('[data-catalog=" + catalog + "] button')]";
         String matches = "b=>b.getAttribute('aria-label')===" + JSONObject.quote(label) + " && !b.disabled";

@@ -64,6 +64,49 @@ it('reports failed writes and retries the latest input while retaining the previ
   failing = false; s.lifecycle.emit('inactive'); await session.flush(); expect((await store.load(s.scope))?.data[s.text.id]).toBe('После сбоя'); session.dispose();
 });
 
+it('preserves malformed bytes before creating a fresh draft, and retains recovery material after successful Save', async () => {
+  const s = setup(); s.session.dispose();
+  const damaged = new Uint8Array([255, 0, 123, 34, 7]);
+  await s.files.writeAtomic(draftPath(s.scope), damaged);
+  await expect(s.store.load(s.scope)).rejects.toThrow('invalidDraft');
+  const result = await s.store.recoverCorrupt(s.scope);
+  expect(result.draft).toBeNull(); expect(result.recovered_path).toMatch(/^draft-recovery\//);
+  expect(await s.files.read(result.recovered_path!)).toEqual(damaged);
+  expect(await s.store.load(s.scope)).toBeNull();
+  const fresh = new DraftSession(s.store, s.scope, s.action, [s.text], s.error);
+  fresh.change({ [s.text.id]: 'Новая запись' }); await fresh.close();
+  expect((await s.store.load(s.scope))!.data[s.text.id]).toBe('Новая запись');
+  await fresh.finish(); expect(await s.store.load(s.scope)).toBeNull();
+  expect(await s.files.read(result.recovered_path!)).toEqual(damaged);
+});
+
+it.each(['write', 'verify', 'remove'] as const)('retains the original on recovery %s failure and safely retries the same copy', async failure => {
+  const s = setup(); s.session.dispose(); const path = draftPath(s.scope), bytes = new TextEncoder().encode('{broken');
+  await s.files.writeAtomic(path, bytes);
+  let recoveryPath: string | null = null;
+  const store = new DraftStore({ ...s.files,
+    writeAtomic: async (id, value) => {
+      recoveryPath = id;
+      if (failure === 'write') throw new Error('disk error');
+      await s.files.writeAtomic(id, failure === 'verify' ? value.slice(0, 1) : value);
+    },
+    remove: async id => { if (failure === 'remove') throw new Error('interrupted after copy'); await s.files.remove(id); },
+  }, s.lifecycle);
+  await expect(store.recoverCorrupt(s.scope)).rejects.toThrow('draftRecovery');
+  expect(await s.files.read(path)).toEqual(bytes);
+  const recovered = await s.store.recoverCorrupt(s.scope);
+  expect(recovered.recovered_path).toBe(recoveryPath);
+  expect(await s.files.read(recovered.recovered_path!)).toEqual(bytes);
+  expect(await s.files.read(path)).toBeNull();
+});
+
+it('does not quarantine a valid draft that was written before recovery reached the serialized queue', async () => {
+  const s = setup(); s.session.change({ [s.text.id]: 'Valid input' }); await s.session.close();
+  const before = await s.store.load(s.scope);
+  expect(await s.store.recoverCorrupt(s.scope)).toEqual({ draft: before, recovered_path: null });
+  expect(await s.store.load(s.scope)).toEqual(before);
+});
+
 it('waits for an in-flight write before deleting the draft after successful Save', async () => {
   const s = setup(); s.session.dispose();
   let release!: () => void;

@@ -149,6 +149,12 @@ export function e2ePlugin(): Plugin {
             const value = await profilesScenario(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
+          if (op === 'draft-recovery-seed') {
+            const api = await Repository.open(db), library = await api.createLibrary('Восстановление черновика (dev/CI) ' + crypto.randomUUID().slice(0, 8));
+            const collection = await api.createCollection(library.id, 'Записи', 'Название');
+            const value = { dataset_id: api.datasetId, library_id: library.id, library_name: library.name, collection_id: collection.id, primary_field_id: collection.primary_field_id };
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
           if (op === 'draft-seed') {
             const value = await draftFixture(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;

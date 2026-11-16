@@ -89,7 +89,8 @@
     "operationCancelled": "Operation cancelled. The database was not changed.",
     "invalidCsvEncoding": "The file could not be decoded. Choose the correct encoding.",
     "invalidLibraryNavigation": "Choose a collection and profile from this library.",
-    "shortcutUnavailable": "Could not request a shortcut. Check whether your launcher supports pinned shortcuts."
+    "shortcutUnavailable": "Could not request a shortcut. Check whether your launcher supports pinned shortcuts.",
+    "draftRecovery": "Could not preserve a separate copy of the damaged draft. The original file remains; check storage and retry creating the record."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -363,5 +364,6 @@
   "clearHistoryHint": "Current records remain. Cleared versions cannot be restored; synchronization propagates the clear to other devices.",
   "clearAllHistory": "Clear all history",
   "clearAllHistoryHint": "This clears the retained versions of every record in this database.",
-  "historyCollection": "Collection"
+  "historyCollection": "Collection",
+  "draftRecovered": "The damaged draft has been preserved separately for recovery. You can continue creating a new record."
 }

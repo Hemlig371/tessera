@@ -73,6 +73,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const [creationInitial, setCreationInitial] = useState<RecordData>({});
   const [profiles, setProfiles] = useState<DisplayProfile[]>([]);
   const [quickDefinition, setQuickDefinition] = useState<UiDefinition>({ fields: [] });
+  const [draftRecoveryPath, setDraftRecoveryPath] = useState<string | null>(null);
   const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
   const [staleEdit, setStaleEdit] = useState<{ data: RecordData; current: Entry } | null>(null);
   const creationClose = useRef<(() => Promise<void>) | null>(null);
@@ -425,7 +426,14 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   async function loadCreationDraft(parent: Collection): Promise<Draft | null> {
     const scope = { dataset_id: api.datasetId, library_id: parent.library_id, collection_id: parent.id };
-    const draft = await drafts.load(scope);
+    setDraftRecoveryPath(null);
+    let draft: Draft | null;
+    try { draft = await drafts.load(scope); }
+    catch (error) {
+      if (!(error instanceof Error) || error.message !== 'invalidDraft') throw error;
+      const recovered = await drafts.recoverCorrupt(scope);
+      draft = recovered.draft; setDraftRecoveryPath(recovered.recovered_path);
+    }
     if (draft && await api.getDraftTarget(draft.action.create_id)) { await drafts.remove(scope); return null; }
     return draft;
   }
@@ -486,6 +494,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     })().catch(error => setError(errorKey(error))).finally(() => setBusy(false));
   }
   function open(editor: typeof ui.editor, editingId?: string) {
+    setDraftRecoveryPath(null);
     if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) { beginCreate({ kind: editor === 'quick-entry' ? 'quick' : 'standard' }); return; }
     selectionRequest.current++;
     rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
@@ -1045,6 +1054,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       {ui.editor && (
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
+          {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
           {ui.editor === 'history' && selected && <RecordHistory key={selected.id + ':' + revision} api={api} entry={selected} busy={busy}
             refresh={() => { void run(async () => {}, false); }}
             restore={versionId => { void run(async () => { await api.restoreEntryVersion(selected.id, versionId, selected.hlc); setSaved(true); }); }}

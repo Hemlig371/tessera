@@ -15,8 +15,9 @@ export async function openDraftStore() {
   };
   return new DraftStore(files, { subscribe(listener) {
     const change = () => listener(document.visibilityState === 'visible' ? 'active' : 'inactive');
+    const hide = () => listener('inactive');
     document.addEventListener('visibilitychange', change);
-    window.addEventListener('pagehide', change);
-    return () => { document.removeEventListener('visibilitychange', change); window.removeEventListener('pagehide', change); };
+    window.addEventListener('pagehide', hide);
+    return () => { document.removeEventListener('visibilitychange', change); window.removeEventListener('pagehide', hide); };
   } });
 }

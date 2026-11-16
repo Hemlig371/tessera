@@ -1,5 +1,6 @@
 import { quickLayout } from '../core/quick-forms';
 import { Catalog } from './Catalog';
+import { Trash } from './Trash';
 import { RecordHistory } from './RecordHistory';
 import { LibraryStartEditor } from './LibraryStartEditor';
 import { libraryNavigation } from '../core/library-navigation';
@@ -65,6 +66,12 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const launchSequence = useRef(0), consumingLaunch = useRef<number | null>(null);
   useAppearance(appearance);
   useEffect(() => { let active = true; void api.getDeviceAppearance().then(value => { if (active) setAppearance(value); }).catch(error => { if (active) setError(errorKey(error)); }).finally(() => { if (active) setAppearanceReady(true); }); return () => { active = false; }; }, [api]);
+  useEffect(() => {
+    const cleanup = () => { if (!document.hidden) void api.cleanTrash().then(count => { if (count) refresh(value => value + 1); }).catch(e => setError(errorKey(e))); };
+    const stop = drafts.lifecycle.subscribe(state => { if (state === 'active') cleanup(); });
+    const timer = window.setInterval(cleanup, 5 * 60 * 1000);
+    return () => { stop(); window.clearInterval(timer); };
+  }, [api, drafts]);
   const [libraries, setLibraries] = useState<Library[]>([]),
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
@@ -585,7 +592,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   function remove(kind: NonNullable<typeof undo>['kind'], id: string) {
     void run(async () => {
-      await api.setDeleted(kind, id, true);
+      await api.setDeleted(kind, id, true, kind === 'record' && selected?.id === id ? selected.hlc : undefined);
       setUndo({ kind, id });
       if (kind === 'library') ui.home();
       if (kind === 'collection' && ui.libraryId) ui.select(ui.libraryId);
@@ -648,7 +655,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -749,6 +756,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           <button disabled={disabled} onClick={goHome}>{t('allLibraries')}</button>
           <button disabled={disabled} onClick={openGlobalSearch}>{t('globalSearch')}</button>
           <button disabled={disabled} onClick={() => showInbox()}>{t('openInbox')}</button>
+          <button disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}>{t('trash')}</button>
           <button disabled={disabled} onClick={() => showInbox(true)}>+ {t('captureInbox')}</button>
           <button id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}>{t('constructor')}</button>
           <button disabled={disabled || !appearanceReady} onClick={() => open('appearance')}>{t('deviceAppearance')}</button>
@@ -1069,6 +1077,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
+          {ui.editor === 'trash' && <Trash api={api} busy={busy} revision={revision}
+            restore={item => { void run(async () => { await api.setDeleted('record', item.id, false, item.hlc); setUndo(null); }, false); }}
+            purge={item => { void run(async () => { await api.purgeEntry(item.id, item.hlc); setUndo(null); }, false); }}
+            saveRetention={days => { void run(async () => { await api.saveTrashRetention(days); await api.cleanTrash(); setUndo(null); }, false); }} />}
           {ui.editor === 'history' && selected && <RecordHistory key={selected.id + ':' + revision} api={api} entry={selected} busy={busy}
             refresh={() => { void run(async () => {}, false); }}
             restore={versionId => { void run(async () => { await api.restoreEntryVersion(selected.id, versionId, selected.hlc); setSaved(true); }); }}

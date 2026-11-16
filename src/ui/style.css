@@ -857,3 +857,11 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .history-snapshot dt { color: var(--muted); }
 .history-snapshot dd { margin: 4px 0 16px; }
 .history-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+
+.trash { max-width: 60rem; margin-inline: auto; }
+.trash-list { list-style: none; padding: 0; }
+.trash-list > li { padding: 1rem 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.trash-list h2 { font-size: 1.1rem; }
+.trash-list p { white-space: pre-wrap; }
+.trash-confirm { margin-block: 1rem; padding: 1rem; border: 1px solid currentColor; border-radius: .5rem; }
+.trash fieldset { margin-block: 1rem; min-width: 0; }

@@ -4,7 +4,7 @@ interface UiState {
   libraryId: string | null;
   collectionId: string | null;
   profileId: string | null;
-  editor: 'history' | 'history-clear' | 'appearance' | 'library-start' | 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | 'presets' | null;
+  editor: 'trash' | 'history' | 'history-clear' | 'appearance' | 'library-start' | 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | 'presets' | null;
   editingId: string | null;
   text: string;
   search: string;

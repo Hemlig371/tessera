@@ -703,12 +703,13 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 <button
                   className={l.id === ui.libraryId ? 'active library-button' : 'library-button'}
                   disabled={disabled}
+                  title={l.name}
                   onClick={() => { void openLibrary(l.id); }}
                 >
-                  <span aria-hidden="true" style={{ color: a.color }}>
-                    {a.icon ?? '◇'}
+                  <span className="nav-item-icon" aria-hidden="true" style={{ backgroundColor: a.color ? `color-mix(in srgb, ${a.color} 20%, var(--panel))` : undefined }}>
+                    {a.icon && a.icon !== '◇' ? a.icon : <Icon name="collection" />}
                   </span>
-                  {l.name}
+                  <span className="nav-name">{l.name}</span>
                 </button>
                 {l.id === ui.libraryId && (
                   <div className="collections">
@@ -720,6 +721,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                           <button
                             key={c.id}
                             aria-label={c.name}
+                            title={c.name}
                             disabled={disabled}
                             className={c.id === ui.collectionId ? 'active' : ''}
                             onClick={() => {
@@ -728,10 +730,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                               setSaved(false);
                             }}
                           >
-                            <span aria-hidden="true" style={{ color: appearance.color }}>
-                              {appearance.icon ?? '◇'}
+                            <span className="nav-item-icon" aria-hidden="true" style={{ backgroundColor: appearance.color ? `color-mix(in srgb, ${appearance.color} 20%, var(--panel))` : undefined }}>
+                              {appearance.icon && appearance.icon !== '◇' ? appearance.icon : <Icon name="libraries" />}
                             </span>
-                            {c.name}
+                            <span className="nav-name">{c.name}</span>
                           </button>
                         );
                       })}

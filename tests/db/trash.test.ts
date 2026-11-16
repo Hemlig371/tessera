@@ -89,6 +89,13 @@ describe.each(adapters)('%s shared trash and permanent tombstones', kind => {
     await api.cleanTrash();
     expect(await f.db.read(s => s.query("SELECT * FROM change_log WHERE entity_type='record' AND entity_id=?", [entry.id]))).toEqual(before);
   });
+  it('rejects noncanonical remote deletion dates before they can break retention or the trash screen', async () => {
+    const { api, entry } = await setup();
+    for (const deleted_at of ['', '11/16/2026', '2026-11-16T12:00:00+03:00'])
+      expect(() => api.mergeEntryState({ ...entry, deleted_at, hlc: nextHlc(entry.device_id, 8e12) })).toThrow('invalidRecordState');
+    expect(() => api.queryTrash(null, { id: entry.id, deleted_at: '' })).toThrow('invalidQuery');
+    expect(await api.getEntry(entry.id)).toEqual(entry);
+  });
   it.each([7, 14, 30, 90, null] as const)('honors %s days, exact expiry and startup cleanup without expiring tombstones', async days => {
     const { api, entry } = await setup(); expect(await api.getTrashRetention()).toBe(30);
     await api.saveTrashRetention(days);

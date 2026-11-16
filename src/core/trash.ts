@@ -13,6 +13,9 @@ export interface TrashItem extends Entry {
   restorable: boolean;
 }
 export interface TrashPage { items: TrashItem[]; next: TrashCursor | null }
+export function isUtcTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
 export function validateRetention(value: unknown): TrashRetention {
   if (!retentionDays.includes(value as TrashRetention)) throw new AppError('invalidRetention');
   return value as TrashRetention;

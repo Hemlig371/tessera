@@ -61,7 +61,7 @@ import { fieldExpression, fieldIndexName, sortData } from './search-keys';
 import { collectionCreationChoice, validateCreationChoice, validatePresetDefinition } from './creation-presets';
 import { formConfig, validateUiDefinition } from './ui-definition';
 import { readQuickForm, validateQuickForm } from './quick-forms';
-import { readRetention, validateRetention, type TrashRetention, type TrashCursor, type TrashPage } from './trash';
+import { isUtcTimestamp, readRetention, validateRetention, type TrashRetention, type TrashCursor, type TrashPage } from './trash';
 
 type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms' | 'display_profiles' | 'creation_presets';
 export class Repository {
@@ -616,7 +616,7 @@ export class Repository {
   queryTrash(libraryId: string | null = null, cursor: TrashCursor | null = null, limit = 50): Promise<TrashPage> {
     if (libraryId !== null) requireId(libraryId);
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidQuery');
-    if (cursor) { requireId(cursor.id); if (!Number.isFinite(Date.parse(cursor.deleted_at))) throw new AppError('invalidQuery'); }
+    if (cursor) { requireId(cursor.id); if (!isUtcTimestamp(cursor.deleted_at)) throw new AppError('invalidQuery'); }
     return this.db.read(async s => {
       const rows = await s.query<StoredEntry & { title: string; library_id: string; library_name: string; collection_name: string; restorable: number }>(
         `SELECT r.*,coalesce(CAST(json_extract(r.data,'$."'||c.primary_field_id||'"') AS TEXT),'') AS title,
@@ -682,7 +682,8 @@ export class Repository {
     assertHlc(incoming.hlc); validateData(incoming.data);
     if (!incoming.hlc.endsWith(`-${incoming.device_id}`) || ![0, 1].includes(incoming.purged) ||
         (incoming.purged && !incoming.deleted_at) ||
-        [incoming.created_at, incoming.updated_at, ...(incoming.deleted_at ? [incoming.deleted_at] : [])].some(value => !Number.isFinite(Date.parse(value))) ||
+        [incoming.created_at, incoming.updated_at].some(value => !isUtcTimestamp(value)) ||
+        (incoming.deleted_at !== null && !isUtcTimestamp(incoming.deleted_at)) ||
         typeof incoming.created_local !== 'string' || typeof incoming.updated_local !== 'string') throw new AppError('invalidRecordState');
     return this.db.transaction(async s => {
       const [old] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [incoming.id]);

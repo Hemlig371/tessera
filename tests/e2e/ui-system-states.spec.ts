@@ -26,7 +26,7 @@ test('history and Trash distinguish a failed read from empty data, retry safely 
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   const response = await page.request.post('/__test-sqlite', { data: { op: 'history-seed' } });
   expect(response.ok(), await response.text()).toBe(true);
-  const scope = (await response.json()).value as { library_id: string; library_name: string };
+  const scope = (await response.json()).value as { library_id: string; library_name: string; record_id: string };
   await page.reload();
   await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
@@ -55,7 +55,7 @@ test('history and Trash distinguish a failed read from empty data, retry safely 
   await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click();
   await expect(page.locator('.detail')).toHaveCount(0);
   await page.getByRole('button', { name: 'Корзина', exact: true }).click();
-  await expect(page.locator('.trash-list > li')).toHaveCount(1);
+  await expect(page.locator(`[data-trash-id="${scope.record_id}"]`)).toHaveCount(1);
   await expect(page.getByRole('combobox', { name: 'Библиотека в корзине', exact: true })).toBeEnabled();
   const beforeTrash = await snapshot(page);
   const trash = await holdRead(page, sql => sql.includes(' AS restorable') && sql.includes('FROM records r'));

@@ -89,6 +89,9 @@ test('small image preview is inert, settings persist and record purge removes at
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
   await page.locator('#constructor-toggle').click(); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
   await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toHaveValue('10');
+  await page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true }).fill('');
+  await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true })).toBeDisabled();
   await page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true }).fill('1'); await page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0); await page.reload();
   await page.locator('#constructor-toggle').click(); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();

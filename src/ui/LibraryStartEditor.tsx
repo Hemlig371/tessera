@@ -3,15 +3,22 @@ import { useTranslation } from 'react-i18next';
 import type { Collection, DisplayProfile } from '../core/model';
 import type { LibraryNavigation } from '../core/library-navigation';
 import type { Repository } from '../core/repository';
-import { ErrorMessage, errorKey } from './common';
+import { errorKey } from './common';
 
 export function LibraryStartEditor({ api, libraryId, busy, save, cancel }: {
   api: Repository; libraryId: string; busy: boolean; save: (value: LibraryNavigation) => void; cancel: () => void;
 }) {
   const { t } = useTranslation();
   const [value, setValue] = useState<LibraryNavigation | null>(null), [collections, setCollections] = useState<Collection[]>([]);
-  const [collectionId, setCollectionId] = useState(''), [profileId, setProfileId] = useState(''), [profiles, setProfiles] = useState<DisplayProfile[]>([]);
+  const [collectionId, setCollectionId] = useState(''), [profileId, setProfileId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [attempt, retry] = useState(0), [profileAttempt, retryProfiles] = useState(0);
+  const [profileResult, setProfileResult] = useState<{ key: string; items: DisplayProfile[]; error?: string } | null>(null);
+  const profileKey = JSON.stringify([collectionId, profileAttempt]);
+  const collectionAvailable = collections.some(row => row.id === collectionId);
+  const profilesLoading = collectionAvailable && profileResult?.key !== profileKey;
+  const profileError = profileResult?.key === profileKey ? profileResult.error : null;
+  const profiles = profileResult?.key === profileKey ? profileResult.items : [];
   useEffect(() => {
     let active = true;
     void Promise.all([api.getLibraryNavigation(libraryId), api.listCollections(libraryId)]).then(([navigation, rows]) => {
@@ -21,40 +28,50 @@ export function LibraryStartEditor({ api, libraryId, busy, save, cancel }: {
       setProfileId(navigation.start.kind === 'collection' ? navigation.start.profile_id ?? '' : '');
     }).catch(e => { if (active) setError(errorKey(e)); });
     return () => { active = false; };
-  }, [api, libraryId]);
+  }, [api, libraryId, attempt]);
   useEffect(() => {
     let active = true;
-    if (collectionId && collections.some(row => row.id === collectionId)) void api.listDisplayProfiles(collectionId)
-      .then(rows => { if (active) setProfiles(rows); }).catch(e => { if (active) setError(errorKey(e)); });
+    if (collectionAvailable) void api.listDisplayProfiles(collectionId)
+      .then(items => { if (active) setProfileResult({ key: profileKey, items }); })
+      .catch(e => { if (active) setProfileResult({ key: profileKey, items: [], error: errorKey(e) }); });
     return () => { active = false; };
-  }, [api, collectionId, collections]);
-  if (!value) return error ? <ErrorMessage code={error} /> : <p role="status">{t('loading')}</p>;
-  return <form onSubmit={event => {
+  }, [api, collectionId, collectionAvailable, profileKey]);
+  const failure = (code: string, repeat: () => void) => <div className="error" role="alert"><strong>{t('libraryStartUnavailable')}</strong>
+    <p>{code === 'generic' ? t('readUnavailableHint') : t(`errors.${code}`, { defaultValue: t('readUnavailableHint') })}</p>
+    <button type="button" disabled={busy} onClick={repeat}>{t('retryEntries')}</button></div>;
+  if (!value) return <div className="settings-form">
+    {error ? failure(error, () => { setError(null); retry(value => value + 1); }) : <p role="status">{t('loadingSettings')}</p>}
+    <button disabled={busy} onClick={cancel}>{t('cancel')}</button>
+  </div>;
+  const invalidTarget = !collectionAvailable || profilesLoading || !!profileError || (!!profileId && !profiles.some(row => row.id === profileId));
+  return <form className="settings-form" onSubmit={event => {
     event.preventDefault();
+    if (value.start.kind === 'collection' && invalidTarget) return;
     save({ ...value, start: value.start.kind === 'collection' ? { kind: 'collection', collection_id: collectionId, ...(profileId ? { profile_id: profileId } : {}) } : value.start });
   }}>
-    {error && <ErrorMessage code={error} />}
     <label>{t('libraryStart')}<select disabled={busy} value={value.start.kind} onChange={event => {
       const kind = event.target.value as LibraryNavigation['start']['kind'];
       setValue({ ...value, start: kind === 'collection' ? { kind, collection_id: collectionId } : { kind } });
     }}><option value="collections">{t('collections')}</option><option value="collection" disabled={!collections.length}>{t('startCollection')}</option><option value="last">{t('startLast')}</option></select></label>
     {value.start.kind === 'collection' && <>
       <label>{t('startCollection')}<select required disabled={busy} value={collectionId} onChange={event => {
-        if (event.target.value !== collectionId) { setCollectionId(event.target.value); setProfileId(''); setProfiles([]); }
+        if (event.target.value !== collectionId) { setCollectionId(event.target.value); setProfileId(''); }
       }}>
         {!collections.some(row => row.id === collectionId) && <option value={collectionId}>{t('missingStartTarget')}</option>}
         {collections.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
-      <label>{t('displayProfile')}<select disabled={busy} value={profileId} onChange={event => setProfileId(event.target.value)}>
+      <label>{t('displayProfile')}<select disabled={busy || profilesLoading || !!profileError || !collectionAvailable} value={profileId} onChange={event => setProfileId(event.target.value)}>
         <option value="">{t('startDefaultProfile')}</option>
-        {profileId && !profiles.some(row => row.id === profileId) && <option value={profileId}>{t('missingStartTarget')}</option>}
+        {profileId && !profiles.some(row => row.id === profileId) && <option value={profileId}>{t(profilesLoading ? 'loadingProfiles' : profileError ? 'profilesUnavailable' : 'missingStartTarget')}</option>}
         {profiles.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
+      {profilesLoading && <p className="visually-hidden" role="status">{t('loadingProfiles')}</p>}
+      {profileError && failure(profileError, () => retryProfiles(value => value + 1))}
     </>}
     <label>{t('collectionsLayout')}<select disabled={busy} value={value.collections_layout} onChange={event => setValue({ ...value, collections_layout: event.target.value as LibraryNavigation['collections_layout'] })}>
       <option value="cards">{t('catalogCards')}</option><option value="list">{t('catalogList')}</option>
     </select></label>
-    <p>{t('libraryStartHint')}</p>
-    <div className="actions"><button type="button" disabled={busy} onClick={cancel}>{t('cancel')}</button><button className="primary" disabled={busy || (value.start.kind === 'collection' && !collectionId)}>{t('save')}</button></div>
+    <p className="screen-hint">{t('libraryStartHint')}</p>
+    <div className="form-actions"><button type="button" disabled={busy} onClick={cancel}>{t('cancel')}</button><button className="primary" disabled={busy || (value.start.kind === 'collection' && invalidTarget)}>{t('save')}</button></div>
   </form>;
 }

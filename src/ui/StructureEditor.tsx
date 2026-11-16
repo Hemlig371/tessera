@@ -38,6 +38,7 @@ export function StructureEditor({
     [mapBody, setMapBody] = useState(initialMapping?.body_field_id ?? fields.find(field => isText(field.type) && field.id !== primary)?.id ?? '');
   return (
     <form
+      className="settings-form"
       onSubmit={(e) => {
         e.preventDefault();
         save(name, { icon, color }, position, primary, incoming, mapEnabled ? { title_field_id: mapTitle, body_field_id: mapBody } : null);

@@ -165,9 +165,16 @@ export class Repository {
     }
     after = '';
     for (;;) {
-      const rows = await this.db.read(s => s.query<Attachment>("SELECT a.* FROM attachments a JOIN attachment_local l ON l.id=a.id WHERE l.state='copying' AND a.purged=0 AND a.id>? ORDER BY a.id LIMIT 50", [after]));
+      const rows = await this.db.read(s => s.query<Attachment>("SELECT a.* FROM attachments a JOIN attachment_local l ON l.id=a.id WHERE l.state='copying' AND a.id>? ORDER BY a.id LIMIT 50", [after]));
       if (!rows.length) break;
       for (const row of rows) {
+        if (row.purged) {
+          await this.db.transaction(async s => {
+            await s.execute('INSERT INTO attachment_gc VALUES(?,1) ON CONFLICT(id) DO UPDATE SET staged=1', [row.id]);
+            await s.execute("UPDATE attachment_local SET state='deleting' WHERE id=?", [row.id]);
+          });
+          continue;
+        }
         const facts = await this.files.inspect(row.id);
         const state = !facts ? 'missing' : facts.size === row.size && facts.sha256 === row.sha256 ? 'present' : 'corrupt';
         await this.db.transaction(async s => {
@@ -199,7 +206,8 @@ export class Repository {
       await s.execute('INSERT INTO attachment_locations(id,attachment_id,device_id,hlc,present) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET hlc=excluded.hlc,present=excluded.present', Object.values(location));
       await this.log(s, 'attachment_location', location, location);
     }
-    await s.execute('INSERT INTO attachment_local(id,state,verified_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,verified_at=excluded.verified_at', [id, state, new Date().toISOString()]);
+    await s.execute(`INSERT INTO attachment_local(id,state,verified_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET
+      state=CASE WHEN attachment_local.state='copying' AND ?=1 THEN 'copying' ELSE excluded.state END,verified_at=excluded.verified_at`, [id, state, new Date().toISOString(), meta.purged]);
   }
   /** Persisted file-removal jobs bridge the SQLite/filesystem boundary and are safe to retry after a crash. */
   collectAttachmentFiles(): Promise<{ removed: number; pending: number }> {
@@ -218,7 +226,7 @@ export class Repository {
           }
           await this.db.transaction(async s => {
             if (row.staged) await s.execute('DELETE FROM attachment_staging WHERE id=?', [row.id]);
-            else await this.attachmentPresence(s, row.id, false, 'missing');
+            if (!attached) await this.attachmentPresence(s, row.id, false, 'missing');
             await s.execute('DELETE FROM attachment_gc WHERE id=?', [row.id]);
           });
           removed++;

@@ -99,7 +99,9 @@ export async function purgeAttachments(s: SqlSession, row: Entry, log: Attachmen
     const tombstone = { ...old, name: '', mime: '', size: 0, sha256: '', deleted_at: row.updated_at, purged: 1, hlc: row.hlc, device_id: row.device_id, updated_at: row.updated_at };
     await s.execute("UPDATE attachments SET name='',mime='',size=0,sha256='',deleted_at=?,purged=1,hlc=?,device_id=?,updated_at=? WHERE id=?", [row.updated_at, row.hlc, row.device_id, row.updated_at, old.id]);
     await s.execute("INSERT INTO attachment_gc(id,staged) VALUES(?,0) ON CONFLICT(id) DO NOTHING", [old.id]);
-    await s.execute("UPDATE attachment_local SET state='deleting' WHERE id=?", [old.id]);
+    // Keep an in-flight restore marker until its writer ends or startup recovery
+    // observes it. Its rename may happen after this purge's first GC pass.
+    await s.execute("UPDATE attachment_local SET state='deleting' WHERE id=? AND state<>'copying'", [old.id]);
     await log('attachment', tombstone, tombstone);
   }
   const staged = await s.query<{ id: string }>('SELECT id FROM attachment_staging WHERE owner_id=?', [row.id]);

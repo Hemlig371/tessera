@@ -158,6 +158,25 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     expect((await api.collectAttachmentFiles()).pending).toBe(0);
     expect(await api.getHistory(owner)).toMatchObject({ versions: [] });
   });
+  it.each([false, true])('recovers a process death after purge drained its job (late publication: %s)', async publish => {
+    const { api, collection, file, owner } = await setup(), input = source();
+    const staged = await api.stageAttachment(collection.id, owner, input);
+    await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'Сбой восстановления', [file.id]: [staged.id] }, owner);
+    await api.removeAttachmentCopy(staged.id, owner, true);
+    await f.db.transaction(s => s.execute("UPDATE attachment_local SET state='copying' WHERE id=?", [staged.id]));
+    await f.files.begin(staged.id); await f.files.write(staged.id, 0, await input.read(0, input.size));
+    await api.setDeleted('record', owner, true);
+    await api.purgeEntry(owner, (await api.queryTrash()).items.find(row => row.id === owner)!.hlc);
+    if (publish) await f.files.finish(staged.id, staged.size, staged.sha256);
+    // Persistent state left by process death before restoreAttachmentCopy's finally/SQL commit.
+    const reopened = await Repository.open(f.db, f.files);
+    expect(await f.files.stat(staged.id)).toBeNull();
+    expect((await reopened.collectAttachmentFiles()).pending).toBe(0);
+    expect(await f.db.read(s => s.query('SELECT purged FROM attachments WHERE id=?', [staged.id]))).toEqual([{ purged: 1 }]);
+    expect(await f.db.read(s => s.query('SELECT state FROM attachment_local WHERE id=?', [staged.id]))).toEqual([{ state: 'missing' }]);
+    await f.files.begin(staged.id); // An abandoned partial copy must also have been removed.
+    await f.files.remove(staged.id, true);
+  });
   it('preserves references through an Inbox move and round-trip version restore', async () => {
     const { api, collection, owner } = await setup(), inbox = await api.getInbox();
     const file = (await api.listFields(inbox.id)).find(field => field.type === 'file')!;

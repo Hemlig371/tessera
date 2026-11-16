@@ -158,6 +158,7 @@ try {
   await selectOption('Тип поля', 'Markdown'); await clickText('Сохранить поле');
   await until("[...document.querySelectorAll('.field-list b')].some(element=>element.textContent==='Native Markdown')");
   const originalFieldName = await execute("return document.querySelector('.field-list b').textContent");
+  await until("!!document.querySelector('.field-list button:not(:disabled)')");
   await execute("document.querySelector('.field-list button').click()");
   await until("!!document.querySelector('.field-properties input:not(:disabled)')");
   await execute("const input=document.querySelector('.field-properties input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Cancelled native field name'); input.dispatchEvent(new Event('input',{bubbles:true}));");

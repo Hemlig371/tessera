@@ -282,7 +282,7 @@
   "newPreset": "New preset",
   "presetName": "Preset name",
   "presetForm": "Preset form",
-  "usePresetByDefault": "Use for a short press on +",
+  "usePresetByDefault": "Use for a short press on +",
   "presetValuesHint": "Prefills a new entry. There is no record until Save. A restored draft takes priority.",
   "presetInclude": "Prefill field",
   "presetToday": "Current local date on creation",

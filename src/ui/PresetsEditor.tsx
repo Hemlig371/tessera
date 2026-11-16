@@ -14,20 +14,22 @@ export function PresetsEditor({ api, presets, fields, choice, busy, setChoice, s
 }) {
   const { t } = useTranslation(), [selected, setSelected] = useState(presets[0]?.id ?? 'new');
   const current = presets.find(preset => preset.id === selected);
-  return <>
+  return <div className="presets-editor configuration-layout">
     <DefaultCreation key={JSON.stringify(choice)} {...{ choice, presets, busy }} save={setChoice} />
+    <section className="preset-configuration" aria-label={t('presetToConfigure')}>
     <label>{t('presetToConfigure')}<select disabled={busy} value={current?.id ?? 'new'} onChange={event => setSelected(event.target.value)}>
       <option value="new">{t('newPreset')}</option>{presets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
     </select></label>
     <PresetProperties key={current ? current.id + current.hlc : 'new'} {...{ api, fields, busy }} preset={current}
       isDefault={!!current && choice.kind === 'preset' && choice.preset_id === current.id}
       save={(name, position, definition, makeDefault) => save(current?.id ?? null, name, position, definition, makeDefault)} />
-    {current && <button disabled={busy} onClick={() => remove(current.id)}>{t('deletePreset')}</button>}
-  </>;
+    {current && <div className="form-actions"><button className="danger" disabled={busy} onClick={() => remove(current.id)}>{t('deletePreset')}</button></div>}
+    </section>
+  </div>;
 }
 function DefaultCreation({ choice, presets, busy, save }: { choice: CreationChoice; presets: CreationPreset[]; busy: boolean; save: (choice: CreationChoice) => void }) {
   const { t } = useTranslation(), [value, setValue] = useState(choice.kind === 'preset' ? choice.preset_id : choice.kind);
-  return <form onSubmit={event => { event.preventDefault(); save(value === 'standard' || value === 'quick' ? { kind: value } : { kind: 'preset', preset_id: value }); }}>
+  return <form className="preset-default configuration-secondary" onSubmit={event => { event.preventDefault(); save(value === 'standard' || value === 'quick' ? { kind: value } : { kind: 'preset', preset_id: value }); }}>
     <label>{t('defaultCreation')}<select value={value} disabled={busy} onChange={event => setValue(event.target.value)}>
       <option value="standard">{t('standardForm')}</option><option value="quick">{t('quickEntry')}</option>
       {presets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
@@ -47,14 +49,15 @@ function PresetProperties({ api, fields, preset, isDefault, busy, save }: { api:
     });
   }
   function change(id: string, value: RecordData[string]) { setDefinition(old => ({ ...old, data: { ...old.data, [id]: value } })); }
-  return <form onSubmit={event => { event.preventDefault(); save(name, position, definition, makeDefault); }}>
+  return <form className="configuration-properties" onSubmit={event => { event.preventDefault(); save(name, position, definition, makeDefault); }}>
+    <h2 title={preset?.name}>{preset?.name ?? t('newPreset')}</h2>
     <label>{t('presetName')}<input required maxLength={200} disabled={busy} value={name} onChange={event => setName(event.target.value)} /></label>
     <label>{t('position')}<input type="number" min={0} step={1} required disabled={busy} value={position} onChange={event => setPosition(Number(event.target.value))} /></label>
     <label>{t('presetForm')}<select disabled={busy} value={definition.form} onChange={event => setDefinition(old => ({ ...old, form: event.target.value as PresetDefinition['form'] }))}>
       <option value="standard">{t('standardForm')}</option><option value="quick">{t('quickEntry')}</option>
     </select></label>
     <label className="check"><input type="checkbox" disabled={busy || isDefault} checked={isDefault || makeDefault} onChange={event => setMakeDefault(event.target.checked)} />{t('usePresetByDefault')}</label>
-    <p>{t('presetValuesHint')}</p>
+    <p className="screen-hint">{t('presetValuesHint')}</p>
     {fields.filter(field => !['backlink','secret','file','image'].includes(field.type)).map(field => {
       const today = definition.today_fields.includes(field.id), included = today || Object.hasOwn(definition.data, field.id);
       return <fieldset key={field.id} disabled={busy}><legend>{field.name}</legend>

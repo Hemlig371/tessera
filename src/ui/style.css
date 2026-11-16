@@ -962,6 +962,26 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .history-snapshot pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
 .record-history > .form-actions { margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px solid var(--border); }
 
+.configuration-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 19rem); gap: var(--space-6); align-items: start; }
+.configuration-properties, .configuration-secondary { min-width: 0; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.configuration-properties { background: var(--surface); }
+.configuration-properties h2, .configuration-secondary h2 { font-size: 1.1rem; margin: 0 0 var(--space-4); overflow-wrap: anywhere; }
+.configuration-properties h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
+.configuration-properties .check { align-items: flex-start; }
+.configuration-properties .check input { flex-shrink: 0; margin-top: .2em; }
+.profiles-editor :is(input, select, textarea), .presets-editor :is(input, select, textarea) { font-size: 1rem; }
+.configuration-layout button { max-width: 100%; font-size: .9rem; overflow-wrap: anywhere; }
+.configuration-properties .actions { justify-content: flex-start; }
+.configuration-properties fieldset { margin-block: var(--space-4); background: var(--raised); }
+.configuration-properties legend { max-width: 100%; font-size: .9rem; overflow-wrap: anywhere; }
+.preset-default { grid-column: 2; grid-row: 1; }
+.preset-configuration { min-width: 0; grid-column: 1; grid-row: 1; }
+.preset-configuration > .form-actions, .profiles-editor > .form-actions { margin-top: var(--space-4); }
+@media (max-width: 1000px) {
+  .configuration-layout { grid-template-columns: minmax(0, 1fr); }
+  .preset-default, .preset-configuration { grid-column: auto; grid-row: auto; }
+}
+
 .trash { max-width: 60rem; margin-inline: auto; }
 .trash-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 19rem); align-items: start; gap: var(--space-6); }
 .trash-content { min-width: 0; }

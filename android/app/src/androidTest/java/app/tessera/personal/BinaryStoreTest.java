@@ -59,6 +59,35 @@ public class BinaryStoreTest {
             assertEquals(hex(MessageDigest.getInstance("SHA-256").digest()), empty.getSha256());
         } finally { removeTree(root); }
     }
+    @Test public void independentActivityStoresDoNotRemoveAFileDuringExport() throws Exception {
+        File root = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(), "binary-contract-" + UUID.randomUUID());
+        BinaryStore writer = new BinaryStore(root), remover = new BinaryStore(root);
+        String id = UUID.randomUUID().toString();
+        var workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var removed = new java.util.concurrent.CountDownLatch(1);
+        var attempted = new java.util.concurrent.CountDownLatch(1);
+        try {
+            byte[] bytes = new byte[]{0,(byte)255,13,10}; writer.begin(id); writer.write(id,0,bytes);
+            BinaryStore.Facts facts = writer.finish(id,bytes.length,null);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            var exporting = workers.submit(() -> writer.export(id,facts.getSize(),facts.getSha256(),() -> {
+                entered.countDown();
+                try { if (!release.await(5, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("export release timed out"); }
+                catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new IllegalStateException(error); }
+                return output;
+            }));
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            var deleting = workers.submit(() -> { attempted.countDown(); remover.remove(id,false); removed.countDown(); });
+            assertTrue(attempted.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertFalse("another Activity store removed bytes during export", removed.await(200, java.util.concurrent.TimeUnit.MILLISECONDS));
+            release.countDown(); exporting.get(5, java.util.concurrent.TimeUnit.SECONDS); deleting.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertArrayEquals(bytes, output.toByteArray()); assertNull(remover.inspect(id));
+        } finally {
+            release.countDown(); workers.shutdownNow(); workers.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS); removeTree(root);
+        }
+    }
     @androidx.test.filters.LargeTest @Test public void prepareInterruptedBinary() throws Exception {
         File root = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(), "binary-process-acceptance");
         removeTree(root); BinaryStore store = new BinaryStore(root);

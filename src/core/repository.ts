@@ -1,4 +1,5 @@
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
+import { libraryNavigation, navigationLibrary, resolveLibraryStart, validLibraryLocation, validateLibraryNavigation, type LibraryLocation, type LibraryNavigation } from './library-navigation';
 import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
 import { acknowledgeChanges, activateJournal, compactChanges, detachJournal, journalCheckpoint, journalEnabled, pauseJournal, readChanges, syncMode, type JournalCheckpoint } from './change-journal';
 import { defaultAppearance, validateAppearance, type DeviceAppearance } from './device-appearance';
@@ -240,6 +241,30 @@ export class Repository {
     return this.db.read((s) =>
       s.query<Library>('SELECT * FROM libraries WHERE deleted_at IS NULL AND system_kind IS NULL ORDER BY position,created_at,id')
     );
+  }
+  getLibraryNavigation(id: string): Promise<LibraryNavigation> {
+    return this.db.read(async s => libraryNavigation(await navigationLibrary(s, id)));
+  }
+  saveLibraryNavigation(id: string, value: LibraryNavigation): Promise<void> {
+    requireId(id); const navigation = validateLibraryNavigation(value);
+    return this.db.transaction(async s => {
+      const library = await navigationLibrary(s, id);
+      if (navigation.start.kind !== 'last' && !await validLibraryLocation(s, id, navigation.start)) throw new AppError('invalidLibraryNavigation');
+      await this.update(s, 'libraries', 'library', library, { config: canonical({ ...JSON.parse(library.config), navigation }) });
+    });
+  }
+  resolveLibraryStart(id: string): Promise<LibraryLocation> {
+    requireId(id); return this.db.read(s => resolveLibraryStart(s, id));
+  }
+  rememberLibraryLocation(id: string, value: LibraryLocation): Promise<void> {
+    requireId(id);
+    const location = validateLibraryNavigation({ start: value, collections_layout: 'cards' }).start;
+    if (location.kind === 'last') throw new AppError('invalidLibraryNavigation');
+    return this.db.transaction(async s => {
+      await navigationLibrary(s, id);
+      if (!await validLibraryLocation(s, id, location)) throw new AppError('invalidLibraryNavigation');
+      await s.execute('INSERT INTO local_settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<>excluded.value', [`library_last:${id}`, canonical(location)]);
+    });
   }
   /** A hidden structural library keeps the single records table and its foreign keys intact. */
   async getInbox(): Promise<Collection> {

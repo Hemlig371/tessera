@@ -25,14 +25,16 @@ describe.each(adapters)('%s quick forms', kind => {
     const quick = await api.getQuickForm(collection.id);
     expect(quick.fields.filter(i => i.visible).map(i => i.field_id)).toEqual([collection.primary_field_id]);
     expect(await f.db.read(s => s.query('SELECT * FROM change_log'))).toEqual(before);
+    await api.startLocalSync();
     await api.saveQuickForm(collection.id, quick);
     const row = await api.saveQuickEntry(collection.id, { [collection.primary_field_id]: 'Быстро' });
     expect(row.data).toMatchObject({ [number.id]: 7, [check.id]: false });
     expect(await f.db.read(s => s.query('SELECT * FROM record_versions WHERE record_id=?', [row.id]))).toHaveLength(1);
     const form = await api.getUiConfig(collection.id, 'form');
-    const logs = await f.db.read(s => s.query("SELECT * FROM change_log WHERE entity_type='ui_config'"));
+    const logs = await f.db.read(s => s.query("SELECT * FROM change_log WHERE entity_type='quick_form'"));
+    expect(logs).toHaveLength(1);
     await api.saveQuickForm(collection.id, quick);
-    expect(await f.db.read(s => s.query("SELECT * FROM change_log WHERE entity_type='ui_config'"))).toEqual(logs);
+    expect(await f.db.read(s => s.query("SELECT * FROM change_log WHERE entity_type='quick_form'"))).toEqual(logs);
     expect(await api.getUiConfig(collection.id, 'form')).toEqual(form);
     await f.db.close();
     const db = await f.reopen();

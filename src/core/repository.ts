@@ -48,6 +48,7 @@ import type {
 import type { DatabaseAdapter, SqlSession, SqlValue } from './ports';
 import {
   appearanceValue,
+  isText,
   fieldConfig,
   nameValue,
   positionValue,
@@ -88,6 +89,7 @@ export class Repository {
       return { datasetId, deviceId };
     });
     const repository = new Repository(db, ids.deviceId, ids.datasetId);
+    await repository.prepareSearchKeys();
     await repository.compactHistory();
     await repository.rebuildDerived();
     await repository.rebuildRelationIndex(false);
@@ -1196,6 +1198,17 @@ export class Repository {
       return this.newEntryInSession(s, collectionId, data, createId);
     });
   }
+  /** Invalidate disposable caches once; per-record flags retain progress after interruption. */
+  private prepareSearchKeys(): Promise<void> {
+    return this.db.transaction(async s => {
+      const [policy] = await s.query<{ value: string }>("SELECT value FROM local_settings WHERE key='derived_search_policy'");
+      if (policy?.value === 'text-only-1') return;
+      await s.execute('UPDATE records SET sort_version=0');
+      const secrets = await s.query<{ id: string }>("SELECT id FROM fields WHERE type='secret'");
+      for (const field of secrets) await s.execute(`DROP INDEX IF EXISTS ${fieldIndexName(field.id)}`);
+      await s.execute("INSERT INTO local_settings VALUES('derived_search_policy','text-only-1') ON CONFLICT(key) DO UPDATE SET value=excluded.value");
+    });
+  }
   /** Resumable local cache rebuild; each transaction handles at most 200 records. */
   async rebuildDerived(): Promise<void> {
     for (;;) {
@@ -1237,7 +1250,7 @@ export class Repository {
         canonical(
           Object.fromEntries(
             fields
-              .filter((f) => typeof data[f.id] === 'string')
+              .filter((f) => isText(f.type) && typeof data[f.id] === 'string')
               .map((f) => [f.id, String(data[f.id]).normalize('NFKC').toLocaleLowerCase('ru-RU')])
           )
         )
@@ -1395,7 +1408,7 @@ export class Repository {
     for (const field of fields) {
       if (
         !field.deleted_at &&
-        !['relation', 'backlink'].includes(field.type) &&
+        !['secret', 'relation', 'backlink'].includes(field.type) &&
         (fieldConfig(field).indexed || automatic.has(field.id))
       ) {
         await s.execute(

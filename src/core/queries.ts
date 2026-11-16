@@ -52,14 +52,14 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   function expression(id: string): string {
     if (id === 'updated_at') return 'r.updated_at';
     const field = byId.get(id);
-    if (!field || ['relation', 'backlink'].includes(field.type)) throw new AppError('invalidFilter');
+    if (!field || ['secret', 'relation', 'backlink'].includes(field.type)) throw new AppError('invalidFilter');
     return fieldExpression(field, 'r.');
   }
   const terms = searchTerms(q.search ?? '');
   if (q.search?.trim() && !terms.length) where.push('0');
   for (const term of terms) {
     where.push(`r.id IN(SELECT records_fts.record_id FROM records_fts JOIN fields sf ON sf.id=records_fts.field_id
-      WHERE records_fts MATCH ? AND sf.deleted_at IS NULL AND json_extract(sf.config,'$.fts') IS NOT 0)`);
+      WHERE records_fts MATCH ? AND sf.deleted_at IS NULL AND sf.type IN('text','multiline','markdown') AND json_extract(sf.config,'$.fts') IS NOT 0)`);
     params.push(term);
   }
   for (const filter of q.filters ?? []) {

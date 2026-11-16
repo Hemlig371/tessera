@@ -83,6 +83,8 @@ export async function applyHistoryClear(s: SqlSession, marker: HistoryClear): Pr
 /** History-only merge primitive for local protocol/archive integration, not a sync transport. */
 export async function mergeHistory(s: SqlSession, state: HistoryState): Promise<void> {
   requireId(state.record_id);
+  // Permanent deletion is terminal even for late versions with a higher HLC.
+  if ((await s.query<{ purged: number }>('SELECT purged FROM records WHERE id=?', [state.record_id]))[0]?.purged) return;
   if (state.cleared_through) await applyHistoryClear(s, { record_id: state.record_id, hlc: state.cleared_through });
   let floor = await cutoff(s, state.record_id);
   if (state.trimmed_through) {

@@ -18,7 +18,7 @@ import { entryRules, FieldError, prepareEntryData, RowError } from './entry-data
 import { activeCollection, activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 import { queryEntries } from './queries';
 import { AppError } from './errors';
-import { nextHlc } from './hlc';
+import { assertHlc, nextHlc } from './hlc';
 import { canonical, localTimestamp } from './model';
 import type {
   Appearance,
@@ -61,6 +61,7 @@ import { fieldExpression, fieldIndexName, sortData } from './search-keys';
 import { collectionCreationChoice, validateCreationChoice, validatePresetDefinition } from './creation-presets';
 import { formConfig, validateUiDefinition } from './ui-definition';
 import { readQuickForm, validateQuickForm } from './quick-forms';
+import { readRetention, validateRetention, type TrashRetention, type TrashCursor, type TrashPage } from './trash';
 
 type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms' | 'display_profiles' | 'creation_presets';
 export class Repository {
@@ -92,6 +93,7 @@ export class Repository {
     await repository.repairUiChangeTypes();
     await repository.prepareSearchKeys();
     await repository.compactHistory();
+    await repository.cleanTrash();
     await repository.rebuildDerived();
     await repository.rebuildRelationIndex(false);
     return repository;
@@ -174,10 +176,10 @@ export class Repository {
           after = rows.at(-1)!.id;
         }
       }
-      const markers = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key LIKE 'history:%' ORDER BY key");
+      const markers = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key LIKE 'history:%' OR key='trash:retention' ORDER BY key");
       for (const marker of markers) {
         const hlc = marker.key.startsWith('history:clear:') ? marker.value : (JSON.parse(marker.value) as { hlc: string }).hlc;
-        await this.log(s, 'history_marker', { id: marker.key, hlc, device_id: this.deviceId }, { ...marker });
+        await this.log(s, marker.key === 'trash:retention' ? 'app_setting' : 'history_marker', { id: marker.key, hlc, device_id: this.deviceId }, { ...marker });
       }
       return journalCheckpoint(s);
     });
@@ -517,7 +519,8 @@ export class Repository {
   async setDeleted(
     kind: 'library' | 'collection' | 'field' | 'record',
     id: string,
-    deleted: boolean
+    deleted: boolean,
+    expectedHlc?: string
   ): Promise<void> {
     requireId(id);
     const table = { library: 'libraries', collection: 'collections', field: 'fields', record: 'records' }[
@@ -529,6 +532,10 @@ export class Repository {
         [id]
       );
       if (!stored) throw new AppError('notFound');
+      if (kind === 'record') {
+        if ((stored as StoredEntry).purged) throw new AppError('purgedRecord');
+        if (expectedHlc && stored.hlc !== expectedHlc) throw new AppError('staleRecord');
+      }
       if (kind === 'library' || kind === 'collection') {
         if ((stored as Library | Collection).system_kind) throw new AppError('systemContainer');
       }
@@ -568,6 +575,7 @@ export class Repository {
           [row.deleted_at, row.updated_at, row.updated_local, row.hlc, row.device_id, id]
         );
         await this.log(s, kind, row, row);
+        await this.refreshRecords(s, [{ ...stored as StoredEntry, ...row, data: canonical(row.data) }]);
         return row.collection_id;
       }
       await this.update(s, table, kind, stored as Library | Collection | Field, {
@@ -584,9 +592,126 @@ export class Repository {
         );
       return kind === 'field' ? (stored as Field).collection_id : null;
     });
+    if (kind === 'record') return;
     await this.rebuildDerived();
     await this.rebuildRelationIndex(false);
     if (collectionId) await this.reconcileIndexes(collectionId);
+  }
+  getTrashRetention(): Promise<TrashRetention> { return this.db.read(readRetention); }
+  saveTrashRetention(days: TrashRetention): Promise<void> {
+    validateRetention(days);
+    return this.db.transaction(async s => {
+      if (await readRetention(s) === days) return;
+      const stamp = await this.stamp(s);
+      const value = canonical({ days, hlc: stamp.hlc, device_id: stamp.device_id });
+      await s.execute("INSERT INTO app_meta VALUES('trash:retention',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [value]);
+      await this.log(s, 'app_setting', { ...stamp, id: 'trash:retention' }, { key: 'trash:retention', value });
+    });
+  }
+  listTrashLibraries(): Promise<{ id: string; name: string }[]> {
+    return this.db.read(s => s.query(`SELECT l.id,l.name FROM libraries l WHERE EXISTS(
+      SELECT 1 FROM records r JOIN collections c ON c.id=r.collection_id
+      WHERE c.library_id=l.id AND r.deleted_at IS NOT NULL AND r.purged=0) ORDER BY l.name,l.id`));
+  }
+  queryTrash(libraryId: string | null = null, cursor: TrashCursor | null = null, limit = 50): Promise<TrashPage> {
+    if (libraryId !== null) requireId(libraryId);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidQuery');
+    if (cursor) { requireId(cursor.id); if (!Number.isFinite(Date.parse(cursor.deleted_at))) throw new AppError('invalidQuery'); }
+    return this.db.read(async s => {
+      const rows = await s.query<StoredEntry & { title: string; library_id: string; library_name: string; collection_name: string; restorable: number }>(
+        `SELECT r.*,coalesce(CAST(json_extract(r.data,'$."'||c.primary_field_id||'"') AS TEXT),'') AS title,
+        l.id AS library_id,l.name AS library_name,c.name AS collection_name,
+        (c.deleted_at IS NULL AND l.deleted_at IS NULL) AS restorable
+        FROM records r JOIN collections c ON c.id=r.collection_id JOIN libraries l ON l.id=c.library_id
+        WHERE r.deleted_at IS NOT NULL AND r.purged=0 ${libraryId ? 'AND l.id=?' : ''}
+        ${cursor ? 'AND (r.deleted_at<? OR (r.deleted_at=? AND r.id<?))' : ''}
+        ORDER BY r.deleted_at DESC,r.id DESC LIMIT ?`,
+        [...(libraryId ? [libraryId] : []), ...(cursor ? [cursor.deleted_at, cursor.deleted_at, cursor.id] : []), limit + 1]);
+      const page = rows.slice(0, limit), last = page.at(-1);
+      return { items: page.map(row => ({ ...decodeEntry(row), title: row.title, library_id: row.library_id,
+        library_name: row.library_name, collection_name: row.collection_name, restorable: !!row.restorable })),
+        next: rows.length > limit && last ? { deleted_at: last.deleted_at!, id: last.id } : null };
+    });
+  }
+  /** Terminal tombstone keeps identity/HLC indefinitely; referenced target UUIDs in other records survive. */
+  private async purgeInSession(s: SqlSession, stored: StoredEntry): Promise<void> {
+    if (stored.purged) return;
+    if (!stored.deleted_at) throw new AppError('recordNotDeleted');
+    const stamp = await this.stamp(s, stored.id, stored.hlc);
+    const row: Entry = { ...decodeEntry(stored), data: {}, purged: 1, hlc: stamp.hlc, device_id: stamp.device_id,
+      updated_at: stamp.updated_at, updated_local: localTimestamp(new Date(stamp.updated_at)) };
+    await s.execute("UPDATE records SET data='{}',purged=1,hlc=?,device_id=?,updated_at=?,updated_local=?,sort_version=0,relation_version=0 WHERE id=?",
+      [row.hlc, row.device_id, row.updated_at, row.updated_local, row.id]);
+    // Existing active/paused events retain their delivery lifecycle; never delete the journal here.
+    await s.execute('DELETE FROM record_versions WHERE record_id=?', [row.id]);
+    await applyHistoryClear(s, { record_id: row.id, hlc: row.hlc });
+    await this.refreshRecords(s, [{ ...stored, ...row, data: '{}' }]);
+    await this.log(s, 'record', row, row);
+  }
+  purgeEntry(id: string, expectedHlc: string): Promise<void> {
+    requireId(id);
+    if (!expectedHlc) throw new AppError('staleRecord');
+    return this.db.transaction(async s => {
+      const [stored] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [id]);
+      if (!stored) throw new AppError('notFound');
+      if (stored.purged) return;
+      if (stored.hlc !== expectedHlc) throw new AppError('staleRecord');
+      await this.purgeInSession(s, stored);
+    });
+  }
+  /** Bounded transactions; a crash resumes remaining rows on next startup/foreground opportunity. */
+  async cleanTrash(): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const count = await this.db.transaction(async s => {
+        const days = await readRetention(s);
+        if (days === null) return 0;
+        const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+        const rows = await s.query<StoredEntry>('SELECT * FROM records WHERE purged=0 AND deleted_at IS NOT NULL AND deleted_at<=? ORDER BY deleted_at,id LIMIT 50', [cutoff]);
+        for (const row of rows) await this.purgeInSession(s, row);
+        return rows.length;
+      });
+      total += count;
+      if (!count) return total;
+      await yieldOperation();
+    }
+  }
+  /** Local replication primitive. Packet validation/cursors and transport are separate work. */
+  mergeEntryState(incoming: Entry): Promise<boolean> {
+    requireId(incoming.id); requireId(incoming.collection_id); requireId(incoming.device_id);
+    assertHlc(incoming.hlc); validateData(incoming.data);
+    if (!incoming.hlc.endsWith(`-${incoming.device_id}`) || ![0, 1].includes(incoming.purged) ||
+        (incoming.purged && !incoming.deleted_at) ||
+        [incoming.created_at, incoming.updated_at, ...(incoming.deleted_at ? [incoming.deleted_at] : [])].some(value => !Number.isFinite(Date.parse(value))) ||
+        typeof incoming.created_local !== 'string' || typeof incoming.updated_local !== 'string') throw new AppError('invalidRecordState');
+    return this.db.transaction(async s => {
+      const [old] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [incoming.id]);
+      // Observe accepted remote clocks without generating a local edit/version.
+      await s.execute("INSERT INTO local_settings VALUES('hlc',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<excluded.value", [incoming.hlc]);
+      if (old?.purged && (!incoming.purged || old.hlc >= incoming.hlc)) return false;
+      if (old && !incoming.purged && old.hlc >= incoming.hlc) return false;
+      if (!(await s.query('SELECT id FROM collections WHERE id=?', [incoming.collection_id])).length) throw new AppError('notFound');
+      const row: Entry = { id: incoming.id, collection_id: incoming.collection_id,
+        hlc: incoming.hlc, device_id: incoming.device_id, deleted_at: incoming.deleted_at,
+        created_at: incoming.created_at, updated_at: incoming.updated_at,
+        created_local: incoming.created_local, updated_local: incoming.updated_local,
+        purged: incoming.purged, data: incoming.purged ? {} : incoming.data };
+      // Purge is terminal, including when a disconnected replica had a later live edit.
+      if (old && old.hlc > row.hlc) { row.hlc = old.hlc; row.device_id = old.device_id; }
+      const stored = { ...row, data: canonical(row.data), sort_data: '{}', search_data: '{}', sort_version: 0, relation_version: 0 };
+      if (old) {
+        const columns = Object.keys(stored).filter(key => key !== 'id');
+        await s.execute(`UPDATE records SET ${columns.map(key => key + '=?').join(',')} WHERE id=?`,
+          [...columns.map(key => stored[key as keyof typeof stored]) as SqlValue[], row.id]);
+      } else await this.insert(s, 'records', stored);
+      if (row.purged) {
+        await s.execute('DELETE FROM record_versions WHERE record_id=?', [row.id]);
+        await applyHistoryClear(s, { record_id: row.id, hlc: row.hlc });
+      }
+      await this.refreshRecords(s, [stored]);
+      await this.log(s, 'record', row, row);
+      return true;
+    });
   }
   async saveEntry(collectionId: string, data: RecordData): Promise<Entry>;
   async saveEntry(collectionId: string, data: RecordData, id: string, expectedHlc: string): Promise<Entry>;

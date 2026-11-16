@@ -45,7 +45,7 @@ public class BinaryStoreTest {
         File root = new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getFilesDir(), "binary-contract-" + UUID.randomUUID());
         BinaryStore store = new BinaryStore(root); String id = UUID.randomUUID().toString();
         try {
-            for (String bad : new String[]{"../app.sqlite", "/absolute", id.toUpperCase()}) {
+            for (String bad : new String[]{"../app.sqlite", "/absolute", "01234567-0123-4123-8123-0123456789AB"}) {
                 try { store.begin(bad); fail(); } catch (IllegalStateException expected) { assertEquals("invalidId", expected.getMessage()); }
             }
             store.begin(id);

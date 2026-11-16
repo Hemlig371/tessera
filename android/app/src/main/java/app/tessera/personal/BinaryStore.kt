@@ -50,7 +50,7 @@ class BinaryStore(private val root: File) {
         FileOutputStream(staged, true).use { it.fd.sync() }
         if (target.parentFile?.isDirectory != true && target.parentFile?.mkdirs() != true) fail("fileError")
         if (!staged.renameTo(target)) fail("fileError")
-        val fd = android.system.Os.open(target.parentFile!!.path, android.system.OsConstants.O_RDONLY or android.system.OsConstants.O_DIRECTORY, 0)
+        val fd = android.system.Os.open(target.parentFile!!.path, android.system.OsConstants.O_RDONLY, 0)
         try { android.system.Os.fsync(fd) } finally { android.system.Os.close(fd) }
         return facts
     }

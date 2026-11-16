@@ -33,7 +33,20 @@ export function validateFileSource(source: ByteSource): void {
 }
 export function exportFileName(name: string): string {
   // eslint-disable-next-line no-control-regex
-  let value = name.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_').replace(/[. ]+$/, '').slice(0, 200);
+  let value = name.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_').replace(/[. ]+$/, '');
+  // A character limit alone can exceed a filesystem's 255-byte UTF-8 component limit
+  // or split a surrogate pair. Keep a short extension while bounding both encodings.
+  const encoder = new TextEncoder(), dot = value.lastIndexOf('.');
+  const extension = dot > 0 && encoder.encode(value.slice(dot)).length <= 32 ? value.slice(dot) : '';
+  const stem = extension ? value.slice(0, dot) : value;
+  const budget = 240 - encoder.encode(extension).length;
+  let bounded = '', bytes = 0;
+  for (const char of stem) {
+    const length = encoder.encode(char).length;
+    if (bytes + length > budget) break;
+    bounded += char; bytes += length;
+  }
+  value = bounded.replace(/[. ]+$/, '') + extension;
   if (!value || /^\.+$/.test(value)) value = 'file';
   if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(value)) value = '_' + value;
   return value;

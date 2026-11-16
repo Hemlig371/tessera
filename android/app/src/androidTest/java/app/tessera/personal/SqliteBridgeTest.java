@@ -388,9 +388,8 @@ public class SqliteBridgeTest {
     @Test public void explicitSaveKeepsDeepNativeListAndProfile() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
-            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('База знаний (dev/CI)')).click()");
-            awaitJs(scenario, "[...document.querySelectorAll('nav button')].some(b=>b.getAttribute('aria-label')==='Материалы')");
-            js(scenario, "[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('aria-label')==='Материалы').click()");
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «База знаний (dev/CI)»");
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Материалы»");
             awaitJs(scenario, "document.querySelector('.list-meta')?.textContent==='Загружено записей: 100'");
             for (int count : new int[]{200, 250}) {
                 js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Показать ещё').click()");

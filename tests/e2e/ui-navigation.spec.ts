@@ -29,6 +29,11 @@ test('mobile catalogs, record Back, configured profile and deleted start fallbac
   await openLibrary(page, name); await expect(page.locator('[data-catalog=collections]')).toBeVisible();
   await page.getByRole('button', { name: 'Открыть коллекцию «Материалы»', exact: true }).click();
   await expect(page.locator('.entry').first()).toContainText('Материал 001');
+  await page.getByRole('button', { name: 'Варианты создания', exact: true }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(page.locator('.entry').first()).toContainText('Материал 001');
   await page.locator('.entry').first().click(); await expect(page.locator('.detail')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
   await expect(page.locator('.detail')).toHaveCount(0);

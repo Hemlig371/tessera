@@ -46,7 +46,7 @@ export function LibraryStartEditor({ api, libraryId, busy, save, cancel }: {
         {collections.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
       <label>{t('displayProfile')}<select disabled={busy} value={profileId} onChange={event => setProfileId(event.target.value)}>
-        <option value="">{t('defaultDisplayProfile')}</option>
+        <option value="">{t('startDefaultProfile')}</option>
         {profileId && !profiles.some(row => row.id === profileId) && <option value={profileId}>{t('missingStartTarget')}</option>}
         {profiles.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>

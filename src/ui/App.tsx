@@ -2,6 +2,7 @@ import { quickLayout } from '../core/quick-forms';
 import { Catalog } from './Catalog';
 import { LibraryStartEditor } from './LibraryStartEditor';
 import { libraryNavigation } from '../core/library-navigation';
+import { androidLibraryShortcuts, libraryShortcutSupported, pinLibraryShortcut, subscribeLibraryLaunch } from '../platform/external-actions';
 import { LayoutRowsView } from './LayoutRowsView';
 import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
 import { useAppearance } from './use-appearance';
@@ -58,6 +59,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     ui = useUi();
   const [appearance, setAppearance] = useState(defaultAppearance);
   const [appearanceReady, setAppearanceReady] = useState(false);
+  const [shortcutAvailable, setShortcutAvailable] = useState(false), [shortcutRequested, setShortcutRequested] = useState(false);
+  const [launchTarget, setLaunchTarget] = useState<{ id: string; sequence: number } | null>(null);
+  const launchSequence = useRef(0), consumingLaunch = useRef<number | null>(null);
   useAppearance(appearance);
   useEffect(() => { let active = true; void api.getDeviceAppearance().then(value => { if (active) setAppearance(value); }).catch(error => { if (active) setError(errorKey(error)); }).finally(() => { if (active) setAppearanceReady(true); }); return () => { active = false; }; }, [api]);
   const [libraries, setLibraries] = useState<Library[]>([]),
@@ -71,6 +75,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
   const [staleEdit, setStaleEdit] = useState<{ data: RecordData; current: Entry } | null>(null);
   const creationClose = useRef<(() => Promise<void>) | null>(null);
+  const creationMenuClose = useRef<(() => void) | null>(null);
+  const registerCreationMenuClose = useCallback((close: (() => void) | null) => { creationMenuClose.current = close; }, []);
   const registerCreationClose = useCallback((cancel: (() => Promise<void>) | null) => { creationClose.current = cancel; }, []);
   const warnDraftCleanup = () => setError('draftCleanup');
   const [page, setPage] = useState<Page<EntryListItem>>({ items: [], next: null }),
@@ -80,6 +86,15 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!androidLibraryShortcuts) return;
+    let active = true, stop: (() => void) | undefined;
+    void libraryShortcutSupported().then(value => { if (active) setShortcutAvailable(value); }).catch(() => { if (active) setShortcutAvailable(false); });
+    void subscribeLibraryLaunch(id => { if (active) setLaunchTarget({ id, sequence: ++launchSequence.current }); })
+      .then(unsubscribe => { if (active) stop = unsubscribe; else unsubscribe(); })
+      .catch(e => { if (active) setError(errorKey(e)); });
+    return () => { active = false; stop?.(); };
+  }, []);
   const [saved, setSaved] = useState(false),
     [undo, setUndo] = useState<{ kind: 'library' | 'collection' | 'field' | 'record'; id: string } | null>(
       null
@@ -340,7 +355,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     if (busy) return;
     setBusy(true);
     setError(null);
-    setSaved(false);
+    setSaved(false); setShortcutRequested(false);
     try {
       await action();
       // Finish metadata reload before enabling editors; a new form must use the saved defaults.
@@ -415,7 +430,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   function clearRecordContext() {
     searchRecordOrigin.current = null; pendingRecordReturn.current = null;
-    selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); setSaved(false); setError(null);
+    selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); setSaved(false); setShortcutRequested(false); setError(null);
   }
   async function openLibrary(id: string, closeDrawer = false) {
     if (busy || ui.editor) return;
@@ -428,6 +443,21 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       }
     } catch (e) { if (request === navigationRequest.current) setError(errorKey(e)); }
     finally { if (request === navigationRequest.current) setBusy(false); }
+  }
+  useEffect(() => {
+    if (!launchTarget || busy || ui.editor || consumingLaunch.current !== null) return;
+    const target = launchTarget; consumingLaunch.current = target.sequence;
+    void openLibrary(target.id, true).finally(() => {
+      consumingLaunch.current = null;
+      setLaunchTarget(current => current?.sequence === target.sequence ? null : current ? { ...current } : null);
+    });
+  });
+  async function requestShortcut() {
+    if (!library || busy || ui.editor) return;
+    setBusy(true); setSaved(false); setShortcutRequested(false); setError(null);
+    try { await pinLibraryShortcut(library.id, library.name); setShortcutRequested(true); }
+    catch (e) { setError(errorKey(e)); }
+    finally { setBusy(false); }
   }
   function goHome() {
     if (busy || ui.editor) return;
@@ -489,12 +519,16 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     else ui.home();
   }, [busy, rememberBrowse, ui, collection?.system_kind]);
   useEffect(() => {
-    if (ui.editor) return bindSystemBack(close, () => setError('fileError'));
-    if (selected) return bindSystemBack(backRecord, () => setError('fileError'));
-    if (ui.constructorOpen) return bindSystemBack(() => { if (!busy) useUi.setState({ constructorOpen: false }); }, () => setError('fileError'));
-    if (ui.screen !== 'libraries' || ui.navOpen) return bindSystemBack(() => {
-      if (ui.navOpen) useUi.setState({ navOpen: false }); else backSection();
+    const bind = (action: () => void) => bindSystemBack(() => {
+      const menu = creationMenuClose.current;
+      if (menu) menu(); else action();
     }, () => setError('fileError'));
+    if (ui.editor) return bind(close);
+    if (selected) return bind(backRecord);
+    if (ui.constructorOpen) return bind(() => { if (!busy) useUi.setState({ constructorOpen: false }); });
+    if (ui.screen !== 'libraries' || ui.navOpen) return bind(() => {
+      if (ui.navOpen) useUi.setState({ navOpen: false }); else backSection();
+    });
   }, [ui.editor, ui.constructorOpen, ui.screen, ui.navOpen, close, busy, selected, backRecord, backSection]);
   useEffect(() => {
     if (ui.editor || selected || ui.screen === 'libraries') return;
@@ -707,6 +741,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           </label>
         </div>
         {error && !ui.editor && <ErrorMessage code={error} />}
+        {launchTarget && ui.editor && <p role="status">{t('libraryLaunchPending')}</p>}
+        {shortcutRequested && !ui.editor && <p role="status">{t('libraryShortcutRequested')}</p>}
         {saved && !ui.editor && (
           <div role="status" className="saved">
             {t('saved')}
@@ -748,7 +784,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             </label>{ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}</div>}
           </div>
           {browsing && ui.scope === 'collection' && collection && !collection.system_kind && (
-            <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} options={[
+            <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} registerMenuClose={registerCreationMenuClose} options={[
               { label: t('standardForm'), choice: { kind: 'standard' } }, { label: t('quickEntry'), choice: { kind: 'quick' } },
               ...presets.filter(preset => preset.collection_id === collection.id).map(preset => ({ label: preset.name, choice: { kind: 'preset' as const, preset_id: preset.id } })),
             ]} />
@@ -762,7 +798,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
-            </button><button disabled={disabled} onClick={() => open('library-start')}>{t('libraryStart')}</button></>
+            </button><button disabled={disabled} onClick={() => open('library-start')}>{t('libraryStart')}</button>
+              {shortcutAvailable && <button disabled={disabled} onClick={() => { void requestShortcut(); }}>{t('pinLibraryShortcut')}</button>}</>
           )}
           {collection && !collection.system_kind && (
             <>

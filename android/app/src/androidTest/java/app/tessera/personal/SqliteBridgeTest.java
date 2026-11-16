@@ -229,16 +229,68 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'");
         }
     }
+    private void configureNavigationStart(ActivityScenario<MainActivity> scenario, JSONObject scope) throws Exception {
+        openConstructor(scenario);
+        js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Стартовый экран библиотеки').click()");
+        awaitJs(scenario, "!!document.querySelector('[data-editor] select:not(:disabled)')");
+        js(scenario, "const select=document.querySelector('[data-editor] select');select.value='collection';select.dispatchEvent(new Event('change',{bubbles:true}))");
+        awaitJs(scenario, "document.querySelectorAll('[data-editor] select').length===4 && [...document.querySelectorAll('[data-editor] select')[2].options].some(o=>o.text==='Стартовый профиль')");
+        js(scenario, "const profile=document.querySelectorAll('[data-editor] select')[2];profile.value=" + JSONObject.quote(scope.getString("profile_id")) + ";profile.dispatchEvent(new Event('change',{bubbles:true}));const layout=document.querySelectorAll('[data-editor] select')[3];layout.value='list';layout.dispatchEvent(new Event('change',{bubbles:true}))");
+        js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+        awaitJs(scenario, "!document.querySelector('[data-editor]') && !document.querySelector('#constructor-toggle').disabled");
+        js(scenario, "document.querySelector('#constructor-toggle').click()");
+        awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='false'");
+    }
+    @Test public void libraryShortcutIntentOpensConfiguredStartAndWaitsForCreationForm() throws Exception {
+        var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        JSONObject scope;
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.navigationFixture")).nextValue());
+            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            awaitJs(scenario, "!document.querySelector('#constructor-toggle').disabled && document.querySelector('h1')?.textContent!=='Библиотеки'");
+            configureNavigationStart(scenario, scope);
+            js(scenario, "[...document.querySelectorAll('.topbar button')].find(b=>b.textContent==='Все библиотеки').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
+            var intent = ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id"));
+            assertEquals(scope.getString("library_id"), intent.getStringExtra("tessera.library_id"));
+            scenario.onActivity(activity -> activity.startActivity(intent));
+            awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
+            awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='+ Новая запись' && !b.disabled)");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
+            awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]:not(:disabled)')");
+            js(scenario, "const input=document.querySelector('[data-editor] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Shortcut preserves creation draft');input.dispatchEvent(new Event('input',{bubbles:true}))");
+            scenario.onActivity(activity -> activity.startActivity(intent));
+            awaitJs(scenario, "document.body.innerText.includes('Библиотека из ярлыка откроется после закрытия текущей формы.')");
+            assertEquals("\"Shortcut preserves creation draft\"", js(scenario, "document.querySelector('[data-editor] input[aria-label=Название]').value"));
+            js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && !document.body.innerText.includes('Библиотека из ярлыка откроется') && [...document.querySelectorAll('button')].some(b=>b.textContent==='+ Новая запись' && !b.disabled)");
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
+            awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Shortcut preserves creation draft'");
+            js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]')");
+        }
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id")))) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
+            assertEquals("false", js(scenario, "!!document.querySelector('[data-editor]')"));
+            scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')");
+        }
+    }
     @Test public void catalogsAndLibraryStartSurviveNativeBackAndRecreation() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             assertEquals("true", js(scenario, "!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')"));
             JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.navigationFixture")).nextValue());
             js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            awaitJs(scenario, "!document.querySelector('#constructor-toggle').disabled && document.querySelector('h1')?.textContent!=='Библиотеки'");
+            // Other native cases intentionally retain the chosen start across recreation.
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='К коллекциям')?.click()");
             awaitJs(scenario, "!!document.querySelector('[data-catalog=collections]') && [...document.querySelectorAll('[data-catalog=collections] button')].some(b=>b.textContent.includes('Раздел') && !b.disabled)");
             openConstructor(scenario);
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Стартовый экран библиотеки').click()");
-            awaitJs(scenario, "document.querySelectorAll('[data-editor] select').length===2");
+            awaitJs(scenario, "document.querySelectorAll('[data-editor] select').length>=2");
             js(scenario, "const select=document.querySelector('[data-editor] select');select.value='collection';select.dispatchEvent(new Event('change',{bubbles:true}))");
             awaitJs(scenario, "document.querySelectorAll('[data-editor] select').length===4 && [...document.querySelectorAll('[data-editor] select')[2].options].some(o=>o.text==='Стартовый профиль')");
             js(scenario, "const profile=document.querySelectorAll('[data-editor] select')[2];profile.value=" + JSONObject.quote(scope.getString("profile_id")) + ";profile.dispatchEvent(new Event('change',{bubbles:true}));const layout=document.querySelectorAll('[data-editor] select')[3];layout.value='list';layout.dispatchEvent(new Event('change',{bubbles:true}))");

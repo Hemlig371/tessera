@@ -88,7 +88,8 @@
     "externalOpenFailed": "The external application could not open this link.",
     "operationCancelled": "Operation cancelled. The database was not changed.",
     "invalidCsvEncoding": "The file could not be decoded. Choose the correct encoding.",
-    "invalidLibraryNavigation": "Choose a collection and profile from this library."
+    "invalidLibraryNavigation": "Choose a collection and profile from this library.",
+    "shortcutUnavailable": "Could not request a shortcut. Check whether your launcher supports pinned shortcuts."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -249,7 +250,7 @@
   "createDisplayProfile": "Create display profile",
   "saveDisplayProfile": "Save display profile",
   "deleteDisplayProfile": "Delete display profile",
-  "defaultDisplayProfile": "Default display profile",
+  "defaultDisplayProfile": "Default profile",
   "creationAlternatives": "Creation options",
   "creationPresets": "Creation presets",
   "standardForm": "Standard form",
@@ -339,5 +340,9 @@
   "catalogCards": "Compact cards",
   "catalogList": "List",
   "missingStartTarget": "Unavailable target",
-  "libraryStartHint": "Normal launch opens all libraries. This setting applies when opening a library; forms and unsaved input never open automatically."
+  "libraryStartHint": "Normal launch opens all libraries. This setting applies when opening a library; forms and unsaved input never open automatically.",
+  "pinLibraryShortcut": "Pin library shortcut",
+  "libraryShortcutRequested": "The shortcut request was sent. Confirm it in the system dialog if prompted.",
+  "libraryLaunchPending": "The shortcut library will open after the current form is closed.",
+  "startDefaultProfile": "Default display profile"
 }

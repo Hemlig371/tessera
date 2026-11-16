@@ -70,6 +70,7 @@ export function validateUiDefinition(
       throw new AppError('invalidUiConfig');
     if (field.type === 'backlink' && (item.required || Object.hasOwn(item, 'default')))
       throw new AppError('readOnlyField');
+    if (['file', 'image'].includes(field.type) && Object.hasOwn(item, 'default') && item.default != null && (!Array.isArray(item.default) || item.default.length)) throw new AppError('invalidAttachment');
     if (Object.hasOwn(item, 'default'))
       validateValue(field.type, item.default, { ...fieldConfig(field), required: false });
     if (kind === 'form' && !item.visible) {

@@ -65,6 +65,8 @@ export const FIELD_TYPES = [
   'date',
   'relation',
   'backlink',
+  'file',
+  'image',
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 export interface FieldConfig {

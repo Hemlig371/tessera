@@ -19,7 +19,7 @@ export function validatePresetDefinition(definition: PresetDefinition, fields: F
   const byId = new Map(fields.map(field => [field.id, field]));
   for (const id of [...Object.keys(definition.data), ...definition.today_fields]) {
     requireId(id); const field = byId.get(id);
-    if (!field || ['backlink','secret'].includes(field.type)) throw new AppError('invalidPreset');
+    if (!field || ['backlink','secret','file','image'].includes(field.type)) throw new AppError('invalidPreset');
     if (definition.today_fields.includes(id)) {
       if (field.type !== 'date' || Object.hasOwn(definition.data, id)) throw new AppError('invalidPreset');
     } else validateValue(field.type, definition.data[id], formConfig(field, form.fields.find(item => item.field_id === id)), field.id === primary);

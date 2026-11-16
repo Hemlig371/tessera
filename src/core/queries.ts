@@ -52,7 +52,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   function expression(id: string): string {
     if (id === 'updated_at') return 'r.updated_at';
     const field = byId.get(id);
-    if (!field || ['secret', 'relation', 'backlink'].includes(field.type)) throw new AppError('invalidFilter');
+    if (!field || ['secret', 'relation', 'backlink', 'file', 'image'].includes(field.type)) throw new AppError('invalidFilter');
     return fieldExpression(field, 'r.');
   }
   const terms = searchTerms(q.search ?? '');
@@ -79,6 +79,12 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
       }
       where.push((['empty', 'ne'].includes(filter.op) ? 'NOT ' : '') + clause + ')');
       continue;
+    }
+    if (['file', 'image'].includes(field.type)) {
+      if (!['eq','ne','empty','filled'].includes(filter.op)) throw new AppError('invalidFilter');
+      let clause = `EXISTS(SELECT 1 FROM json_each(CASE WHEN json_type(r.data,'$."${field.id}"')='array' THEN json_extract(r.data,'$."${field.id}"') ELSE json('[]') END) af WHERE af.type='text'`;
+      if (filter.op === 'eq' || filter.op === 'ne') { requireId(filter.value as string); clause += ' AND af.value=?'; params.push(filter.value as string); }
+      where.push((['empty','ne'].includes(filter.op) ? 'NOT ' : '') + clause + ')'); continue;
     }
     const expr = expression(field.id),
       empty = `(${expr} IS NULL${isText(field.type) ? ` OR ${expr}=''` : ''})`;

@@ -1,3 +1,4 @@
+import { attachmentLimit, attachmentRow, bindAttachments, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
 import { libraryNavigation, navigationLibrary, resolveLibraryStart, validLibraryLocation, validateLibraryNavigation, type LibraryLocation, type LibraryNavigation } from './library-navigation';
 import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
@@ -45,7 +46,7 @@ import type {
   UiDefinition,
   UiKind,
 } from './model';
-import type { DatabaseAdapter, SqlSession, SqlValue } from './ports';
+import type { BinaryFileAdapter, DatabaseAdapter, SqlSession, SqlValue } from './ports';
 import {
   appearanceValue,
   isText,
@@ -65,13 +66,15 @@ import { isUtcTimestamp, readRetention, validateRetention, type TrashRetention, 
 
 type Table = 'libraries' | 'collections' | 'fields' | 'records' | 'ui_configs' | 'quick_forms' | 'display_profiles' | 'creation_presets';
 export class Repository {
+  private attachmentCleanup: Promise<{ removed: number; pending: number }> | null = null;
   private constructor(
     readonly db: DatabaseAdapter,
     readonly deviceId: string,
-    private currentDatasetId: string
+    private currentDatasetId: string,
+    private readonly files: BinaryFileAdapter | null
   ) {}
   get datasetId(): string { return this.currentDatasetId; }
-  static async open(db: DatabaseAdapter): Promise<Repository> {
+  static async open(db: DatabaseAdapter, files: BinaryFileAdapter | null = null): Promise<Repository> {
     const ids = await db.transaction(async (s) => {
       const [format] = await s.query<{ value: string }>(
         "SELECT value FROM app_meta WHERE key='format_version'"
@@ -89,7 +92,8 @@ export class Repository {
       await s.execute("INSERT OR IGNORE INTO local_settings VALUES('device_id',?)", [deviceId]);
       return { datasetId, deviceId };
     });
-    const repository = new Repository(db, ids.deviceId, ids.datasetId);
+    const repository = new Repository(db, ids.deviceId, ids.datasetId, files);
+    await repository.recoverAttachmentStages();
     await repository.repairUiChangeTypes();
     await repository.prepareSearchKeys();
     await repository.compactHistory();
@@ -97,6 +101,227 @@ export class Repository {
     await repository.rebuildDerived();
     await repository.rebuildRelationIndex(false);
     return repository;
+  }
+  private filePort(): BinaryFileAdapter {
+    if (!this.files) throw new AppError('nativeRequired');
+    return this.files;
+  }
+  private async attachmentOwner(s: SqlSession, ownerId: string): Promise<void> {
+    const [owner] = await s.query<{ purged: number; deleted_at: string | null }>('SELECT purged,deleted_at FROM records WHERE id=?', [ownerId]);
+    if (owner && (owner.purged || owner.deleted_at)) throw new AppError('staleRecord');
+  }
+  async stageAttachment(collectionId: string, ownerId: string, source: ByteSource, progress?: OperationProgress, signal?: AbortSignal): Promise<StagedAttachment> {
+    requireId(collectionId); requireId(ownerId); validateFileSource(source); checkCancelled(signal);
+    const files = this.filePort(), id = crypto.randomUUID();
+    const staged: StagedAttachment = { id, collection_id: collectionId, owner_id: ownerId, name: source.name,
+      mime: source.mime.toLowerCase() || 'application/octet-stream', size: source.size, sha256: '', state: 'copying', created_at: new Date().toISOString() };
+    await this.db.transaction(async s => {
+      await activeCollection(s, collectionId); await this.attachmentOwner(s, ownerId);
+      const columns = Object.keys(staged);
+      await s.execute(`INSERT INTO attachment_staging(${columns.join(',')}) VALUES(${columns.map(() => '?').join(',')})`, Object.values(staged));
+    });
+    let complete = false;
+    try {
+      await files.begin(id);
+      for (let offset = 0; offset < source.size;) {
+        checkCancelled(signal);
+        const count = Math.min(fileChunkSize, source.size - offset), bytes = await source.read(offset, count);
+        if (!(bytes instanceof Uint8Array) || bytes.length !== count) throw new AppError('fileCorrupt');
+        checkCancelled(signal); await files.write(id, offset, bytes); offset += count;
+        progress?.(offset, 'processing'); await yieldOperation();
+      }
+      checkCancelled(signal); progress?.(source.size, 'committing');
+      const facts = await files.finish(id, source.size); validateFileFacts(facts); checkCancelled(signal);
+      if (facts.size !== source.size) throw new AppError('fileCorrupt');
+      await this.db.transaction(async s => {
+        await activeCollection(s, collectionId); await this.attachmentOwner(s, ownerId);
+        if ((await s.query('SELECT id FROM attachment_gc WHERE id=?', [id])).length || !(await s.query('SELECT id FROM attachment_staging WHERE id=?', [id])).length) throw new AppError('operationCancelled');
+        await s.execute("UPDATE attachment_staging SET state='ready',sha256=? WHERE id=?", [facts.sha256, id]);
+      });
+      complete = true; return { ...staged, ...facts, state: 'ready' };
+    } finally {
+      if (!complete) {
+        await this.db.transaction(s => s.execute('INSERT INTO attachment_gc(id,staged) VALUES(?,1) ON CONFLICT(id) DO NOTHING', [id]));
+        await this.collectAttachmentFiles();
+      }
+    }
+  }
+  /** Recover a fully published file if the process died before its local metadata commit. Never expose a partial file. */
+  private async recoverAttachmentStages(): Promise<void> {
+    if (!this.files) return;
+    let after = '';
+    for (;;) {
+      const rows = await this.db.read(s => s.query<StagedAttachment>("SELECT * FROM attachment_staging WHERE state='copying' AND id>? ORDER BY id LIMIT 50", [after]));
+      if (!rows.length) break;
+      for (const row of rows) {
+        if ((await this.db.read(s => s.query('SELECT id FROM attachment_gc WHERE id=?', [row.id]))).length) continue;
+        const facts = await this.files.inspect(row.id);
+        if (facts && facts.size === row.size) {
+          validateFileFacts(facts);
+          await this.db.transaction(s => s.execute("UPDATE attachment_staging SET state='ready',sha256=? WHERE id=? AND state='copying' AND NOT EXISTS(SELECT 1 FROM attachment_gc WHERE id=?)", [facts.sha256, row.id, row.id]));
+        }
+      }
+      after = rows.at(-1)!.id;
+    }
+    after = '';
+    for (;;) {
+      const rows = await this.db.read(s => s.query<Attachment>("SELECT a.* FROM attachments a JOIN attachment_local l ON l.id=a.id WHERE l.state='copying' AND a.purged=0 AND a.id>? ORDER BY a.id LIMIT 50", [after]));
+      if (!rows.length) break;
+      for (const row of rows) {
+        const facts = await this.files.inspect(row.id);
+        const state = !facts ? 'missing' : facts.size === row.size && facts.sha256 === row.sha256 ? 'present' : 'corrupt';
+        await this.db.transaction(async s => {
+          if ((await s.query("SELECT id FROM attachment_local WHERE id=? AND state='copying' AND NOT EXISTS(SELECT 1 FROM attachment_gc WHERE id=?)", [row.id, row.id])).length) {
+            await this.attachmentPresence(s, row.id, state === 'present', state);
+          }
+        });
+      }
+      after = rows.at(-1)!.id;
+    }
+  }
+  async discardAttachmentStages(ownerId: string, keep: readonly string[] = []): Promise<void> {
+    requireId(ownerId); keep.forEach(requireId); const retained = new Set(keep);
+    await this.db.transaction(async s => {
+      const rows = await s.query<{ id: string }>('SELECT id FROM attachment_staging WHERE owner_id=?', [ownerId]);
+      for (const row of rows) if (!retained.has(row.id)) await s.execute('INSERT INTO attachment_gc(id,staged) VALUES(?,1) ON CONFLICT(id) DO NOTHING', [row.id]);
+    });
+    await this.collectAttachmentFiles();
+  }
+  private async attachmentPresence(s: SqlSession, id: string, present: boolean, state: 'present' | 'missing' | 'corrupt' | 'deleting' | 'copying'): Promise<void> {
+    const [meta] = await s.query<Attachment>('SELECT * FROM attachments WHERE id=?', [id]);
+    if (!meta || (meta.purged && present)) return;
+    const key = `${id}:${this.deviceId}`;
+    const [old] = await s.query<{ present: number }>('SELECT present FROM attachment_locations WHERE id=?', [key]);
+    if (!old || !!old.present !== present) {
+      const stamp = await this.stamp(s, undefined, meta.hlc);
+      const location = { id: key, attachment_id: id, device_id: this.deviceId, hlc: stamp.hlc, present: Number(present) };
+      await s.execute('INSERT INTO attachment_locations(id,attachment_id,device_id,hlc,present) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET hlc=excluded.hlc,present=excluded.present', Object.values(location));
+      await this.log(s, 'attachment_location', location, location);
+    }
+    await s.execute('INSERT INTO attachment_local(id,state,verified_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,verified_at=excluded.verified_at', [id, state, new Date().toISOString()]);
+  }
+  /** Persisted file-removal jobs bridge the SQLite/filesystem boundary and are safe to retry after a crash. */
+  collectAttachmentFiles(): Promise<{ removed: number; pending: number }> {
+    return this.attachmentCleanup ??= this.drainAttachmentFiles().finally(() => { this.attachmentCleanup = null; });
+  }
+  private async drainAttachmentFiles(): Promise<{ removed: number; pending: number }> {
+    let removed = 0, after = '';
+    if (this.files) for (;;) {
+      const rows = await this.db.read(s => s.query<{ id: string; staged: number }>('SELECT * FROM attachment_gc WHERE id>? ORDER BY id LIMIT 50', [after]));
+      for (const row of rows) {
+        try {
+          const attached = row.staged && (await this.db.read(s => s.query('SELECT id FROM attachments WHERE id=? AND purged=0', [row.id]))).length;
+          if (!attached) {
+            await this.files.remove(row.id, false);
+            if (row.staged) await this.files.remove(row.id, true);
+          }
+          await this.db.transaction(async s => {
+            if (row.staged) await s.execute('DELETE FROM attachment_staging WHERE id=?', [row.id]);
+            else await this.attachmentPresence(s, row.id, false, 'missing');
+            await s.execute('DELETE FROM attachment_gc WHERE id=?', [row.id]);
+          });
+          removed++;
+        } catch { /* Keep the durable job. A later foreground opportunity retries it; no successful byte removal is invented. */ }
+      }
+      if (rows.length < 50) break;
+      after = rows.at(-1)!.id;
+      await yieldOperation();
+    }
+    const [count] = await this.db.read(s => s.query<{ n: number }>('SELECT count(*) AS n FROM attachment_gc'));
+    return { removed, pending: count!.n };
+  }
+  getAttachmentLimit(): Promise<number> { return this.db.read(attachmentLimit); }
+  saveAttachmentLimit(bytes: number): Promise<void> {
+    if (!Number.isSafeInteger(bytes) || bytes < 0) throw new AppError('invalidAttachmentLimit');
+    return this.db.transaction(async s => {
+      if (await attachmentLimit(s) === bytes) return;
+      const stamp = await this.stamp(s), value = encodeAttachmentSetting(bytes, stamp);
+      await s.execute("INSERT INTO app_meta VALUES('attachment:limit',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [value]);
+      await this.log(s, 'app_setting', { ...stamp, id: 'attachment:limit' }, { key: 'attachment:limit', value });
+    });
+  }
+  async getAttachmentView(id: string, ownerId: string, verify = false): Promise<AttachmentView> {
+    const files = this.filePort();
+    const context = await this.db.read(async s => {
+      const rows = await attachmentRow(s, id, ownerId);
+      const [owner] = await s.query<{ purged: number }>('SELECT purged FROM records WHERE id=?', [ownerId]);
+      if (owner?.purged) throw new AppError('purgedRecord');
+      const [local] = await s.query<{ state: AttachmentView['status'] }>('SELECT state FROM attachment_local WHERE id=?', [id]);
+      const [others] = await s.query<{ n: number }>('SELECT count(*) AS n FROM attachment_locations WHERE attachment_id=? AND device_id<>? AND present=1', [id, this.deviceId]);
+      const removing = (await s.query('SELECT id FROM attachment_gc WHERE id=?', [id])).length > 0;
+      return { ...rows, local, others: others!.n, removing, limit: await attachmentLimit(s) };
+    });
+    const meta = context.attachment ?? context.staged!;
+    let status: AttachmentView['status'];
+    if (context.removing || context.local?.state === 'deleting') status = 'deleting';
+    else if (context.staged?.state === 'copying' || context.local?.state === 'copying') status = 'copying';
+    else {
+      const size = await files.stat(id);
+      status = size === null ? 'missing' : size !== meta.size ? 'corrupt' : 'present';
+      if (verify && status === 'present') {
+        const facts = await files.inspect(id);
+        status = !facts ? 'missing' : facts.size !== meta.size || facts.sha256 !== meta.sha256 ? 'corrupt' : 'present';
+      } else if (!verify && context.local?.state === 'corrupt' && status === 'present') status = 'corrupt';
+      if (verify && context.attachment) await this.db.transaction(s => this.attachmentPresence(s, id, status === 'present', status as 'present' | 'missing' | 'corrupt'));
+    }
+    return { id, name: meta.name, mime: meta.mime, size: meta.size, sha256: meta.sha256, status, large: meta.size > context.limit, staged: !!context.staged, other_copies: context.others };
+  }
+  async exportAttachment(id: string, ownerId: string): Promise<boolean> {
+    const view = await this.getAttachmentView(id, ownerId, true);
+    if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+    return this.filePort().export(id, exportFileName(view.name), view.mime, view);
+  }
+  async readAttachmentPreview(id: string, ownerId: string): Promise<{ mime: string; bytes: Uint8Array }> {
+    const view = await this.getAttachmentView(id, ownerId, true);
+    if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+    if (!['image/png','image/jpeg','image/webp','image/gif','image/avif','image/bmp'].includes(view.mime) || view.size > 10 * 1024 * 1024) throw new AppError('previewUnavailable');
+    const bytes = new Uint8Array(view.size), files = this.filePort();
+    for (let offset = 0; offset < view.size;) {
+      const length = Math.min(fileChunkSize, view.size - offset), chunk = await files.read(id, offset, length);
+      if (chunk.length !== length) throw new AppError('fileCorrupt');
+      bytes.set(chunk, offset); offset += length;
+    }
+    return { mime: view.mime, bytes };
+  }
+  async removeAttachmentCopy(id: string, ownerId: string, confirmLastCopy = false): Promise<void> {
+    requireId(id); requireId(ownerId); this.filePort();
+    await this.db.transaction(async s => {
+      const { attachment } = await attachmentRow(s, id, ownerId);
+      if (!attachment) throw new AppError('invalidAttachment');
+      const [others] = await s.query<{ n: number }>('SELECT count(*) AS n FROM attachment_locations WHERE attachment_id=? AND device_id<>? AND present=1', [id, this.deviceId]);
+      if (!others!.n && !confirmLastCopy) throw new AppError('lastAttachmentCopy');
+      await this.attachmentPresence(s, id, false, 'deleting');
+      await s.execute('INSERT INTO attachment_gc(id,staged) VALUES(?,0) ON CONFLICT(id) DO NOTHING', [id]);
+    });
+    const result = await this.collectAttachmentFiles();
+    if (result.pending) throw new AppError('attachmentCleanup');
+  }
+  async restoreAttachmentCopy(id: string, ownerId: string, source: ByteSource, progress?: OperationProgress, signal?: AbortSignal): Promise<void> {
+    validateFileSource(source); const files = this.filePort();
+    const { attachment } = await this.db.read(s => attachmentRow(s, id, ownerId));
+    if (!attachment || source.size !== attachment.size) throw new AppError('fileCorrupt');
+    if (await files.stat(id) !== null) throw new AppError('fileExists');
+    await this.db.transaction(async s => {
+      await this.attachmentOwner(s, ownerId);
+      if ((await s.query('SELECT id FROM attachment_gc WHERE id=?', [id])).length) throw new AppError('attachmentCleanup');
+      await s.execute("INSERT INTO attachment_local(id,state) VALUES(?,'copying') ON CONFLICT(id) DO UPDATE SET state='copying'", [id]);
+    });
+    let published = false;
+    try {
+      await files.remove(id, true); await files.begin(id);
+      for (let offset = 0; offset < source.size;) {
+        checkCancelled(signal); const length = Math.min(fileChunkSize, source.size - offset), bytes = await source.read(offset, length);
+        if (!(bytes instanceof Uint8Array) || bytes.length !== length) throw new AppError('fileCorrupt');
+        checkCancelled(signal); await files.write(id, offset, bytes); offset += length; progress?.(offset, 'processing');
+      }
+      checkCancelled(signal); progress?.(source.size, 'committing');
+      await files.finish(id, attachment.size, attachment.sha256);
+      published = true;
+      await this.db.transaction(async s => { await this.attachmentOwner(s, ownerId); await this.attachmentPresence(s, id, true, 'present'); });
+    } finally {
+      await files.remove(id, true);
+      if (!published && await files.stat(id) === null) await this.db.transaction(s => s.execute("UPDATE attachment_local SET state='missing' WHERE id=? AND state='copying'", [id]));
+    }
   }
   getDeviceAppearance(): Promise<DeviceAppearance> {
     return this.db.read(async s => {
@@ -162,6 +387,7 @@ export class Repository {
         ['ui_configs', 'ui_config'], ['quick_forms', 'quick_form'],
         ['display_profiles', 'display_profile'], ['creation_presets', 'creation_preset'],
         ['records', 'record'], ['record_versions', 'record_version'],
+        ['attachments', 'attachment'], ['attachment_locations', 'attachment_location'],
       ] as const;
       for (const [table, entity] of tables) {
         let after = '';
@@ -176,10 +402,10 @@ export class Repository {
           after = rows.at(-1)!.id;
         }
       }
-      const markers = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key LIKE 'history:%' OR key='trash:retention' ORDER BY key");
+      const markers = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key LIKE 'history:%' OR key IN('trash:retention','attachment:limit') ORDER BY key");
       for (const marker of markers) {
         const hlc = marker.key.startsWith('history:clear:') ? marker.value : (JSON.parse(marker.value) as { hlc: string }).hlc;
-        await this.log(s, marker.key === 'trash:retention' ? 'app_setting' : 'history_marker', { id: marker.key, hlc, device_id: this.deviceId }, { ...marker });
+        await this.log(s, ['trash:retention', 'attachment:limit'].includes(marker.key) ? 'app_setting' : 'history_marker', { id: marker.key, hlc, device_id: this.deviceId }, { ...marker });
       }
       return journalCheckpoint(s);
     });
@@ -301,6 +527,9 @@ export class Repository {
       await this.insert(s, 'libraries', library);
       await this.insert(s, 'collections', collection);
       await this.insert(s, 'fields', field);
+      const files: Field = { ...(await this.stamp(s, await systemId('attachments'))), collection_id: collection.id, name: 'attachments', type: 'file', config: '{"multiple":true,"fts":false}', position: 1 };
+      await this.insert(s, 'fields', files);
+      await this.log(s, 'field', files, files);
       await this.log(s, 'library', library, library);
       await this.log(s, 'collection', collection, collection);
       await this.log(s, 'field', field, field);
@@ -503,6 +732,7 @@ export class Repository {
       if (patch.type && patch.type !== old.type) throw new AppError('fieldTypeChange');
       const checked = patch.config ? validateFieldConfig(old.type, patch.config) : fieldConfig(old);
       await validateRelationDefinition(s, parent, old.type, checked, old);
+      if (['file','image'].includes(old.type) && !!fieldConfig(old).multiple !== !!checked.multiple) throw new AppError('attachmentMultiplicity');
       const updated = await this.update(s, 'fields', 'field', old, {
         ...(patch.name != null ? { name: nameValue(patch.name) } : {}),
         ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
@@ -642,22 +872,24 @@ export class Repository {
       updated_at: stamp.updated_at, updated_local: localTimestamp(new Date(stamp.updated_at)) };
     await s.execute("UPDATE records SET data='{}',purged=1,hlc=?,device_id=?,updated_at=?,updated_local=?,sort_version=0,relation_version=0 WHERE id=?",
       [row.hlc, row.device_id, row.updated_at, row.updated_local, row.id]);
+    await purgeAttachments(s, row, (entity, meta, payload) => this.log(s, entity, meta, payload));
     // Existing active/paused events retain their delivery lifecycle; never delete the journal here.
     await s.execute('DELETE FROM record_versions WHERE record_id=?', [row.id]);
     await applyHistoryClear(s, { record_id: row.id, hlc: row.hlc });
     await this.refreshRecords(s, [{ ...stored, ...row, data: '{}' }]);
     await this.log(s, 'record', row, row);
   }
-  purgeEntry(id: string, expectedHlc: string): Promise<void> {
+  async purgeEntry(id: string, expectedHlc: string): Promise<void> {
     requireId(id);
     if (!expectedHlc) throw new AppError('staleRecord');
-    return this.db.transaction(async s => {
+    await this.db.transaction(async s => {
       const [stored] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [id]);
       if (!stored) throw new AppError('notFound');
       if (stored.purged) return;
       if (stored.hlc !== expectedHlc) throw new AppError('staleRecord');
       await this.purgeInSession(s, stored);
     });
+    await this.collectAttachmentFiles();
   }
   /** Bounded transactions; a crash resumes remaining rows on next startup/foreground opportunity. */
   async cleanTrash(): Promise<number> {
@@ -672,7 +904,7 @@ export class Repository {
         return rows.length;
       });
       total += count;
-      if (!count) return total;
+      if (!count) { await this.collectAttachmentFiles(); return total; }
       await yieldOperation();
     }
   }
@@ -706,6 +938,7 @@ export class Repository {
           [...columns.map(key => stored[key as keyof typeof stored]) as SqlValue[], row.id]);
       } else await this.insert(s, 'records', stored);
       if (row.purged) {
+        await purgeAttachments(s, row, (entity, meta, payload) => this.log(s, entity, meta, payload));
         await s.execute('DELETE FROM record_versions WHERE record_id=?', [row.id]);
         await applyHistoryClear(s, { record_id: row.id, hlc: row.hlc });
       }
@@ -808,6 +1041,7 @@ export class Repository {
         sort_version: 0,
         search_data: '{}',
       });
+    await bindAttachments(s, row, fields, (entity, meta, payload) => this.log(s, entity, meta, payload));
     const version = {
       id: crypto.randomUUID(),
       record_id: row.id,
@@ -1028,6 +1262,7 @@ export class Repository {
         let data: RecordData;
         try {
           data = prepareEntryData(input, rules);
+          for (const field of fields) if (isFile(field.type) && fileIds(data[field.id]).length) throw new FieldError('csvAttachment', field.name);
           await validateRelationTargets(s, collection, fields, data);
         } catch (e) {
           if (e instanceof FieldError) throw new RowError(count + batch.length + 2, e.field, e.code);
@@ -1539,7 +1774,7 @@ export class Repository {
     for (const field of fields) {
       if (
         !field.deleted_at &&
-        !['secret', 'relation', 'backlink'].includes(field.type) &&
+        !['secret', 'relation', 'backlink', 'file', 'image'].includes(field.type) &&
         (fieldConfig(field).indexed || automatic.has(field.id))
       ) {
         await s.execute(

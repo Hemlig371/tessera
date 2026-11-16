@@ -65,6 +65,9 @@ export function validateValue(
       requireId(value);
     }
   }
+  if (type === 'file' || type === 'image') {
+    if (!Array.isArray(value) || value.some(id => typeof id !== 'string' || !UUID_RE.test(id)) || new Set(value).size !== value.length || (!config.multiple && value.length > 1)) throw new AppError('invalidAttachment');
+  }
   if (isText(type) && typeof value !== 'string') throw new AppError('invalidData');
   if (type === 'boolean' && typeof value !== 'boolean') throw new AppError('invalidBoolean');
   if (type === 'integer') {
@@ -91,6 +94,8 @@ export function validateFieldConfig(type: string, input: FieldConfig): FieldConf
       input.multiple != null
     )
       throw new AppError('readOnlyField');
+  } else if (type === 'file' || type === 'image') {
+    if (input.indexed || input.target_collection_id != null || input.source_field_id != null || (input.multiple != null && typeof input.multiple !== 'boolean') || (Object.hasOwn(input, 'default') && input.default != null && (!Array.isArray(input.default) || input.default.length))) throw new AppError('invalidAttachment');
   } else if (input.target_collection_id != null || input.multiple != null || input.source_field_id != null)
     throw new AppError('invalidRelation');
   for (const key of ['required', 'fts', 'indexed'] as const) {

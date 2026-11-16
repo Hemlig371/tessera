@@ -96,6 +96,7 @@ export async function parseCsvAsync(text: string, options: { signal?: AbortSigna
   }
 }
 export function csvValue(text: string, field: Field, locale: CsvLocale): JsonValue {
+  if (['file','image'].includes(field.type)) throw new AppError('csvAttachment');
   if (field.type === 'backlink') throw new AppError('readOnlyField');
   if (field.type === 'relation') {
     let value: JsonValue = text.trim() || null;
@@ -141,7 +142,7 @@ export function* csvRecords(
   if (
     mapping.length !== doc.headers.length ||
     new Set(ids).size !== ids.length ||
-    ids.some((id) => !byId.has(id) || byId.get(id)?.type === 'backlink')
+    ids.some((id) => !byId.has(id) || ['backlink','file','image'].includes(byId.get(id)?.type ?? ''))
   )
     throw new AppError('csvMapping');
   for (let i = 0; i < doc.rows.length; i++) {

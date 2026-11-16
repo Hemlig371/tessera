@@ -1,4 +1,4 @@
-export const schemaId = 'tessera-dev-bootstrap-1';
+export const schemaId = 'tessera-dev-bootstrap-2';
 
 // One current pre-release schema. No intermediate dev upgrades.
 export const bootstrapStatements = [
@@ -59,4 +59,16 @@ export const bootstrapStatements = [
         name TEXT NOT NULL CHECK(length(trim(name))>0), position INTEGER NOT NULL DEFAULT 0,
         config TEXT NOT NULL CHECK(json_valid(config) AND json_type(config)='object'))`,
   `CREATE INDEX presets_collection ON creation_presets(collection_id,deleted_at,position,id)`,
+  `CREATE TABLE attachments(id TEXT PRIMARY KEY NOT NULL, record_id TEXT NOT NULL REFERENCES records(id),
+    name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL CHECK(size>=0),sha256 TEXT NOT NULL,
+    hlc TEXT NOT NULL,device_id TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT,purged INTEGER NOT NULL DEFAULT 0 CHECK(purged IN(0,1)),
+    CHECK(purged=1 OR (length(sha256)=64 AND sha256 NOT GLOB '*[^0-9a-f]*')))`,
+  `CREATE INDEX attachments_record ON attachments(record_id,purged,deleted_at,id)`,
+  `CREATE INDEX attachments_size ON attachments(purged,size DESC,id)`,
+  `CREATE TABLE attachment_locations(id TEXT PRIMARY KEY NOT NULL,attachment_id TEXT NOT NULL REFERENCES attachments(id),device_id TEXT NOT NULL,hlc TEXT NOT NULL,present INTEGER NOT NULL CHECK(present IN(0,1)),UNIQUE(attachment_id,device_id))`,
+  `CREATE TABLE attachment_local(id TEXT PRIMARY KEY NOT NULL REFERENCES attachments(id),state TEXT NOT NULL CHECK(state IN('present','missing','corrupt','deleting','copying')),verified_at TEXT)`,
+  `CREATE TABLE attachment_staging(id TEXT PRIMARY KEY NOT NULL,owner_id TEXT NOT NULL,collection_id TEXT NOT NULL REFERENCES collections(id),
+    name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL CHECK(size>=0),sha256 TEXT NOT NULL DEFAULT '',state TEXT NOT NULL CHECK(state IN('copying','ready')),created_at TEXT NOT NULL)`,
+  `CREATE INDEX staging_owner ON attachment_staging(owner_id,id)`,
+  `CREATE TABLE attachment_gc(id TEXT PRIMARY KEY NOT NULL,staged INTEGER NOT NULL CHECK(staged IN(0,1)))`,
 ] as const;

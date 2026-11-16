@@ -22,9 +22,9 @@ async function until(script) {
 }
 async function clickText(text) {
   if (text === 'Закрыть' && await execute("return !!document.querySelector('[data-editor]')")) { await clickText('Назад'); return; }
-  if (['+ Новая запись','Варианты создания','CSV','Настройки библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text) && await execute("return [...document.querySelectorAll('button')].some(button=>button.getAttribute('aria-label')==='К списку')")) await clickText('К списку');
+  if (['+ Новая запись','Варианты создания','CSV','Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text) && await execute("return [...document.querySelectorAll('button')].some(button=>button.getAttribute('aria-label')==='К списку')")) await clickText('К списку');
   if (text === '+ Быстрая запись') { await clickText('Варианты создания'); await clickText('Быстрая запись'); return; }
-  if (['Настройки библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text)) {
+  if (['Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text)) {
     await until("!!document.querySelector('#constructor-toggle:not(:disabled)')");
     if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
   }
@@ -213,6 +213,25 @@ try {
   await until("document.querySelector('.list-meta')?.textContent==='Загружено записей: 250'");
   await until(`Math.abs(document.querySelector('.entry-scroll').scrollTop-${deepOffset})<1`);
   assert.equal(await execute("return document.querySelector('.profile-switcher select').value"), deepProfile);
+  await clickText('Глобальный поиск');
+  await until("document.querySelector('h1')?.textContent==='Все записи'");
+  await execute("const input=document.querySelector('input[type=search]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native row');input.dispatchEvent(new Event('input',{bubbles:true}))");
+  await clickText('Назад');
+  await until("document.querySelector('.list-meta')?.textContent==='Загружено записей: 250'");
+  await until(`Math.abs(document.querySelector('.entry-scroll').scrollTop-${deepOffset})<1`);
+  await clickText('Стартовый экран библиотеки');
+  await selectOption('Стартовый экран библиотеки', 'Выбранная коллекция');
+  await selectOption('Выбранная коллекция', 'Native CSV');
+  await selectOption('Каталог коллекций', 'Список');
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && !document.querySelector('#constructor-toggle').disabled");
+  await clickText('Все библиотеки'); await until("!!document.querySelector('[data-catalog=libraries]')");
+  await clickText('Открыть библиотеку «Native library»');
+  await until("document.querySelector('.browse-screen h1')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
+  await clickText('К коллекциям'); await until("!!document.querySelector('[data-catalog=collections] .catalog-list')");
+  await request('DELETE', `/session/${session}`); session = undefined; await start();
+  await until("!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')");
+  await clickText('Открыть библиотеку «Native library»');
+  await until("document.querySelector('.browse-screen h1')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
   await clickText('Оформление'); await selectOption('Тема', 'Тёмная');
   await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%');
   await clickText('Сохранить оформление');

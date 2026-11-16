@@ -1,4 +1,7 @@
 import { quickLayout } from '../core/quick-forms';
+import { Catalog } from './Catalog';
+import { LibraryStartEditor } from './LibraryStartEditor';
+import { libraryNavigation } from '../core/library-navigation';
 import { LayoutRowsView } from './LayoutRowsView';
 import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
 import { useAppearance } from './use-appearance';
@@ -48,6 +51,7 @@ const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { field
   UiDefinition
 >;
 type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition>; inboxOriginal?: string | null };
+type BrowsePosition = { token: string; count: number; documentTop: number; listTop: number; focus: HTMLElement | null; focusId?: string };
 export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const { t, i18n } = useTranslation(),
     format = useFormatValue(),
@@ -88,7 +92,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   } | null>(null);
   const [trail, setTrail] = useState<string[]>([]);
   const previousQuery = useRef<string | null>(null);
-  const browsePosition = useRef<{ token: string; count: number; documentTop: number; listTop: number; focus: HTMLElement | null } | null>(null);
+  const browsePosition = useRef<BrowsePosition | null>(null);
+  const browsePositions = useRef(new Map<string, BrowsePosition>());
+  const searchRecordOrigin = useRef<{ token: string; id: string; trail: string[] } | null>(null);
+  const pendingRecordReturn = useRef<{ token: string; id: string; trail: string[] } | null>(null);
   const restoreBrowse = useRef(false);
   const editorOrigin = useRef<{ id: string | null; top: number } | null>(null);
   const [loadedQuery, setLoadedQuery] = useState<{ token: string; revision: number } | null>(null);
@@ -96,11 +103,12 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const [search, setSearch] = useState('');
   const searchFor = ui.searchFor;
   const scroll = useRef<HTMLDivElement>(null),
+    navigationRequest = useRef(0),
     selectionRequest = useRef(0),
     queryRequest = useRef(0);
   const collection = collections.find((c) => c.id === ui.collectionId),
     library = libraries.find((l) => l.id === ui.libraryId);
-  const browsing = ui.scope === 'all' || (ui.scope === 'library' && !!library) || !!collection;
+  const browsing = ui.screen === 'records' && (ui.scope === 'all' || (ui.scope === 'library' && !!library) || !!collection);
   const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
   const query: EntryQuery = {
     ...(ui.scope === 'collection'
@@ -111,13 +119,16 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     search: ui.search,
   };
   const queryToken = JSON.stringify(query);
+  const searchContextToken = JSON.stringify([ui.screen, ui.scope, ui.libraryId, ui.collectionId, !!ui.searchOrigin]);
   const rememberBrowse = useCallback(() => {
-    if (!selected && !useUi.getState().editor) {
+    if (browsing && !selected && !useUi.getState().editor) {
       browsePosition.current = { token: queryToken, count: page.items.length, documentTop: window.scrollY, listTop: scroll.current?.scrollTop ?? 0,
-        focus: document.activeElement instanceof HTMLElement ? document.activeElement : null };
+        focus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        focusId: document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>('[data-entry-id]')?.dataset.entryId : undefined };
+      browsePositions.current.set(queryToken, { ...browsePosition.current, focus: null });
       restoreBrowse.current = true;
     }
-  }, [selected, queryToken, page.items.length]);
+  }, [browsing, selected, queryToken, page.items.length]);
   const selectedId = selected?.id ?? null;
   useLayoutEffect(() => {
     if (ui.editor || !selectedId) return;
@@ -130,17 +141,21 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     return () => cancelAnimationFrame(frame);
   }, [ui.editor, selectedId]);
   useLayoutEffect(() => {
-    if (ui.editor || selectedId || !restoreBrowse.current || (browsing && (loadedQuery?.token !== queryToken || loadedQuery.revision !== revision))) return;
+    if (!browsing || ui.editor || selectedId || !restoreBrowse.current || loadedQuery?.token !== queryToken || loadedQuery.revision !== revision) return;
+    let focusFrame = 0;
     const frame = requestAnimationFrame(() => {
       const position = browsePosition.current;
       if (position?.token === queryToken) {
         if (scroll.current) scroll.current.scrollTop = position.listTop;
         window.scrollTo(0, position.documentTop);
         if (position.focus?.isConnected && !position.focus.closest('[inert]')) position.focus.focus({ preventScroll: true });
+        else if (position.focusId) focusFrame = requestAnimationFrame(() => {
+          scroll.current?.querySelector<HTMLElement>(`[data-entry-id="${position.focusId}"]`)?.focus({ preventScroll: true });
+        });
       }
       restoreBrowse.current = false; editorOrigin.current = null;
     });
-    return () => cancelAnimationFrame(frame);
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(focusFrame); };
   }, [ui.editor, selectedId, queryToken, loadedQuery, revision, browsing]);
   function formatRelations(row: EntryListItem, fieldId: string) {
     const preview = row.relation_previews?.[fieldId];
@@ -180,10 +195,10 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   useEffect(() => {
     const timer = setTimeout(() => searchFor(search), 250);
     return () => clearTimeout(timer);
-  }, [search, searchFor]);
+  }, [search, searchFor, searchContextToken]);
   useEffect(() => {
     setSearch(ui.search);
-  }, [ui.search]);
+  }, [ui.search, searchContextToken]);
   useEffect(() => {
     let active = true;
     api
@@ -213,6 +228,13 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       active = false;
     };
   }, [api, ui.libraryId]);
+  useEffect(() => {
+    if (!library || library.system_kind) return;
+    const location = ui.screen === 'library' ? { kind: 'collections' as const } :
+      ui.screen === 'records' && ui.scope === 'collection' && collection?.library_id === library.id ?
+        { kind: 'collection' as const, collection_id: collection.id, ...(activeProfileId ? { profile_id: activeProfileId } : {}) } : null;
+    if (location) void api.rememberLibraryLocation(library.id, location).catch(e => setError(errorKey(e)));
+  }, [api, library, collection, activeProfileId, ui.screen, ui.scope]);
   useEffect(() => {
     let active = true;
     if (ui.collectionId)
@@ -247,7 +269,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     const request = ++queryRequest.current;
     let active = true;
     const sameQuery = previousQuery.current === queryToken;
-    const retainedCount = sameQuery && browsePosition.current?.token === queryToken ? browsePosition.current.count : 0;
+    const retainedCount = browsePositions.current.get(queryToken)?.count ?? (sameQuery && browsePosition.current?.token === queryToken ? browsePosition.current.count : 0);
     if (!sameQuery || !browsing) setPage({ items: [], next: null });
     if (!sameQuery) {
       setSelected(null);
@@ -255,7 +277,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       setContext(null);
       setTrail([]);
       previousQuery.current = queryToken;
-      browsePosition.current = null; restoreBrowse.current = false;
+      browsePosition.current = browsePositions.current.get(queryToken) ?? null;
+      restoreBrowse.current = !!browsePosition.current;
     }
     if (browsing) {
       setLoading(true);
@@ -282,8 +305,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       active = false;
     };
   }, [api, queryToken, browsing, revision]);
-  const selectEntry = useCallback(async (id: string, preserveSaved = false) => {
-    rememberBrowse();
+  const selectEntry = useCallback(async (id: string, preserveSaved = false, captureBrowse = true) => {
+    if (captureBrowse) rememberBrowse();
     const request = ++selectionRequest.current;
     try {
       const entry = await api.getEntry(id);
@@ -300,11 +323,19 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         setSelected(entry);
         setContext({ collection: parent, fields: entryFields, layouts: { form, card, list }, inboxOriginal: original });
         if (!preserveSaved) setSaved(false);
+        return true;
       }
     } catch (e) {
       if (request === selectionRequest.current) setError(errorKey(e));
     }
+    return false;
   }, [api, rememberBrowse]);
+  useEffect(() => {
+    const origin = pendingRecordReturn.current;
+    if (!origin || ui.searchOrigin || ui.screen !== 'records' || origin.token !== queryToken || loadedQuery?.token !== queryToken || loadedQuery.revision !== revision) return;
+    pendingRecordReturn.current = null;
+    void selectEntry(origin.id, false, false).then(opened => { if (opened) setTrail(origin.trail); });
+  }, [ui.searchOrigin, ui.screen, queryToken, loadedQuery, revision, selectEntry]);
   async function run(action: () => Promise<void>, close = true, reloadSelected = true) {
     if (busy) return;
     setBusy(true);
@@ -362,6 +393,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     }
   }
   function showInbox(capture = false) {
+    rememberBrowse();
+    searchRecordOrigin.current = null; pendingRecordReturn.current = null;
     void run(async () => {
       const inbox = await api.getInbox();
       ui.select(inbox.library_id, inbox.id);
@@ -379,6 +412,32 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     const draft = await drafts.load(scope);
     if (draft && await api.getDraftTarget(draft.action.create_id)) { await drafts.remove(scope); return null; }
     return draft;
+  }
+  function clearRecordContext() {
+    searchRecordOrigin.current = null; pendingRecordReturn.current = null;
+    selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); setSaved(false); setError(null);
+  }
+  async function openLibrary(id: string, closeDrawer = false) {
+    if (busy || ui.editor) return;
+    rememberBrowse(); const request = ++navigationRequest.current; setBusy(true); clearRecordContext();
+    try {
+      const target = await api.resolveLibraryStart(id);
+      if (request === navigationRequest.current) {
+        ui.select(id, target.kind === 'collection' ? target.collection_id : undefined, target.kind === 'collection' ? target.profile_id : undefined);
+        if (closeDrawer) useUi.setState({ navOpen: false });
+      }
+    } catch (e) { if (request === navigationRequest.current) setError(errorKey(e)); }
+    finally { if (request === navigationRequest.current) setBusy(false); }
+  }
+  function goHome() {
+    if (busy || ui.editor) return;
+    rememberBrowse(); clearRecordContext(); ui.home();
+  }
+  function openGlobalSearch() {
+    if (busy || ui.editor) return;
+    if (ui.searchOrigin && ui.scope === 'all') return;
+    const origin = selected ? { token: queryToken, id: selected.id, trail: [...trail] } : null;
+    rememberBrowse(); clearRecordContext(); searchRecordOrigin.current = origin; ui.globalSearch();
   }
   function beginCreate(choice?: CreationChoice) {
     if (busy || !collection) return;
@@ -400,7 +459,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     selectionRequest.current++;
     rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
     if (editor) useUi.setState({ navOpen: false });
-    if (editor && ['library','collection','fields','form','card','list','quick','profiles','presets'].includes(editor)) useUi.setState({ constructorOpen: true });
+    if (editor && ['library-start','library','collection','fields','form','card','list','quick','profiles','presets'].includes(editor)) useUi.setState({ constructorOpen: true });
     setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false);
     ui.openEditor(editor, '', editingId);
   }
@@ -419,11 +478,35 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     if (parent) { setTrail(old => old.slice(0, -1)); void selectEntry(parent); }
     else { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }
   }, [busy, trail, selectEntry]);
+  const backSection = useCallback(() => {
+    if (busy) return;
+    rememberBrowse();
+    if (ui.searchOrigin) {
+      pendingRecordReturn.current = searchRecordOrigin.current; searchRecordOrigin.current = null;
+      ui.leaveSearch();
+    }
+    else if (ui.screen === 'records' && ui.libraryId && !collection?.system_kind) ui.select(ui.libraryId);
+    else ui.home();
+  }, [busy, rememberBrowse, ui, collection?.system_kind]);
   useEffect(() => {
     if (ui.editor) return bindSystemBack(close, () => setError('fileError'));
     if (selected) return bindSystemBack(backRecord, () => setError('fileError'));
     if (ui.constructorOpen) return bindSystemBack(() => { if (!busy) useUi.setState({ constructorOpen: false }); }, () => setError('fileError'));
-  }, [ui.editor, ui.constructorOpen, close, busy, selected, backRecord]);
+    if (ui.screen !== 'libraries' || ui.navOpen) return bindSystemBack(() => {
+      if (ui.navOpen) useUi.setState({ navOpen: false }); else backSection();
+    }, () => setError('fileError'));
+  }, [ui.editor, ui.constructorOpen, ui.screen, ui.navOpen, close, busy, selected, backRecord, backSection]);
+  useEffect(() => {
+    if (ui.editor || selected || ui.screen === 'libraries') return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || busy) return;
+      event.preventDefault();
+      if (ui.navOpen) useUi.setState({ navOpen: false });
+      else if (ui.constructorOpen) useUi.setState({ constructorOpen: false });
+      else backSection();
+    };
+    window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape);
+  }, [ui.editor, selected, ui.screen, ui.navOpen, ui.constructorOpen, busy, backSection]);
   async function saveDraftAction(action: DraftAction, collectionId: string, data: RecordData): Promise<Entry> {
     if (action.kind === 'linked') return api.createLinkedEntry(action.parent_id, action.field_id, data, action.create_id);
     return api.saveNewEntry(collectionId, data, action.create_id);
@@ -446,8 +529,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     void run(async () => {
       await api.setDeleted(kind, id, true);
       setUndo({ kind, id });
-      if (kind === 'library') useUi.setState({ libraryId: null, collectionId: null });
-      if (kind === 'collection') useUi.setState({ collectionId: null });
+      if (kind === 'library') ui.home();
+      if (kind === 'collection' && ui.libraryId) ui.select(ui.libraryId);
     });
   }
   async function more() {
@@ -507,7 +590,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -543,7 +626,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 <button
                   className={l.id === ui.libraryId ? 'active library-button' : 'library-button'}
                   disabled={disabled}
-                  onClick={() => ui.select(l.id)}
+                  onClick={() => { void openLibrary(l.id); }}
                 >
                   <span aria-hidden="true" style={{ color: a.color }}>
                     {a.icon ?? '◇'}
@@ -563,6 +646,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                             disabled={disabled}
                             className={c.id === ui.collectionId ? 'active' : ''}
                             onClick={() => {
+                              rememberBrowse(); clearRecordContext();
                               ui.select(l.id, c.id);
                               setSaved(false);
                             }}
@@ -603,6 +687,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             {t('navigation')}
           </button>
           <span className="quiet-label">{t('offline')}</span>
+          <button disabled={disabled} onClick={goHome}>{t('allLibraries')}</button>
+          <button disabled={disabled} onClick={openGlobalSearch}>{t('globalSearch')}</button>
+          <button disabled={disabled} onClick={() => showInbox()}>{t('openInbox')}</button>
           <button disabled={disabled} onClick={() => showInbox(true)}>+ {t('captureInbox')}</button>
           <button id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}>{t('constructor')}</button>
           <button disabled={disabled || !appearanceReady} onClick={() => open('appearance')}>{t('deviceAppearance')}</button>
@@ -644,22 +731,23 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         <section className={'browse-screen' + (ui.editor || selected ? ' screen-inactive' : '')} inert={!!ui.editor || !!selected} aria-hidden={!!ui.editor || !!selected}>
         <header>
           <div>
-            <small>{library?.name ?? t('libraries')}</small>
+            {ui.screen !== 'libraries' && <button className="section-back" disabled={disabled} onClick={backSection} aria-label={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}>← {t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}</button>}
+            <small>{library?.name ?? t('brand')}</small>
             <h1>
-              {ui.scope === 'all'
+              {ui.screen === 'libraries' ? t('libraries') : ui.screen === 'library' ? library?.name ?? t('collections') : ui.scope === 'all'
                 ? t('allEntries')
                 : ui.scope === 'library'
                   ? library?.name
                   : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
             </h1>
-          {collection && !collection.system_kind && profiles.some(profile => profile.collection_id === collection.id) &&
+          {browsing && collection && !collection.system_kind && profiles.some(profile => profile.collection_id === collection.id) &&
             <div className="profile-switcher"><label>{t('displayProfile')}
               <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
                 {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
               </select>
             </label>{ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}</div>}
           </div>
-          {collection && !collection.system_kind && (
+          {browsing && ui.scope === 'collection' && collection && !collection.system_kind && (
             <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} options={[
               { label: t('standardForm'), choice: { kind: 'standard' } }, { label: t('quickEntry'), choice: { kind: 'quick' } },
               ...presets.filter(preset => preset.collection_id === collection.id).map(preset => ({ label: preset.name, choice: { kind: 'preset' as const, preset_id: preset.id } })),
@@ -672,9 +760,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         </section>}
         <div className="toolbar">
           {ui.constructorOpen && library && !library.system_kind && (
-            <button disabled={disabled} onClick={() => open('library', library.id)}>
+            <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
-            </button>
+            </button><button disabled={disabled} onClick={() => open('library-start')}>{t('libraryStart')}</button></>
           )}
           {collection && !collection.system_kind && (
             <>
@@ -701,7 +789,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           )}
         </div>
         {ui.constructorOpen && browsing && <h2 className="constructor-preview-heading">{t('constructorPreview')}</h2>}
-        {(!!libraries.length || browsing) && (
+        {browsing && (
           <div className="searchbar">
             <label>
               {t('search')}
@@ -731,15 +819,11 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             </label>
           </div>
         )}
-        {!libraries.length && !browsing ? (
-          <div className="empty">
-            <span aria-hidden="true">▦</span>
-            <h2>{t('emptyLibraries')}</h2>
-            <p>{t('emptyLibrariesHint')}</p>
-            <button className="primary" disabled={disabled} onClick={() => open('library')}>
-              {t('newLibrary')}
-            </button>
-          </div>
+        {ui.screen === 'libraries' ? (
+          <Catalog kind="libraries" items={libraries} busy={disabled} open={id => { void openLibrary(id, true); }} create={() => open('library')} />
+        ) : ui.screen === 'library' && library ? (
+          <Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
+            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} create={() => open('collection')} />
         ) : !browsing ? (
           <div className="empty">
             <h2>{t('chooseCollection')}</h2>
@@ -782,6 +866,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                         <button
                           key={row.id}
                           data-index={v.index}
+                          data-entry-id={row.id}
                           ref={virtual.measureElement}
                           className={
                             'entry ' +
@@ -920,6 +1005,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {ui.editor === 'appearance' && <DeviceAppearanceEditor value={appearance} busy={busy} cancel={close} save={value => { void run(async () => { setAppearance(await api.saveDeviceAppearance(value)); }); }} />}
+          {ui.editor === 'library-start' && library && <LibraryStartEditor api={api} libraryId={library.id} busy={busy} cancel={close}
+            save={value => { void run(async () => { await api.saveLibraryNavigation(library.id, value); }); }} />}
           {ui.editor === 'move' && selected && <InboxMoveForm api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}
             save={(collectionId, data) => { void run(async () => { await api.moveInboxEntry(selected.id, collectionId, data, selected.hlc); setSaved(true); }); }} />}
           {(ui.editor === 'library' || ui.editor === 'collection') && (

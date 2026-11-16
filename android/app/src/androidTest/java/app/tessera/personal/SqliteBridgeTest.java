@@ -229,6 +229,38 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'");
         }
     }
+    @Test public void catalogsAndLibraryStartSurviveNativeBackAndRecreation() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            assertEquals("true", js(scenario, "!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')"));
+            JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.navigationFixture")).nextValue());
+            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            awaitJs(scenario, "!!document.querySelector('[data-catalog=collections]') && [...document.querySelectorAll('[data-catalog=collections] button')].some(b=>b.textContent.includes('Раздел') && !b.disabled)");
+            openConstructor(scenario);
+            js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Стартовый экран библиотеки').click()");
+            awaitJs(scenario, "document.querySelectorAll('[data-editor] select').length===2");
+            js(scenario, "const select=document.querySelector('[data-editor] select');select.value='collection';select.dispatchEvent(new Event('change',{bubbles:true}))");
+            awaitJs(scenario, "document.querySelectorAll('[data-editor] select').length===4 && [...document.querySelectorAll('[data-editor] select')[2].options].some(o=>o.text==='Стартовый профиль')");
+            js(scenario, "const profile=document.querySelectorAll('[data-editor] select')[2];profile.value=" + JSONObject.quote(scope.getString("profile_id")) + ";profile.dispatchEvent(new Event('change',{bubbles:true}));const layout=document.querySelectorAll('[data-editor] select')[3];layout.value='list';layout.dispatchEvent(new Event('change',{bubbles:true}))");
+            js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && !!document.querySelector('[data-catalog=collections] .catalog-list') && !document.querySelector('#constructor-toggle').disabled");
+            js(scenario, "document.querySelector('#constructor-toggle').click()");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
+            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
+            awaitJs(scenario, "!!document.querySelector('.entry:not(:disabled)')");
+            js(scenario, "document.querySelector('.entry').click()"); awaitJs(scenario, "!!document.querySelector('.detail')");
+            UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+            device.pressBack(); awaitJs(scenario, "!document.querySelector('.detail') && !!document.querySelector('.entry')");
+            device.pressBack(); awaitJs(scenario, "!!document.querySelector('[data-catalog=collections]')");
+            device.pressBack(); awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
+            scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
+            assertEquals("true", js(scenario, "!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')"));
+            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
+        }
+    }
     @Test public void explicitSaveKeepsDeepNativeListAndProfile() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);

@@ -839,3 +839,11 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 @media (max-width: 760px) { .layout-row { grid-template-columns: minmax(0, 1fr); } }
 
 .editor-page :is(input, select, textarea, summary) { scroll-margin-block: 8rem 6rem; }
+
+.catalog { display: grid; gap: 12px; margin-block: 18px; }
+.catalog-cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+.catalog-list { grid-template-columns: minmax(0, 1fr); }
+.catalog-item { display: flex; gap: 12px; align-items: center; text-align: start; min-block-size: 72px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; min-inline-size: 0; }
+.catalog-item strong { flex: 1; overflow-wrap: anywhere; min-inline-size: 0; }
+.catalog-icon { font-size: 1.65em; flex-shrink: 0; }
+.catalog-create, .section-back { margin-block: 12px; }

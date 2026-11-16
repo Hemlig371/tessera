@@ -1,4 +1,5 @@
 import { createKnowledgeFixture } from '../fixtures/knowledge';
+import { navigationFixture } from './navigation-scenario';
 import { layoutScenario } from './layout-scenario';
 // Dedicated acceptance APK entry. Production Vite config never references this file.
 import { createRoot } from 'react-dom/client';
@@ -55,6 +56,7 @@ async function run() {
   document.documentElement.dataset.acceptanceStage = 'import-cancellation';
   await importCancellationScenario(api);
   document.documentElement.dataset.acceptanceStage = 'knowledge';
+  document.documentElement.dataset.navigationFixture = JSON.stringify(await navigationFixture(api));
   if (!(await api.listLibraries()).some(library => library.name === 'База знаний (dev/CI)')) await createKnowledgeFixture(api);
   document.documentElement.dataset.acceptanceStage = 'layout-rows';
   await layoutScenario(api);

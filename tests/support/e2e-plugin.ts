@@ -106,6 +106,17 @@ export function e2ePlugin(): Plugin {
             const value = await createKnowledgeFixture(await Repository.open(db), typeof params[0] === 'string' ? params[0] : undefined);
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
+          if (op === 'navigation-seed') {
+            const api = await Repository.open(db);
+            const scope = await createKnowledgeFixture(api, typeof params[0] === 'string' ? params[0] : 'Навигация (dev/CI)');
+            const profile = await api.createDisplayProfile(scope.collection_id, 'Стартовый профиль', await api.getUiConfig(scope.collection_id, 'list'));
+            const value = { ...scope, profile_id: profile.id };
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
+          if (op === 'navigation-delete-profile') {
+            await (await Repository.open(db)).deleteDisplayProfile(String(params[0]));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value: true })); return;
+          }
           if (op === 'layout-seed') {
             const value = await layoutScenario(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;

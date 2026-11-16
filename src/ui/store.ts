@@ -1,22 +1,28 @@
 import { create } from 'zustand';
 interface UiState {
+  screen: 'libraries' | 'library' | 'records';
   libraryId: string | null;
   collectionId: string | null;
   profileId: string | null;
-  editor: 'appearance' | 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | 'presets' | null;
+  editor: 'appearance' | 'library-start' | 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | 'presets' | null;
   editingId: string | null;
   text: string;
   search: string;
   scope: 'collection' | 'library' | 'all';
   navOpen: boolean;
   constructorOpen: boolean;
-  select: (libraryId: string, collectionId?: string) => void;
+  searchOrigin: Pick<UiState, 'screen' | 'libraryId' | 'collectionId' | 'profileId' | 'scope' | 'search'> | null;
+  select: (libraryId: string, collectionId?: string, profileId?: string) => void;
+  home: () => void;
+  globalSearch: () => void;
+  leaveSearch: () => void;
   openEditor: (editor: UiState['editor'], text?: string, id?: string) => void;
   setText: (text: string) => void;
   searchFor: (search: string, scope?: UiState['scope']) => void;
   toggleNav: () => void;
 }
 export const useUi = create<UiState>((set) => ({
+  screen: 'libraries',
   libraryId: null,
   collectionId: null,
   profileId: null,
@@ -27,17 +33,26 @@ export const useUi = create<UiState>((set) => ({
   scope: 'collection',
   navOpen: false,
   constructorOpen: false,
-  select: (libraryId, collectionId) =>
+  searchOrigin: null,
+  home: () => set({ screen: 'libraries', libraryId: null, collectionId: null, profileId: null, scope: 'collection', search: '', navOpen: false, constructorOpen: false, searchOrigin: null }),
+  globalSearch: () => set(old => ({
+    searchOrigin: old.searchOrigin ?? { screen: old.screen, libraryId: old.libraryId, collectionId: old.collectionId, profileId: old.profileId, scope: old.scope, search: old.search },
+    screen: 'records', scope: 'all', search: '', navOpen: false,
+  })),
+  leaveSearch: () => set(old => ({ ...(old.searchOrigin ?? { screen: 'libraries', libraryId: null, collectionId: null, profileId: null, scope: 'collection', search: '' }), searchOrigin: null, navOpen: false })),
+  select: (libraryId, collectionId, profileId) =>
     set({
+      screen: collectionId ? 'records' : 'library',
       libraryId,
       collectionId: collectionId ?? null,
-      profileId: null,
+      profileId: profileId ?? null,
       scope: 'collection',
       search: '',
+      searchOrigin: null,
       ...(collectionId ? { navOpen: false } : {}),
     }),
   openEditor: (editor, text = '', id) => set({ editor, text, editingId: id ?? null }),
   setText: (text) => set({ text }),
-  searchFor: (search, scope) => set({ search, ...(scope ? { scope } : {}) }),
+  searchFor: (search, scope) => set({ search, ...(scope ? { scope, screen: 'records' } : {}) }),
   toggleNav: () => set((old) => ({ navOpen: !old.navOpen })),
 }));

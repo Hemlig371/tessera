@@ -260,7 +260,9 @@ export class Repository {
     requireId(id);
     const location = validateLibraryNavigation({ start: value, collections_layout: 'cards' }).start;
     if (location.kind === 'last') throw new AppError('invalidLibraryNavigation');
-    return this.db.transaction(async s => {
+    // One local hint write commits atomically by itself. Renderer death must not
+    // strand BEGIN/COMMIT while only recording a navigation preference.
+    return this.db.read(async s => {
       await navigationLibrary(s, id);
       if (!await validLibraryLocation(s, id, location)) throw new AppError('invalidLibraryNavigation');
       await s.execute('INSERT INTO local_settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<>excluded.value', [`library_last:${id}`, canonical(location)]);

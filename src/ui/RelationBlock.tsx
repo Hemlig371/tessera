@@ -24,7 +24,7 @@ export function RelationBlock({
   const { t } = useTranslation();
   const [page, setPage] = useState<RelationPage>({ items: [], next: null, available: false }),
     [error, setError] = useState<string | null>(null),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(true);
   const scroll = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtual = useVirtualizer({
@@ -68,7 +68,7 @@ export function RelationBlock({
     }
   }
   return (
-    <div className="relation-block" aria-label={field.name}>
+    <div className="relation-block" aria-label={field.name} aria-busy={loading}>
       {error && <ErrorMessage code={error} />}
       {!!page.items.length && (
         <div ref={scroll} className="relation-scroll">

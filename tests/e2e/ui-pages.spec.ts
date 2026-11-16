@@ -4,6 +4,19 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 900 }); await page.goto('/');
   await expect(page.locator('aside')).toBeVisible();
+  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
+  await page.getByRole('combobox', { name: 'Плотность', exact: true }).selectOption('compact');
+  await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
+  // Restoration must also work in WebViews without browser scroll anchoring.
+  await page.addStyleTag({ content: 'html { overflow-anchor: none; }' });
+  let delayRelations = false;
+  await page.route('**/__test-sqlite', async route => {
+    const sql = (route.request().postDataJSON() as { sql?: string }).sql;
+    if (delayRelations && sql?.includes('relation_index')) await new Promise(resolve => setTimeout(resolve, 250));
+    await route.continue();
+  });
   const seeded = await page.request.post('/__test-sqlite', { data: { op: 'knowledge-seed' } });
   expect(seeded.ok(), await seeded.text()).toBe(true);
   const scope = (await seeded.json()).value as { collection_id: string; first: string };
@@ -52,6 +65,7 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(profile);
   await entry.click();
   const edit = page.locator('.detail').getByRole('button', { name: 'Редактировать', exact: true });
+  await expect(page.locator('.detail .relation-block[aria-busy=true]')).toHaveCount(0);
   await edit.scrollIntoViewIfNeeded(); const cardScroll = await page.evaluate(() => scrollY);
   await edit.click();
   const editor = page.getByRole('region', { name: 'Редактировать', exact: true });
@@ -60,10 +74,12 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   await expect(page.locator('[data-editor] h1')).toBeVisible();
   await expect(page.locator('.shade,[role=dialog],[aria-modal=true]')).toHaveCount(0);
   await page.locator('[data-editor]').getByRole('textbox', { name: 'Название', exact: true }).fill('Не сохранять');
+  delayRelations = true;
   await page.locator('[data-editor]').getByRole('button', { name: 'Отмена', exact: true }).click();
   await expect(editor).toHaveCount(0);
   await expect(page.locator('.detail #record-title')).toHaveText('Материал 220');
   await expect.poll(() => page.evaluate(() => scrollY)).toBe(cardScroll);
+  delayRelations = false;
   expect(await snapshot()).toEqual(before);
   await page.getByRole('button', { name: 'К списку', exact: true }).click();
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();

@@ -166,13 +166,29 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const selectedId = selected?.id ?? null;
   useLayoutEffect(() => {
     if (ui.editor || !selectedId) return;
-    const frame = requestAnimationFrame(() => {
-      cardHeading.current?.focus({ preventScroll: true });
-      const origin = editorOrigin.current;
-      window.scrollTo(0, origin?.id === selectedId ? origin.top : 0);
-      editorOrigin.current = null;
-    });
-    return () => cancelAnimationFrame(frame);
+    cardHeading.current?.focus({ preventScroll: true });
+    const origin = editorOrigin.current, target = origin?.id === selectedId ? origin.top : 0;
+    editorOrigin.current = null;
+    let frame = 0, observer: ResizeObserver | undefined;
+    const inputs = ['pointerdown', 'wheel', 'touchstart', 'keydown', 'resize'] as const;
+    const stop = () => {
+      cancelAnimationFrame(frame); observer?.disconnect();
+      inputs.forEach(type => window.removeEventListener(type, stop, true));
+    };
+    const restore = () => {
+      window.scrollTo(0, target);
+      if (Math.abs(window.scrollY - target) < 1) stop();
+    };
+    const card = cardHeading.current?.closest('.detail');
+    if (target > 0 && card) {
+      // Relation blocks may still be loading when the card returns. A clamped
+      // first scroll must not discard its saved position; user input always wins.
+      observer = new ResizeObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(restore); });
+      observer.observe(card);
+      inputs.forEach(type => window.addEventListener(type, stop, { capture: true, passive: true }));
+    }
+    frame = requestAnimationFrame(restore);
+    return stop;
   }, [ui.editor, selectedId]);
   useLayoutEffect(() => {
     if (!browsing || ui.editor || selectedId) { setReadyBrowse(null); return; }

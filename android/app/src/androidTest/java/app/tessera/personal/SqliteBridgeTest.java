@@ -222,14 +222,19 @@ public class SqliteBridgeTest {
             assertEquals("true", js(scenario, "document.querySelector('.detail .original-content').textContent.startsWith('# Native Markdown **ёж**')"));
         }
     }
+    private void openCatalogTarget(ActivityScenario<MainActivity> scenario, String catalog, String label) throws Exception {
+        String buttons = "[...document.querySelectorAll('[data-catalog=" + catalog + "] button')]";
+        String matches = "b=>b.getAttribute('aria-label')===" + JSONObject.quote(label) + " && !b.disabled";
+        awaitJs(scenario, buttons + ".some(" + matches + ")");
+        js(scenario, buttons + ".find(" + matches + ").click()");
+    }
     @Test public void recordHistoryRestoresAndClearsWithoutLosingCurrentDataAcrossRecreation() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.historyFixture")).nextValue());
-            String libraryButton = JSONObject.quote("Открыть библиотеку «" + scope.getString("library_name") + "»");
-            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.getAttribute('aria-label')===" + libraryButton + ").click()");
-            awaitJs(scenario, "!!document.querySelector('[data-catalog=collections] button:not(:disabled)')");
-            js(scenario, "[...document.querySelectorAll('[data-catalog=collections] button')].find(b=>b.textContent.includes('Редакции')).click()");
+            String libraryButton = "Открыть библиотеку «" + scope.getString("library_name") + "»";
+            openCatalogTarget(scenario, "libraries", libraryButton);
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Редакции»");
             awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Вторая редакция'))");
             js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Вторая редакция')).click()");
             awaitJs(scenario, "!!document.querySelector('.detail')");
@@ -249,9 +254,8 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Подтвердить очистку истории').click()");
             awaitJs(scenario, "document.querySelector('[data-editor] [role=status]')?.textContent==='Сохранённых версий нет.'");
             scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
-            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.getAttribute('aria-label')===" + libraryButton + ").click()");
-            awaitJs(scenario, "!!document.querySelector('[data-catalog=collections] button:not(:disabled)')");
-            js(scenario, "[...document.querySelectorAll('[data-catalog=collections] button')].find(b=>b.textContent.includes('Редакции')).click()");
+            openCatalogTarget(scenario, "libraries", libraryButton);
+            openCatalogTarget(scenario, "collections", "Открыть коллекцию «Редакции»");
             awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Первая редакция'))");
             js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Первая редакция')).click()");
             awaitJs(scenario, "!!document.querySelector('.detail')");
@@ -284,7 +288,7 @@ public class SqliteBridgeTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.navigationFixture")).nextValue());
-            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «Навигация (dev/CI)»");
             awaitJs(scenario, "!document.querySelector('#constructor-toggle').disabled && document.querySelector('h1')?.textContent!=='Библиотеки'");
             configureNavigationStart(scenario, scope);
             js(scenario, "[...document.querySelectorAll('.topbar button')].find(b=>b.textContent==='Все библиотеки').click()");
@@ -320,7 +324,7 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             assertEquals("true", js(scenario, "!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')"));
             JSONObject scope = new JSONObject((String)new JSONTokener(js(scenario, "document.documentElement.dataset.navigationFixture")).nextValue());
-            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «Навигация (dev/CI)»");
             awaitJs(scenario, "!document.querySelector('#constructor-toggle').disabled && document.querySelector('h1')?.textContent!=='Библиотеки'");
             // Other native cases intentionally retain the chosen start across recreation.
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='К коллекциям')?.click()");
@@ -334,9 +338,10 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]') && !!document.querySelector('[data-catalog=collections] .catalog-list') && !document.querySelector('#constructor-toggle').disabled");
             js(scenario, "document.querySelector('#constructor-toggle').click()");
+            awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='false'");
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
             awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
-            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «Навигация (dev/CI)»");
             awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
             awaitJs(scenario, "!!document.querySelector('.entry:not(:disabled)')");
             js(scenario, "document.querySelector('button[aria-label=\"Варианты создания\"]').click()");
@@ -350,7 +355,7 @@ public class SqliteBridgeTest {
             device.pressBack(); awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
             scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
             assertEquals("true", js(scenario, "!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')"));
-            js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
+            openCatalogTarget(scenario, "libraries", "Открыть библиотеку «Навигация (dev/CI)»");
             awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
         }
     }

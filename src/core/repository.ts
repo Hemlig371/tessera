@@ -89,6 +89,7 @@ export class Repository {
       return { datasetId, deviceId };
     });
     const repository = new Repository(db, ids.deviceId, ids.datasetId);
+    await repository.repairUiChangeTypes();
     await repository.prepareSearchKeys();
     await repository.compactHistory();
     await repository.rebuildDerived();
@@ -145,6 +146,10 @@ export class Repository {
     );
   }
   getSyncMode() { return this.db.read(s => syncMode(s)); }
+  /** Repair the old ambiguous transport label without losing events or changing their cursors/payloads. */
+  private repairUiChangeTypes(): Promise<void> {
+    return this.db.transaction(s => s.execute("UPDATE change_log SET entity_type='quick_form' WHERE entity_type='ui_config' AND json_extract(payload,'$.kind')='quick'"));
+  }
   /** Foundation for local protocol tests. Enabling transport is a separate feature. */
   startLocalSync(): Promise<JournalCheckpoint> {
     return this.db.transaction(async s => {
@@ -152,7 +157,7 @@ export class Repository {
       await activateJournal(s);
       const tables = [
         ['libraries', 'library'], ['collections', 'collection'], ['fields', 'field'],
-        ['ui_configs', 'ui_config'], ['quick_forms', 'ui_config'],
+        ['ui_configs', 'ui_config'], ['quick_forms', 'quick_form'],
         ['display_profiles', 'display_profile'], ['creation_presets', 'creation_preset'],
         ['records', 'record'], ['record_versions', 'record_version'],
       ] as const;
@@ -1181,11 +1186,11 @@ export class Repository {
       validateQuickForm(definition, collection, fields, form);
       const config = canonical(definition as unknown as JsonValue);
       const [old] = await s.query<Stamp & { collection_id: string; kind: 'quick'; config: string }>('SELECT * FROM quick_forms WHERE collection_id=?', [collectionId]);
-      if (old) await this.update(s, 'quick_forms', 'ui_config', old, { config, deleted_at: null });
+      if (old) await this.update(s, 'quick_forms', 'quick_form', old, { config, deleted_at: null });
       else {
         const row = { ...(await this.stamp(s)), collection_id: collectionId, kind: 'quick', config };
         await this.insert(s, 'quick_forms', row);
-        await this.log(s, 'ui_config', row, row);
+        await this.log(s, 'quick_form', row, row);
       }
     });
   }

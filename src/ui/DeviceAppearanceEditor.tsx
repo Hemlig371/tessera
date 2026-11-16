@@ -17,6 +17,9 @@ export function DeviceAppearanceEditor({ value, busy, save, cancel }: {
     <label>{t('fontScale')}<select disabled={busy} value={draft.font_scale} onChange={event => setDraft(old => ({ ...old, font_scale: Number(event.target.value) }))}>
       {[1,1.15,1.3,1.5].map(scale => <option key={scale} value={scale}>{Math.round(scale * 100)}%</option>)}
     </select></label>
+    <label>{t('librariesLayout')}<select disabled={busy} value={draft.libraries_layout} onChange={event => setDraft(old => ({ ...old, libraries_layout: event.target.value as DeviceAppearance['libraries_layout'] }))}>
+      <option value="cards">{t('catalogCards')}</option><option value="list">{t('catalogList')}</option>
+    </select></label>
     <div className="form-actions"><button type="button" disabled={busy} onClick={cancel}>{t('cancel')}</button><button className="primary" disabled={busy}>{t('saveDeviceAppearance')}</button></div>
   </form>;
 }

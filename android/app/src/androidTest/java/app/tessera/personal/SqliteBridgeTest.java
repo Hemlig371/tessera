@@ -188,12 +188,12 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='Оформление' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Оформление').click()");
             awaitJs(scenario, "!!document.querySelector('[data-editor] select')");
-            js(scenario, "(()=>{const controls=document.querySelectorAll('[data-editor] select'); for(const [i,value] of ['dark','compact','1.5'].entries()){controls[i].value=value;controls[i].dispatchEvent(new Event('change',{bubbles:true}));}})()");
+            js(scenario, "(()=>{const controls=document.querySelectorAll('[data-editor] select'); for(const [i,value] of ['dark','compact','1.5','list'].entries()){controls[i].value=value;controls[i].dispatchEvent(new Event('change',{bubbles:true}));}})()");
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Сохранить оформление').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]') && document.documentElement.dataset.theme==='dark'");
             scenario.recreate();
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
-            awaitJs(scenario, "document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact' && parseFloat(getComputedStyle(document.documentElement).fontSize)>=22.4");
+            awaitJs(scenario, "document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact' && parseFloat(getComputedStyle(document.documentElement).fontSize)>=22.4 && !!document.querySelector('[data-catalog=libraries] .catalog-list')");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='Оформление').click()");
             awaitJs(scenario, "!!document.querySelector('[data-editor] select')");
             js(scenario, "(()=>{const select=document.querySelector('[data-editor] select');select.value='system';select.dispatchEvent(new Event('change',{bubbles:true}));})()");
@@ -302,6 +302,10 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('[data-catalog=libraries] button')].find(b=>b.textContent.includes('Навигация (dev/CI)')).click()");
             awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
             awaitJs(scenario, "!!document.querySelector('.entry:not(:disabled)')");
+            js(scenario, "document.querySelector('button[aria-label=\"Варианты создания\"]').click()");
+            awaitJs(scenario, "!!document.querySelector('[role=menu]')");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('[role=menu]') && !!document.querySelector('.entry') && !document.querySelector('[data-catalog=collections]')");
             js(scenario, "document.querySelector('.entry').click()"); awaitJs(scenario, "!!document.querySelector('.detail')");
             UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
             device.pressBack(); awaitJs(scenario, "!document.querySelector('.detail') && !!document.querySelector('.entry')");

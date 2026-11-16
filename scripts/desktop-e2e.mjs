@@ -233,11 +233,11 @@ try {
   await clickText('Открыть библиотеку «Native library»');
   await until("document.querySelector('.browse-screen h1')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
   await clickText('Оформление'); await selectOption('Тема', 'Тёмная');
-  await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%');
+  await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%'); await selectOption('Каталог библиотек', 'Список');
   await clickText('Сохранить оформление');
   await until("!document.querySelector('[data-editor]') && document.documentElement.dataset.theme==='dark'");
   await request('DELETE', `/session/${session}`); session = undefined; await start();
-  await until("document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact'");
+  await until("document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact' && !!document.querySelector('[data-catalog=libraries] .catalog-list')");
   assert.equal(await execute("return getComputedStyle(document.documentElement).fontSize"),'22.5px');
   await openLibrary('Native library'); await clickText('Native collection'); await clickText('Форма');
   await until("!!document.querySelector('.row-designer select')");

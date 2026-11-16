@@ -344,5 +344,7 @@
   "pinLibraryShortcut": "Ярлык библиотеки",
   "libraryShortcutRequested": "Запрос на добавление ярлыка отправлен. Подтвердите его в системном диалоге, если он появится.",
   "libraryLaunchPending": "Библиотека из ярлыка откроется после закрытия текущей формы.",
-  "startDefaultProfile": "Профиль по умолчанию"
+  "startDefaultProfile": "Профиль по умолчанию",
+  "librariesLayout": "Каталог библиотек",
+  "closeNavigation": "Закрыть навигацию"
 }

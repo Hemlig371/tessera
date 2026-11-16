@@ -600,6 +600,7 @@ td {
 .csv-panel > fieldset > p {
   font-size: 0.86667rem;
 }
+.sidebar-close { display: none; }
 @media (max-width: 760px) {
   main {
     padding: 14px 16px 28px;
@@ -610,18 +611,20 @@ td {
   .nav-open .sidebar {
     display: flex;
     position: fixed;
-    top: 70px;
+    top: 0;
     bottom: 0;
     left: 0;
     width: 100%;
-    z-index: 5;
+    z-index: 7;
     padding: 22px;
     background: var(--panel);
     overflow: auto;
   }
   .nav-open main {
     width: 100%;
+    visibility: hidden;
   }
+  .nav-open .sidebar-close { display: block; align-self: flex-start; margin-bottom: 16px; }
   .nav-toggle {
     display: block;
   }

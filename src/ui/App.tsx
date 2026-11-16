@@ -639,6 +639,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   return (
     <div className={'app' + (ui.navOpen ? ' nav-open' : '')}>
       <aside className="sidebar">
+        <button className="sidebar-close" onClick={() => useUi.setState({ navOpen: false })}>{t('closeNavigation')}</button>
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
             ▦
@@ -857,7 +858,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           </div>
         )}
         {ui.screen === 'libraries' ? (
-          <Catalog kind="libraries" items={libraries} busy={disabled} open={id => { void openLibrary(id, true); }} create={() => open('library')} />
+          <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} create={() => open('library')} />
         ) : ui.screen === 'library' && library ? (
           <Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
             busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} create={() => open('collection')} />

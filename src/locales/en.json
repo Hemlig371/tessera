@@ -344,5 +344,7 @@
   "pinLibraryShortcut": "Pin library shortcut",
   "libraryShortcutRequested": "The shortcut request was sent. Confirm it in the system dialog if prompted.",
   "libraryLaunchPending": "The shortcut library will open after the current form is closed.",
-  "startDefaultProfile": "Default display profile"
+  "startDefaultProfile": "Default display profile",
+  "librariesLayout": "Library catalog",
+  "closeNavigation": "Close navigation"
 }

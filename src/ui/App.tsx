@@ -1028,7 +1028,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                             </div>
                           ) : (
                             <span className="entry-summary">
-                              <strong>{row.title || t('unset')}</strong>
+                              <strong>{(row.collection_system_kind === 'inbox' ? splitInboxMarkdown(row.title).title : row.title) || t('unset')}</strong>
                               <small>{row.collection_system_kind === 'inbox' ? t('inbox') : row.collection_name}</small>
                             </span>
                           )}

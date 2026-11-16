@@ -181,6 +181,7 @@ export class Repository {
   }
   async discardAttachmentStages(ownerId: string, keep: readonly string[] = []): Promise<void> {
     requireId(ownerId); keep.forEach(requireId); const retained = new Set(keep);
+    if (!(await this.db.read(s => s.query('SELECT id FROM attachment_staging WHERE owner_id=? LIMIT 1', [ownerId]))).length) return;
     await this.db.transaction(async s => {
       const rows = await s.query<{ id: string }>('SELECT id FROM attachment_staging WHERE owner_id=?', [ownerId]);
       for (const row of rows) if (!retained.has(row.id)) await s.execute('INSERT INTO attachment_gc(id,staged) VALUES(?,1) ON CONFLICT(id) DO NOTHING', [row.id]);
@@ -330,7 +331,19 @@ export class Repository {
       await this.db.transaction(async s => { await this.attachmentOwner(s, ownerId); await this.attachmentPresence(s, id, true, 'present'); });
     } finally {
       await files.remove(id, true);
-      if (!published && await files.stat(id) === null) await this.db.transaction(s => s.execute("UPDATE attachment_local SET state='missing' WHERE id=? AND state='copying'", [id]));
+      const missing = !published && await files.stat(id) === null;
+      const purged = await this.db.transaction(async s => {
+        const [meta] = await s.query<{ purged: number }>('SELECT purged FROM attachments WHERE id=?', [id]);
+        if (meta?.purged) {
+          // Purge may have drained its earlier job before this copy published its final file.
+          await s.execute('INSERT INTO attachment_gc VALUES(?,0) ON CONFLICT(id) DO NOTHING', [id]);
+          await s.execute("UPDATE attachment_local SET state='deleting' WHERE id=?", [id]);
+          return true;
+        }
+        if (missing) await s.execute("UPDATE attachment_local SET state='missing' WHERE id=? AND state='copying'", [id]);
+        return false;
+      });
+      if (purged) await this.collectAttachmentFiles();
     }
   }
   getDeviceAppearance(): Promise<DeviceAppearance> {

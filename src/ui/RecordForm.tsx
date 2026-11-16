@@ -66,7 +66,7 @@ export function RecordForm({
     if (!creating && ownerId) void api.discardAttachmentStages(ownerId).then(() => { if (active.current) setFileReady(true); }).catch(e => { if (active.current) setFileError(errorKey(e)); });
     const stop = async () => { controllers.current.forEach(controller => controller.abort()); await Promise.allSettled([...transfers.current]); if (!creating && ownerId) await api.discardAttachmentStages(ownerId); };
     registerFileClose?.(stop);
-    return () => { active.current = false; ownedControllers.forEach(controller => controller.abort()); registerFileClose?.(null); if (!creating && ownerId) void api.discardAttachmentStages(ownerId).catch(() => {}); };
+    return () => { active.current = false; ownedControllers.forEach(controller => controller.abort()); registerFileClose?.(null); };
     // A form is keyed by its owner/HLC; busy/validation updates must not reset in-flight uploads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

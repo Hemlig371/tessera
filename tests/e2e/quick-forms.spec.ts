@@ -47,4 +47,5 @@ test('mobile quick form inherits hidden defaults, cancels without writes and has
   await expect(page.getByRole('spinbutton', { name: 'Количество' })).toHaveValue('7');
   await expect(page.getByRole('textbox', { name: 'Заметка' })).toBeVisible();
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
 });

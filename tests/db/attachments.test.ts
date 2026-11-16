@@ -144,6 +144,20 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     f.files.remove = remove;
     expect(await api.collectAttachmentFiles()).toEqual({ removed: 50, pending: 0 });
   });
+  it('cannot republish bytes when the record is purged during manual copy restoration', async () => {
+    const { api, collection, file, owner } = await setup(), input = source();
+    const staged = await api.stageAttachment(collection.id, owner, input);
+    await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'Гонка удаления', [file.id]: [staged.id] }, owner);
+    await api.removeAttachmentCopy(staged.id, owner, true);
+    await expect(api.restoreAttachmentCopy(staged.id, owner, { ...input, read: async (offset, length) => {
+      await api.setDeleted('record', owner, true);
+      await api.purgeEntry(owner, (await api.queryTrash()).items.find(row => row.id === owner)!.hlc);
+      return input.read(offset, length);
+    } })).rejects.toThrow('staleRecord');
+    expect(await f.files.stat(staged.id)).toBeNull();
+    expect((await api.collectAttachmentFiles()).pending).toBe(0);
+    expect(await api.getHistory(owner)).toMatchObject({ versions: [] });
+  });
   it('preserves references through an Inbox move and round-trip version restore', async () => {
     const { api, collection, owner } = await setup(), inbox = await api.getInbox();
     const file = (await api.listFields(inbox.id)).find(field => field.type === 'file')!;

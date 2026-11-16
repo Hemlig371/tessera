@@ -23,6 +23,10 @@ test('history preview and Back write nothing; explicit restore creates one versi
   await expect(page.locator('.history-versions button')).toHaveCount(2);
   await page.locator(`[data-version-id="${scope.first_version_id}"]`).click();
   await expect(page.getByRole('region', { name: 'Состояние версии', exact: true })).toContainText('Первая редакция');
+  await expect(page.locator('.history-snapshot dt').filter({ hasText: /^Текст снимка$/ })).toHaveCount(1);
+  await expect(page.locator('.history-snapshot')).toContainText('Коллекция: Редакции');
+  await expect(page.locator('.history-snapshot')).toContainText('Конец полного снимка **без усечения**');
+  await expect(page.locator('.history-snapshot script')).toHaveCount(0);
   // Re-selecting the same version keeps its field labels and hidden unknown values.
   await page.locator(`[data-version-id="${scope.first_version_id}"]`).click();
   await expect(page.locator('.history-snapshot dt').filter({ hasText: /^Название$/ })).toHaveCount(1);

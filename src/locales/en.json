@@ -362,5 +362,6 @@
   "confirmClearHistory": "Confirm clearing history",
   "clearHistoryHint": "Current records remain. Cleared versions cannot be restored; synchronization propagates the clear to other devices.",
   "clearAllHistory": "Clear all history",
-  "clearAllHistoryHint": "This clears the retained versions of every record in this database."
+  "clearAllHistoryHint": "This clears the retained versions of every record in this database.",
+  "historyCollection": "Collection"
 }

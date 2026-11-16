@@ -4,10 +4,12 @@ import type { Repository } from '../../src/core/repository';
 export async function historyFixture(api: Repository) {
   const library = await api.createLibrary('История (dev/CI) ' + crypto.randomUUID().slice(0, 8));
   const collection = await api.createCollection(library.id, 'Редакции', 'Название');
+  const markdown = await api.createField(collection.id, 'Текст снимка', 'markdown');
+  const originalMarkdown = '## Исходный текст\n\n' + 'Длинный фрагмент. '.repeat(40) + '\n\nКонец полного снимка **без усечения** <script>window.historyInjected=true</script>';
   const unknown = crypto.randomUUID();
-  let entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Первая редакция', [unknown]: { historical: true } });
+  let entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Первая редакция', [unknown]: { historical: true }, [markdown.id]: originalMarkdown });
   const firstVersion = (await api.getHistory(entry.id)).versions[0]!;
-  entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Вторая редакция' }, entry.id, entry.hlc);
+  entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Вторая редакция', [markdown.id]: 'Текущий текст' }, entry.id, entry.hlc);
   const other = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Другая запись' });
   return { library_id: library.id, library_name: library.name, collection_id: collection.id, field_id: collection.primary_field_id,
     record_id: entry.id, first_version_id: firstVersion.id, other_id: other.id, unknown_id: unknown };

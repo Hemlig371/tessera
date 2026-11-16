@@ -240,7 +240,7 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
             awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===2");
             js(scenario, "document.querySelector('[data-version-id=\"" + scope.getString("first_version_id") + "\"]').click()");
-            awaitJs(scenario, "document.querySelector('.history-snapshot')?.textContent.includes('Первая редакция')");
+            awaitJs(scenario, "document.querySelector('.history-snapshot')?.textContent.includes('Текст снимка') && document.querySelector('.history-snapshot').textContent.includes('Конец полного снимка **без усечения**') && !document.querySelector('.history-snapshot script')");
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Восстановить эту версию').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelector('.detail #record-title')?.textContent==='Первая редакция'");
             js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");

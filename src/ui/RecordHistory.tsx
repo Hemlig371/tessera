@@ -46,13 +46,13 @@ export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
         </li>)}
       </ol>
       {version && <section key={version.id} aria-label={t('versionSnapshot')} className="history-snapshot">
-        <p>{t('selectedCollection')}: {collectionName ?? version.snapshot.collection_id}</p>
+        <p>{t('historyCollection')}: {collectionName ?? version.snapshot.collection_id}</p>
         <small>{t('versionSavedAt')}: {savedAt(version.saved_at)}</small>
         <dl>{Object.entries(version.snapshot.data).map(([id, value]) => {
           const field = fields.find(value => value.id === id);
           return <div key={id}><dt>{field?.name ?? id}</dt><dd>
             {!field || field.type === 'secret' ? <details><summary>{t('showHistoricalValue')}</summary><pre>{rawValue(value)}</pre></details>
-              : <pre>{typeof value === 'object' ? rawValue(value) : format(field, value)}</pre>}
+              : <pre>{typeof value === 'object' || field.type === 'markdown' ? rawValue(value) : format(field, value)}</pre>}
           </dd></div>;
         })}</dl>
         <button className="primary" disabled={busy} onClick={() => restore(version.id)}>{t('restoreVersion')}</button>

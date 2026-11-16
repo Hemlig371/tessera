@@ -127,7 +127,7 @@ export function LayoutEditor({
                     onChange={(e) => patch(field.id, { hint: e.target.value })}
                   />
                 </label>
-                <label className="check">
+                {!['file','image'].includes(field.type) && <>                <label className="check">
                   <input
                     type="checkbox"
                     checked={Object.hasOwn(item, 'default')}
@@ -145,7 +145,7 @@ export function LayoutEditor({
                     }}
                   />
                   {t('overrideDefault')}
-                </label>
+                </label></>}
                 {Object.hasOwn(item, 'default') &&
                   (field.type === 'relation' ? (
                     <RelationInput
@@ -192,7 +192,7 @@ export function LayoutEditor({
             >
               <option value="updated_at">{t('updatedAt')}</option>
               {fields
-                .filter((f) => !['relation', 'backlink'].includes(f.type))
+                .filter((f) => !['relation', 'backlink', 'file', 'image'].includes(f.type))
                 .map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -218,7 +218,7 @@ export function LayoutEditor({
             >
               <option value="">{t('noGrouping')}</option>
               {fields
-                .filter((f) => !['relation', 'backlink'].includes(f.type))
+                .filter((f) => !['relation', 'backlink', 'file', 'image'].includes(f.type))
                 .map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -259,7 +259,7 @@ export function LayoutEditor({
                     });
                   }}
                 >
-                  {(['relation', 'backlink'].includes(
+                  {(['file', 'image'].includes(fields.find((field) => field.id === f.field_id)?.type ?? '') ? ['empty', 'filled'] : ['relation', 'backlink'].includes(
                     fields.find((field) => field.id === f.field_id)?.type ?? ''
                   )
                     ? ['eq', 'ne', 'empty', 'filled']
@@ -274,7 +274,7 @@ export function LayoutEditor({
               {!['empty', 'filled'].includes(f.op) && (
                 <FieldInput
                   field={
-                    ['relation', 'backlink'].includes(
+                    ['relation', 'backlink', 'file', 'image'].includes(
                       fields.find((field) => field.id === f.field_id)?.type ?? ''
                     )
                       ? { ...fields.find((field) => field.id === f.field_id)!, type: 'text' }

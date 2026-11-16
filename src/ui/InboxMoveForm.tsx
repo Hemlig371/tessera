@@ -5,8 +5,9 @@ import type { Repository } from '../core/repository';
 import { RecordForm } from './RecordForm';
 import { ErrorMessage, errorKey } from './common';
 
-export function InboxMoveForm({ api, entry, libraries, busy, cancel, save }: {
+export function InboxMoveForm({ api, entry, libraries, busy, cancel, save, registerFileClose }: {
   api: Repository; entry: Entry; libraries: Library[]; busy: boolean;
+  registerFileClose?: (close: (() => Promise<void>) | null) => void;
   cancel: () => void; save: (collectionId: string, data: RecordData) => void;
 }) {
   const { t } = useTranslation();
@@ -54,7 +55,7 @@ export function InboxMoveForm({ api, entry, libraries, busy, cancel, save }: {
       {context.mapping_status !== 'none' && <p role="status">{t(context.mapping_status === 'split' ? 'inboxMarkdownMapped' : 'inboxMappingFallback')}</p>}
       <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.original}</pre></details>
     </>}
-    {context ? <RecordForm key={context.collection.id} api={api} collection={context.collection} creating={false}
+    {context ? <RecordForm key={context.collection.id} api={api} collection={context.collection} creating={false} attachmentOwnerId={entry.id} registerFileClose={registerFileClose}
       fields={context.fields} layout={context.layout} initialData={context.initial} busy={busy} cancel={cancel}
       save={data => save(context.collection.id, data)} />
       : <button type="button" disabled={busy} onClick={cancel}>{t('cancel')}</button>}

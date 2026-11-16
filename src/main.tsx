@@ -1,3 +1,4 @@
+import { openBinaryFiles } from './platform/binary-files';
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +15,7 @@ import type { DraftStore } from './core/drafts';
 // One bootstrap per WebView, including React re-renders. No browser storage fallback.
 async function bootstrap() {
   const db = await openDatabase();
-  try { await checkSqlite(db); await migrate(db); return { api: await Repository.open(db), drafts: await openDraftStore() }; }
+  try { await checkSqlite(db); await migrate(db); return { api: await Repository.open(db, openBinaryFiles()), drafts: await openDraftStore() }; }
   catch (e) { await db.close(); throw e; }
 }
 const boot = bootstrap();

@@ -1,3 +1,6 @@
+import { attachmentFixture } from './attachments-scenario';
+import { createReadStream } from 'node:fs';
+import { nodeBinaryFiles } from './node-binary-files';
 import { historyFixture } from './history-scenario';
 import { createKnowledgeFixture } from '../fixtures/knowledge';
 import { layoutScenario } from './layout-scenario';
@@ -35,6 +38,7 @@ export function e2ePlugin(): Plugin {
       if (source === '../platform/external-actions' && importer?.endsWith('/src/ui/MarkdownView.tsx')) return resolve('tests/support/external-actions-e2e.ts');
       if (source === '../platform/csv-files' && importer?.endsWith('/src/ui/CsvPanel.tsx'))
         return resolve('tests/support/csv-files-e2e.ts');
+      if (source === './platform/binary-files' && importer?.endsWith('/src/main.tsx')) return resolve('tests/support/binary-files-e2e.ts');
       if (source === './platform/open' && importer?.endsWith('/src/main.tsx'))
         return resolve('tests/support/open-e2e.ts');
       if (source === './platform/local-files' && importer?.endsWith('/src/main.tsx'))
@@ -45,6 +49,13 @@ export function e2ePlugin(): Plugin {
       db = await openNodeDatabase(resolve(directory, 'app.sqlite'));
       server.httpServer?.on('close', () => {
         void cleanup();
+      });
+      const files = nodeBinaryFiles(directory), exports = new Map<string, string>();
+      server.middlewares.use('/__test-file-export', (req, res) => {
+        const id = new URL(req.url ?? '', 'http://127.0.0.1:1420').searchParams.get('id'), name = id ? exports.get(id) : null;
+        if (!id || !name || req.method !== 'GET') { res.statusCode = 404; res.end(); return; }
+        res.setHeader('Content-Type', 'application/octet-stream'); res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(name));
+        const stream = createReadStream(resolve(directory, 'exports', id)); stream.on('error', () => { res.statusCode = 500; res.end(); }); stream.pipe(res);
       });
       server.middlewares.use('/__test-sqlite', async (req, res) => {
         // Bound to loopback; reject cross-origin requests. Never shipped in application.
@@ -65,7 +76,24 @@ export function e2ePlugin(): Plugin {
             params = [],
             path,
             bytes,
-          } = JSON.parse(body) as { op: string; sql: string; params?: SqlValue[]; path?: string; bytes?: number[] };
+            file,
+          } = JSON.parse(body) as { op: string; sql: string; params?: SqlValue[]; path?: string; bytes?: number[]; file?: { id: string; offset: number; data: string; size: number; sha256?: string; length: number; staged: boolean; name: string; mime: string } };
+          if (op.startsWith('binary-')) {
+            if (!file) throw new Error('fileError');
+            let value: unknown;
+            switch (op) {
+              case 'binary-begin': value = await files.begin(file.id); break;
+              case 'binary-write': value = await files.write(file.id, file.offset, Buffer.from(file.data, 'base64')); break;
+              case 'binary-finish': value = await files.finish(file.id, file.size, file.sha256); break;
+              case 'binary-stat': value = await files.stat(file.id); break;
+              case 'binary-inspect': value = await files.inspect(file.id); break;
+              case 'binary-read': value = Buffer.from(await files.read(file.id, file.offset, file.length)).toString('base64'); break;
+              case 'binary-remove': value = await files.remove(file.id, file.staged); break;
+              case 'binary-export': value = await files.export(file.id, file.name, file.mime, { size: file.size, sha256: file.sha256! }); exports.set(file.id, file.name); break;
+              default: throw new Error('fileError');
+            }
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value: value ?? null })); return;
+          }
           if (op.startsWith('local-')) {
             if (!path || path.split('/').some(part => !/^[A-Za-z0-9_.-]+$/.test(part) || part === '.' || part === '..')) throw new Error('fileError');
             const target = resolve(directory, 'operational', path);
@@ -103,6 +131,16 @@ export function e2ePlugin(): Plugin {
             const collection = await api.getCollection(entry.collection_id);
             const value = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Конкурентная правка' }, entry.id, entry.hlc);
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
+          if (op === 'attachment-seed') {
+            const value = await attachmentFixture(await Repository.open(db, files));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
+          if (op === 'attachment-corrupt') {
+            const id = String(params[0]);
+            if (!/^[a-f0-9-]{36}$/.test(id)) throw new Error('invalidId');
+            await writeFile(resolve(directory, 'attachments', id.slice(0,2), id), new Uint8Array([4,3,2,1]));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value: true })); return;
           }
           if (op === 'history-seed') {
             const value = await historyFixture(await Repository.open(db));

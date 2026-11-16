@@ -1,4 +1,4 @@
-import { attachmentLimit, attachmentRow, bindAttachments, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
+import { attachmentLimit, attachmentRow, bindAttachments, dataFileCandidates, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
 import { libraryNavigation, navigationLibrary, resolveLibraryStart, validLibraryLocation, validateLibraryNavigation, type LibraryLocation, type LibraryNavigation } from './library-navigation';
 import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
@@ -231,6 +231,16 @@ export class Repository {
     return { removed, pending: count!.n };
   }
   getAttachmentLimit(): Promise<number> { return this.db.read(attachmentLimit); }
+  /** References retained after an Inbox move or field removal remain usable outside the current field layout. */
+  unmappedAttachments(entry: Entry): Promise<string[]> {
+    requireId(entry.id); requireId(entry.collection_id);
+    return this.db.read(async s => {
+      const fields = new Set((await s.query<{ id: string }>('SELECT id FROM fields WHERE collection_id=? AND deleted_at IS NULL', [entry.collection_id])).map(field => field.id));
+      const unknown = dataFileCandidates(Object.fromEntries(Object.entries(entry.data).filter(([id]) => !fields.has(id))));
+      const rows = await s.query<{ id: string }>('SELECT id FROM attachments WHERE record_id=? AND purged=0 ORDER BY created_at,id', [entry.id]);
+      return rows.filter(file => unknown.has(file.id)).map(file => file.id);
+    });
+  }
   saveAttachmentLimit(bytes: number): Promise<void> {
     if (!Number.isSafeInteger(bytes) || bytes < 0) throw new AppError('invalidAttachmentLimit');
     return this.db.transaction(async s => {

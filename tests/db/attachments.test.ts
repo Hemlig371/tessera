@@ -152,8 +152,10 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     const original = (await api.getHistory(owner)).versions[0]!;
     entry = await api.moveInboxEntry(owner, collection.id, {}, entry.hlc);
     expect(entry.data[file.id]).toEqual([staged.id]); expect((await api.getAttachmentView(staged.id, owner)).status).toBe('present');
+    expect(await api.unmappedAttachments(entry)).toEqual([staged.id]);
     entry = await api.restoreEntryVersion(owner, original.id, entry.hlc);
     expect(entry.collection_id).toBe(inbox.id); expect(entry.data[file.id]).toEqual([staged.id]);
+    expect(await api.unmappedAttachments(entry)).toEqual([]);
   });
   it('rejects truncated input and cancellation without records/log/versions, and recovers the crash window after atomic file publication', async () => {
     const { api, collection, owner } = await setup(); const before = await clocks();

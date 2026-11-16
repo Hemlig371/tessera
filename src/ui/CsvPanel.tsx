@@ -69,7 +69,7 @@ export function CsvPanel({
         if (!signal.aborted) setStatus(t(phase === 'reading' ? 'csvReading' : phase === 'header' ? 'csvDetecting' : 'csvParsing', { percent }));
       });
       setDoc(parsed); setDelimiter(parsed.delimiter);
-      setMapping(parsed.headers.map(header => fields.find(field => field.type !== 'backlink' && field.name.toLocaleLowerCase(locale) === header.trim().toLocaleLowerCase(locale))?.id ?? null));
+      setMapping(parsed.headers.map(header => fields.find(field => !['backlink','file','image'].includes(field.type) && field.name.toLocaleLowerCase(locale) === header.trim().toLocaleLowerCase(locale))?.id ?? null));
       setStatus(t('csvFileReady', { count: parsed.rows.length }));
     });
   }
@@ -167,7 +167,7 @@ export function CsvPanel({
                 >
                   <option value="">{t('skipColumn')}</option>
                   {fields
-                    .filter((f) => f.type !== 'backlink')
+                    .filter((f) => !['backlink','file','image'].includes(f.type))
                     .map((f) => (
                       <option key={f.id} value={f.id}>
                         {f.name}

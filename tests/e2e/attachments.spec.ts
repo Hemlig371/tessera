@@ -1,0 +1,118 @@
+import { expect, test, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+type Scope = { library_name: string; library_id: string; collection_id: string; file_id: string; image_id: string };
+const bytes = Buffer.from([0,255,2,3]), filename = 'Документ — длинное название с пробелами и символами 🦔.bin';
+async function rows(page: Page, sql: string) {
+  const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql } });
+  expect(response.ok(), await response.text()).toBe(true); return (await response.json()).value;
+}
+async function seed(page: Page): Promise<Scope> {
+  await page.goto('/'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  const response = await page.request.post('/__test-sqlite', { data: { op: 'attachment-seed' } }); expect(response.ok(), await response.text()).toBe(true);
+  const scope = (await response.json()).value as Scope; await page.reload();
+  await page.getByRole('button', { name: `Открыть библиотеку «${scope.library_name}»`, exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Материалы с файлами»', exact: true }).click(); return scope;
+}
+const snapshot = (page: Page) => rows(page, "SELECT (SELECT count(*) FROM records) AS records,(SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log) AS changes,(SELECT value FROM local_settings WHERE key='hlc') AS hlc");
+async function create(page: Page, scope: Scope) {
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await page.getByLabel('Название', { exact: true }).fill('Материал с вложением');
+  await page.getByLabel('Документы', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: bytes });
+  await expect(page.locator('[data-attachment-id]').filter({ hasText: filename })).toBeVisible();
+  await expect(page.locator('[data-editor]').getByRole('button', { name: 'Сохранить', exact: true })).toBeEnabled();
+  await page.locator('[data-editor]').getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await page.locator('.entry').filter({ hasText: 'Материал с вложением' }).click();
+  await expect(page.locator('.detail [data-attachment-id]').filter({ hasText: filename })).toBeVisible();
+  const id = await page.locator('.detail [data-attachment-id]').getAttribute('data-attachment-id');
+  const [record] = await rows(page, `SELECT id,hlc FROM records WHERE collection_id='${scope.collection_id}'`); return { id: id!, record: record as { id: string; hlc: string } };
+}
+test('creation draft keeps staged bytes across close/reload; Save binds once; edit Cancel changes no user state', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); const scope = await seed(page), before = await snapshot(page);
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click(); await page.getByLabel('Название', { exact: true }).fill('Материал с вложением');
+  await page.getByLabel('Документы', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: bytes });
+  await expect(page.locator('[data-attachment-id]').filter({ hasText: filename })).toBeVisible(); await expect(page.getByText('Копия на этом устройстве', { exact: true })).toBeVisible();
+  expect(await snapshot(page)).toEqual(before);
+  await page.locator('[data-editor]').getByRole('button', { name: 'Закрыть', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0); expect(await snapshot(page)).toEqual(before);
+  await page.reload(); await page.getByRole('button', { name: `Открыть библиотеку «${scope.library_name}»`, exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Материалы с файлами»', exact: true }).click();
+  await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await expect(page.getByLabel('Название', { exact: true })).toHaveValue('Материал с вложением'); await expect(page.locator('[data-attachment-id]').filter({ hasText: filename })).toBeVisible();
+  await page.locator('[data-editor]').getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  const saved = await snapshot(page); expect(saved[0].records).toBe(before[0].records + 1); expect(saved[0].versions).toBe(before[0].versions + 1);
+  await page.locator('.entry').filter({ hasText: 'Материал с вложением' }).click(); await page.getByRole('button', { name: 'Редактировать', exact: true }).click();
+  await expect(page.getByLabel('Документы', { exact: true })).toBeEnabled();
+  await page.getByLabel('Документы', { exact: true }).setInputFiles({ name: 'Несохранённый.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([7,8,9]) });
+  await expect(page.locator('[data-editor] [data-attachment-id]').filter({ hasText: 'Несохранённый.bin' })).toBeVisible();
+  await page.locator('[data-editor]').getByRole('button', { name: 'Отмена', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  expect(await snapshot(page)).toEqual(saved); await expect(page.locator('.detail [data-attachment-id]').filter({ hasText: 'Несохранённый.bin' })).toHaveCount(0);
+  expect(await rows(page, 'SELECT * FROM attachment_staging')).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('exported bytes match, sole-copy deletion requires confirmation, wrong replacement is rejected and the original restores', async ({ page }) => {
+  const scope = await seed(page), file = await create(page, scope), before = await snapshot(page);
+  const item = page.locator(`[data-attachment-id="${file.id}"]`);
+  const download = page.waitForEvent('download'); await item.getByRole('button', { name: 'Экспортировать копию', exact: true }).click();
+  const exported = await download; expect(await readFile((await exported.path())!)).toEqual(bytes);
+  await item.getByRole('button', { name: 'Удалить локальную копию', exact: true }).click();
+  await expect(item.getByText(/единственная известная копия/)).toBeVisible();
+  await item.getByRole('button', { name: 'Отмена', exact: true }).click(); await expect(item.getByText('Копия на этом устройстве', { exact: true })).toBeVisible();
+  await item.getByRole('button', { name: 'Удалить локальную копию', exact: true }).click(); await item.getByRole('button', { name: 'Подтвердить удаление копии', exact: true }).click();
+  await expect(item.getByText('Локальной копии нет', { exact: true })).toBeVisible();
+  const restore = item.getByLabel(`Выбрать исходный файл «${filename}»`, { exact: true });
+  await restore.setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: Buffer.from([9,9,9,9]) });
+  await expect(item.getByRole('alert')).toContainText('SHA-256'); await expect(item.getByText('Локальной копии нет', { exact: true })).toBeVisible();
+  await restore.setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: bytes });
+  await expect(item.getByText('Копия на этом устройстве', { exact: true })).toBeVisible();
+  // File presence changes have their own metadata. They never save a record or user version.
+  const after = await snapshot(page); expect(after[0].records).toBe(before[0].records); expect(after[0].versions).toBe(before[0].versions);
+  expect(await rows(page, `SELECT id,hlc FROM records WHERE id='${file.record.id}'`)).toEqual([file.record]);
+});
+test('small image preview is inert, settings persist and record purge removes attachment bytes and history', async ({ page }) => {
+  await seed(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
+  await page.getByLabel('Название', { exact: true }).fill('Изображение');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB9kAAAAASUVORK5CYII=', 'base64');
+  await page.getByLabel('Фото', { exact: true }).setInputFiles({ name: 'Фото.png', mimeType: 'image/png', buffer: png });
+  await expect(page.locator('[data-attachment-id]').filter({ hasText: 'Фото.png' })).toBeVisible();
+  await page.locator('[data-editor]').getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await page.locator('.entry').filter({ hasText: 'Изображение' }).click();
+  const image = page.locator('.detail [data-attachment-id]'), id = await image.getAttribute('data-attachment-id');
+  await image.getByRole('button', { name: 'Показать изображение', exact: true }).click();
+  await expect(image.getByRole('img', { name: 'Фото.png' })).toHaveAttribute('src', /^blob:/); await expect(image.locator('script,iframe')).toHaveCount(0);
+  await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click(); await expect(page.locator('.detail')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Корзина', exact: true }).click();
+  const row = page.locator('.trash-list > li').filter({ hasText: 'Изображение' });
+  await row.getByRole('button', { name: 'Удалить окончательно', exact: true }).click(); await row.getByRole('button', { name: 'Подтвердить окончательное удаление', exact: true }).click();
+  await expect(row).toHaveCount(0); expect(await rows(page, `SELECT name,purged FROM attachments WHERE id='${id}'`)).toEqual([{ name: '', purged: 1 }]);
+  const check = await page.request.post('/__test-sqlite', { data: { op: 'binary-stat', file: { id } } }); expect((await check.json()).value).toBeNull();
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+  await page.locator('#constructor-toggle').click(); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
+  await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toHaveValue('10');
+  await page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true }).fill('1'); await page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0); await page.reload();
+  await page.locator('#constructor-toggle').click(); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
+  await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toHaveValue('1');
+});
+test('Inbox file stays usable after moving to a different field schema and after reopening', async ({ page }) => {
+  const scope = await seed(page);
+  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await page.getByLabel('Содержимое', { exact: true }).fill('Входящий документ');
+  await page.getByLabel('Вложения', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: bytes });
+  await expect(page.getByText('Копия на этом устройстве', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await page.locator('.entry').filter({ hasText: 'Входящий документ' }).click();
+  await page.getByRole('button', { name: 'Перенести в коллекцию', exact: true }).click();
+  await page.getByLabel('Библиотека назначения').selectOption(scope.library_id);
+  await page.getByLabel('Коллекция назначения').selectOption(scope.collection_id);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Вложения из прежних полей', exact: true }).getByText(filename, { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: `Открыть библиотеку «${scope.library_name}»`, exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Материалы с файлами»', exact: true }).click();
+  await page.locator('.entry').filter({ hasText: 'Входящий документ' }).click();
+  const retained = page.getByRole('region', { name: 'Вложения из прежних полей', exact: true });
+  await expect(retained.getByText(filename, { exact: true })).toBeVisible();
+  const download = page.waitForEvent('download'); await retained.getByRole('button', { name: 'Экспортировать копию', exact: true }).click();
+  expect(await readFile((await (await download).path())!)).toEqual(bytes);
+});

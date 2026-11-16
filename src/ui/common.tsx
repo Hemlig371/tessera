@@ -56,6 +56,7 @@ export function FieldInput({
   const { t } = useTranslation();
   const text = value == null ? '' : String(value);
   const attrs = { disabled, 'aria-label': label ?? field.name };
+  if (['file','image'].includes(field.type)) return <small>{t('fileDefaultsUnavailable')}</small>;
   if (field.type === 'boolean')
     return (
       <select
@@ -98,6 +99,7 @@ export function FieldInput({
 export function useFormatValue() {
   const { t, i18n } = useTranslation();
   return (field: Field, value: JsonValue | undefined): string => {
+    if (['file','image'].includes(field.type)) return Array.isArray(value) && value.length ? t('attachmentCount', { count: value.length }) : t('noAttachments');
     if (value == null || value === '') return t('unset');
     if (field.type === 'markdown' && typeof value === 'string') return markdownPreview(value);
     if (typeof value === 'boolean') return t(value ? 'yes' : 'no');

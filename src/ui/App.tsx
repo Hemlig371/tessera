@@ -1,5 +1,8 @@
 import { quickLayout } from '../core/quick-forms';
 import { Catalog } from './Catalog';
+import { AttachmentSettings } from './AttachmentSettings';
+import { AttachmentList } from './AttachmentList';
+import { fileIds, isFile } from '../core/attachments';
 import { Trash } from './Trash';
 import { RecordHistory } from './RecordHistory';
 import { LibraryStartEditor } from './LibraryStartEditor';
@@ -53,12 +56,13 @@ const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { field
   UiKind,
   UiDefinition
 >;
-type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition>; inboxOriginal?: string | null };
+type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition>; inboxOriginal?: string | null; unmappedAttachments: string[] };
 type BrowsePosition = { token: string; count: number; documentTop: number; listTop: number; focus: HTMLElement | null; focusId?: string };
 export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const { t, i18n } = useTranslation(),
     format = useFormatValue(),
     ui = useUi();
+  const [fileCleanupPending, setFileCleanupPending] = useState(0);
   const [appearance, setAppearance] = useState(defaultAppearance);
   const [appearanceReady, setAppearanceReady] = useState(false);
   const [shortcutAvailable, setShortcutAvailable] = useState(false), [shortcutRequested, setShortcutRequested] = useState(false);
@@ -67,7 +71,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   useAppearance(appearance);
   useEffect(() => { let active = true; void api.getDeviceAppearance().then(value => { if (active) setAppearance(value); }).catch(error => { if (active) setError(errorKey(error)); }).finally(() => { if (active) setAppearanceReady(true); }); return () => { active = false; }; }, [api]);
   useEffect(() => {
-    const cleanup = () => { if (!document.hidden) void api.cleanTrash().then(count => { if (count) refresh(value => value + 1); }).catch(e => setError(errorKey(e))); };
+    const cleanup = () => { if (!document.hidden) void api.cleanTrash().then(async count => { const files = await api.collectAttachmentFiles(); setFileCleanupPending(files.pending); if (count) refresh(value => value + 1); }).catch(e => setError(errorKey(e))); };
+    void api.collectAttachmentFiles().then(result => setFileCleanupPending(result.pending)).catch(e => setError(errorKey(e)));
     const stop = drafts.lifecycle.subscribe(state => { if (state === 'active') cleanup(); });
     const timer = window.setInterval(cleanup, 5 * 60 * 1000);
     return () => { stop(); window.clearInterval(timer); };
@@ -83,6 +88,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   const [draftRecoveryPath, setDraftRecoveryPath] = useState<string | null>(null);
   const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
   const [staleEdit, setStaleEdit] = useState<{ data: RecordData; current: Entry } | null>(null);
+  const fileClose = useRef<(() => Promise<void>) | null>(null);
+  const registerFileClose = useCallback((close: (() => Promise<void>) | null) => { fileClose.current = close; }, []);
   const creationClose = useRef<(() => Promise<void>) | null>(null);
   const creationMenuClose = useRef<(() => void) | null>(null);
   const registerCreationMenuClose = useCallback((close: (() => void) | null) => { creationMenuClose.current = close; }, []);
@@ -350,16 +357,17 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       const entry = await api.getEntry(id);
       if (!entry) throw new Error('notFound');
       const parent = await api.getCollection(entry.collection_id);
-      const [entryFields, form, card, list, original] = await Promise.all([
+      const [entryFields, form, card, list, original, unmappedAttachments] = await Promise.all([
         api.listFields(parent.id),
         api.getUiConfig(parent.id, 'form'),
         api.getUiConfig(parent.id, 'card'),
         api.getUiConfig(parent.id, 'list'),
         api.inboxOriginal(entry),
+        api.unmappedAttachments(entry),
       ]);
       if (request === selectionRequest.current) {
         setSelected(entry);
-        setContext({ collection: parent, fields: entryFields, layouts: { form, card, list }, inboxOriginal: original });
+        setContext({ collection: parent, fields: entryFields, layouts: { form, card, list }, inboxOriginal: original, unmappedAttachments });
         if (!preserveSaved) setSaved(false);
         return true;
       }
@@ -381,6 +389,8 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     setSaved(false); setShortcutRequested(false);
     try {
       await action();
+      const cleanup = await api.collectAttachmentFiles(); setFileCleanupPending(cleanup.pending);
+      if (close) await fileClose.current?.();
       // Finish metadata reload before enabling editors; a new form must use the saved defaults.
       const current = useUi.getState();
       const nextLibraries = await api.listLibraries();
@@ -528,7 +538,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     if (busy) return;
     setBusy(true);
     void (async () => {
-      try { await creationClose.current?.(); setLinked(null); setOpeningDraft(null); setStaleEdit(null); ui.openEditor(null); setError(null); }
+      try { await fileClose.current?.(); await creationClose.current?.(); setLinked(null); setOpeningDraft(null); setStaleEdit(null); ui.openEditor(null); setError(null); }
       catch { setError('draftWrite'); }
       finally { setBusy(false); }
     })();
@@ -635,7 +645,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       setLinked({
         parentId: selected.id,
         fieldId,
-        context: { collection: target, fields: targetFields, layouts: { form, card, list } },
+        context: { collection: target, fields: targetFields, layouts: { form, card, list }, unmappedAttachments: [] },
         initial: !draft && source ? { [source.id]: fieldConfig(source).multiple ? [selected.id] : selected.id } : {},
       });
       ui.openEditor('entry');
@@ -655,7 +665,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -773,6 +783,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             </select>
           </label>
         </div>
+        {fileCleanupPending > 0 && !ui.editor && <div role="status" className="error"><p>{t('attachmentCleanupHint')}</p><button disabled={busy} onClick={() => { void run(async () => {}, false); }}>{t('retryAttachmentCleanup')}</button></div>}
         {error && !ui.editor && <ErrorMessage code={error} />}
         {launchTarget && ui.editor && <p role="status">{t('libraryLaunchPending')}</p>}
         {shortcutRequested && !ui.editor && <p role="status">{t('libraryShortcutRequested')}</p>}
@@ -828,7 +839,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
-          {ui.constructorOpen && ui.screen === 'libraries' && <button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button>}
+          {ui.constructorOpen && ui.screen === 'libraries' && <><button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button></>}
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
@@ -1032,11 +1043,11 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                 ←
               </button>
             </div>
-            <LayoutRowsView definition={context.layouts.card} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t('inboxContent') : field.name} render={item => {
+            <LayoutRowsView definition={context.layouts.card} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
                   const f = context.fields.find((field) => field.id === item.field_id)!;
                   return (
                     <dl key={f.id}>
-                      <dt>{context.collection.system_kind === 'inbox' ? t('inboxContent') : f.name}</dt>
+                      <dt>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
                       <dd>
                         {['relation', 'backlink'].includes(f.type) ? (
                           <RelationBlock
@@ -1053,7 +1064,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                               void createRelated(f.id);
                             }}
                           />
-                        ) : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
+                        ) : isFile(f.type) ? <AttachmentList api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
                           <MarkdownView key={selected.id + f.id} source={String(selected.data[f.id])} />
                         ) : format(f, selected.data[f.id])}
                       </dd>
@@ -1061,6 +1072,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
                   );
                 }} />
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
+            {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
             <div className="actions">
               {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
               <button disabled={busy} onClick={() => open('entry', selected.id)}>
@@ -1077,6 +1089,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
+          {ui.editor === 'file-settings' && <AttachmentSettings api={api} busy={busy} cancel={close} save={bytes => { void run(() => api.saveAttachmentLimit(bytes)); }} />}
           {ui.editor === 'trash' && <Trash api={api} busy={busy} revision={revision}
             restore={item => { void run(async () => { await api.setDeleted('record', item.id, false, item.hlc); setUndo(null); }, false); }}
             purge={item => { void run(async () => { await api.purgeEntry(item.id, item.hlc); setUndo(null); }, false); }}
@@ -1091,7 +1104,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           {ui.editor === 'appearance' && <DeviceAppearanceEditor value={appearance} busy={busy} cancel={close} save={value => { void run(async () => { setAppearance(await api.saveDeviceAppearance(value)); }); }} />}
           {ui.editor === 'library-start' && library && <LibraryStartEditor api={api} libraryId={library.id} busy={busy} cancel={close}
             save={value => { void run(async () => { await api.saveLibraryNavigation(library.id, value); }); }} />}
-          {ui.editor === 'move' && selected && <InboxMoveForm api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}
+          {ui.editor === 'move' && selected && <InboxMoveForm registerFileClose={registerFileClose} api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}
             save={(collectionId, data) => { void run(async () => { await api.moveInboxEntry(selected.id, collectionId, data, selected.hlc); setSaved(true); }); }} />}
           {(ui.editor === 'library' || ui.editor === 'collection') && (
             <StructureEditor
@@ -1135,7 +1148,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
             />
           )}
           {ui.editor === 'entry' && !ui.editingId && recordContext && (
-            <DraftRecordForm
+            <DraftRecordForm registerFileClose={registerFileClose}
               api={api}
               store={drafts}
               action={openingDraft?.action ?? (linked ? { kind: 'linked', parent_id: linked.parentId, field_id: linked.fieldId, create_id: crypto.randomUUID() } : { kind: 'save', create_id: crypto.randomUUID() })}
@@ -1164,11 +1177,11 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
               <button disabled={busy} onClick={() => saveEdited(staleEdit.data, staleEdit.current.hlc)}>{t('saveMyRevision')}</button>
               <button disabled={busy} onClick={() => { setSelected(staleEdit.current); setStaleEdit(null); setError(null); }}>{t('loadCurrentRevision')}</button>
             </section>}
-            <RecordForm key={selected.id + ':' + selected.hlc} api={api} collection={context.collection} fields={context.fields}
+            <RecordForm registerFileClose={registerFileClose} key={selected.id + ':' + selected.hlc} api={api} collection={context.collection} fields={context.fields}
               layout={context.layouts.form} entry={selected} busy={busy} cancel={close}
               change={data => setStaleEdit(old => old ? { ...old, data } : null)} save={data => saveEdited(data)} />
           </>}
-          {ui.editor === 'quick-entry' && collection && fieldsReady && <DraftRecordForm key={'quick:' + collection.id} api={api} collection={collection} store={drafts} initialData={creationInitial}
+          {ui.editor === 'quick-entry' && collection && fieldsReady && <DraftRecordForm registerFileClose={registerFileClose} key={'quick:' + collection.id} api={api} collection={collection} store={drafts} initialData={creationInitial}
             action={{ kind: 'save', create_id: crypto.randomUUID() }} registerClose={registerCreationClose} warn={warnDraftCleanup}
             fields={fields}
             layout={quickLayout(layouts.form, quickDefinition, fields)}

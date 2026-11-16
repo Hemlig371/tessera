@@ -1,3 +1,5 @@
+import { AttachmentList } from './AttachmentList';
+import { fileIds, isFile } from '../core/attachments';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entry, Field, JsonValue } from '../core/model';
@@ -12,6 +14,7 @@ export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
   const { t, i18n } = useTranslation(), format = useFormatValue();
   const [history, setHistory] = useState<HistoryState | null>(null), [selected, setSelected] = useState<string | null>(null);
   const [fields, setFields] = useState<Field[]>([]), [collectionName, setCollectionName] = useState<string | null>(null);
+  const [unmappedFiles, setUnmappedFiles] = useState<{ version: string; ids: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null), [confirmClear, setConfirmClear] = useState(false);
   const version = history?.versions.find(value => value.id === selected);
   useEffect(() => {
@@ -24,9 +27,9 @@ export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
   useEffect(() => {
     if (!version) return;
     let active = true;
-    void Promise.all([api.getCollection(version.snapshot.collection_id), api.listFields(version.snapshot.collection_id)])
-      .then(([collection, rows]) => { if (active) { setFields(rows); setCollectionName(collection.name); } })
-      .catch(() => { if (active) { setFields([]); setCollectionName(null); } });
+    void Promise.all([api.getCollection(version.snapshot.collection_id), api.listFields(version.snapshot.collection_id), api.unmappedAttachments(version.snapshot)])
+      .then(([collection, rows, files]) => { if (active) { setFields(rows); setCollectionName(collection.name); setUnmappedFiles({ version: version.id, ids: files }); } })
+      .catch(() => { if (active) { setFields([]); setCollectionName(null); setUnmappedFiles(null); } });
     return () => { active = false; };
   }, [api, version]);
   const savedAt = (value: string) => new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value));
@@ -51,10 +54,11 @@ export function RecordHistory({ api, entry, busy, restore, clear, refresh }: {
         <dl>{Object.entries(version.snapshot.data).map(([id, value]) => {
           const field = fields.find(value => value.id === id);
           return <div key={id}><dt>{field?.name ?? id}</dt><dd>
-            {!field || field.type === 'secret' ? <details><summary>{t('showHistoricalValue')}</summary><pre>{rawValue(value)}</pre></details>
+            {field && isFile(field.type) ? <AttachmentList api={api} ownerId={entry.id} ids={fileIds(value)} busy={busy} /> : !field || field.type === 'secret' ? <details><summary>{t('showHistoricalValue')}</summary><pre>{rawValue(value)}</pre></details>
               : <pre>{typeof value === 'object' || field.type === 'markdown' ? rawValue(value) : format(field, value)}</pre>}
           </dd></div>;
         })}</dl>
+        {unmappedFiles?.version === version.id && !!unmappedFiles.ids.length && <section aria-label={t('retainedAttachments')}><h3>{t('retainedAttachments')}</h3><AttachmentList api={api} ownerId={entry.id} ids={unmappedFiles.ids} busy={busy} /></section>}
         <button className="primary" disabled={busy} onClick={() => restore(version.id)}>{t('restoreVersion')}</button>
         <p>{t('restoreVersionHint')}</p>
       </section>}

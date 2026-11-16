@@ -129,11 +129,12 @@ function FieldEditor({
           {
             required: type === 'backlink' ? false : required,
             hint,
-            indexed: ['relation', 'backlink'].includes(type) ? false : indexed,
+            indexed: ['relation', 'backlink', 'file', 'image'].includes(type) ? false : indexed,
             ...(type === 'relation' ? { target_collection_id: target, multiple } : {}),
+            ...(['file','image'].includes(type) ? { multiple } : {}),
             ...(type === 'backlink' ? { source_field_id: source } : {}),
             fts: isText(type) && fts,
-            ...(hasDefault && type !== 'backlink' ? { default: value } : {}),
+            ...(hasDefault && !['backlink','file','image'].includes(type) ? { default: value } : {}),
             ...(type === 'integer' && min !== '' ? { min: Number(min) } : {}),
             ...(type === 'integer' && max !== '' ? { max: Number(max) } : {}),
           },
@@ -200,6 +201,7 @@ function FieldEditor({
           </label>
         </>
       )}
+      {['file','image'].includes(type) && <label className="check"><input type="checkbox" checked={multiple} disabled={busy || !!field} onChange={event => setMultiple(event.target.checked)} />{t('multipleAttachments')}</label>}
       {type === 'backlink' && (
         <label>
           {t('backlinkSource')}
@@ -227,7 +229,7 @@ function FieldEditor({
         {t('hint')}
         <input maxLength={1000} value={hint} disabled={busy} onChange={(e) => setHint(e.target.value)} />
       </label>
-      {type !== 'backlink' && (type !== 'relation' || !!field) && (
+      {!['backlink','file','image'].includes(type) && (type !== 'relation' || !!field) && (
         <label className="check">
           <input
             type="checkbox"
@@ -239,7 +241,7 @@ function FieldEditor({
         </label>
       )}
       {hasDefault &&
-        type !== 'backlink' &&
+        !['backlink','file','image'].includes(type) &&
         (type === 'relation' && field ? (
           <RelationInput api={api} field={field} value={value} disabled={busy} change={setValue} />
         ) : (
@@ -274,7 +276,7 @@ function FieldEditor({
           </label>
         </div>
       )}
-      {!['relation', 'backlink'].includes(type) && (
+      {!['relation', 'backlink', 'file', 'image'].includes(type) && (
         <label className="check">
           <input
             type="checkbox"

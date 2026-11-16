@@ -440,7 +440,7 @@ main { position: relative; }
 .editor-heading { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 2; padding-block: 12px; margin-bottom: 20px; background: var(--page); border-bottom: 1px solid var(--border); }
 .editor-heading h1 { margin: 0; font-size: 1.65rem; overflow-wrap: anywhere; }
 .editor-heading button { flex-shrink: 0; }
-.editor-page form > .actions, .detail > .actions { position: sticky; bottom: 0; z-index: 1; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: var(--page); }
+.editor-page form > .actions, .detail > .actions { padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
 .detail { margin-top: 12px; max-width: 1200px; margin-inline: auto; }
 .detail h1 { overflow-wrap: anywhere; }
 label {
@@ -686,10 +686,7 @@ td {
     gap: 0 10px;
   }
   .actions {
-    position: sticky;
-    bottom: -18px;
     padding: 12px 0;
-    background: var(--raised);
   }
   .entry-values > span {
     font-size: 0.86667rem;
@@ -865,3 +862,18 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .trash-list p { white-space: pre-wrap; }
 .trash-confirm { margin-block: 1rem; padding: 1rem; border: 1px solid currentColor; border-radius: .5rem; }
 .trash fieldset { margin-block: 1rem; min-width: 0; }
+
+.attachment-list { list-style: none; margin: .5rem 0; padding: 0; width: 100%; min-width: 0; }
+.attachment-list > li { padding: .8rem 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; min-width: 0; }
+.attachment-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .4rem 1rem; margin-bottom: .35rem; }
+.attachment-heading strong { overflow-wrap: anywhere; min-width: 0; }
+.attachment-heading small { white-space: nowrap; }
+.attachments .actions { position: static; margin-top: .65rem; padding: 0; gap: .4rem; background: transparent; }
+.attachment-list button { font-size: .9rem; }
+.file-state { display: block; opacity: .8; }
+.file-state-missing, .file-state-corrupt { font-weight: 600; }
+.attachment-preview { display: block; max-width: 100%; max-height: 24rem; object-fit: contain; margin-block: .8rem; border-radius: .5rem; }
+.attachment-confirm { margin-block: .8rem; padding: .8rem; border: 1px solid var(--border); border-radius: .5rem; }
+.file-hint { font-size: .9rem; opacity: .8; margin-block: .4rem; }
+.file-picker { display: block; margin-block: .8rem; }
+.form-field input[type=file], .file-picker input[type=file] { width: 100%; min-width: 0; max-width: 100%; }

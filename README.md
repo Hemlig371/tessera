@@ -159,7 +159,11 @@ Android: JDK 21, Android Studio/SDK 36, build-tools 36.0.0. Gradle wrapper вк�
 
 ## CI и состояние этапа
 
-Workflow: **любой push (включая tags), pull_request и вручную**. Сначала Ubuntu/Windows checks и HLC property tests, затем Windows x64 NSIS, macOS ARM64 DMG, Linux x64 AppImage, Android debug APK и API 35 x86_64 emulator. Артефакты загружаются после успешных проверок. Tags пока дают Actions-артефакты без публичного релиза. Сборки не подписаны релизными сертификатами; секретов в репозитории нет.
+Workflow запускается на push (включая tags), pull_request и вручную. Обычный push выполняет быстрые Ubuntu/Windows checks: typecheck/lint, лицензии, unit, Node SQLite DB, UI E2E, production build и HLC property tests. Rust bridge/native API вынесены в условную матрицу `native-checks`; существующие тесты и артефакты сохранены.
+
+Полный CI автоматически выбирается при изменении native-кода/адаптеров, схемы/портов SQLite, зависимостей, сборочных/CI-скриптов и native acceptance. Чисто документационные Markdown-правки его не запускают. Для значимой подсистемы или контрольной точки указать `[full ci]` / `[native ci]` в сообщении коммита либо запустить `gh workflow run ci.yml --ref main -f full_native=true` (ручной запуск по умолчанию полный). `full_native=false` оставляет только быстрые jobs. Изменения TypeScript/React, не затрагивающие эти контракты, сами по себе не требуют долгих сборок после каждого push; готовность значимого блока на платформах подтверждать полным запуском.
+
+Полная матрица после успешных быстрых и Rust-проверок собирает Windows x64 NSIS, macOS ARM64 DMG, Linux x64 AppImage, Android debug APK и выполняет API 35 x86_64 emulator. Tags требуют полного CI. Артефакты загружаются после успешных проверок; публичного релиза tags пока не создают. Сборки не подписаны релизными сертификатами.
 
 В CI предусмотрены Windows `tauri dev` smoke (WebView должен исполнить TS-bootstrap в нативной БД), Linux Tauri/WebKit WebDriver E2E с перезапуском процесса и Android WebView/Capacitor-контракт с повторным открытием БД. Merged manifest проверяется отдельно. Acceptance JS собирается только отдельной test-конфигурацией/application ID; обычные APK/desktop этих тестов не содержат.
 

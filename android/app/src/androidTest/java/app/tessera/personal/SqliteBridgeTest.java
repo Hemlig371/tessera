@@ -174,6 +174,18 @@ public class SqliteBridgeTest {
             String profile = js(scenario, "document.querySelector('.profile-switcher select').value");
             openConstructor(scenario);
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(button=>button.textContent==='Поля' && !button.disabled)");
+            js(scenario, "[...document.querySelectorAll('button')].find(button=>button.textContent==='Поля' && !button.disabled).click()");
+            awaitJs(scenario, "!!document.querySelector('.field-list button:not(:disabled)')");
+            String fieldName = js(scenario, "document.querySelector('.field-list b').textContent");
+            js(scenario, "document.querySelector('.field-list button').click()");
+            awaitJs(scenario, "!!document.querySelector('.field-properties input:not(:disabled)')");
+            js(scenario, "const input=document.querySelector('.field-properties input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Несохранённое имя поля'); input.dispatchEvent(new Event('input',{bubbles:true}))");
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('.field-properties') && !!document.querySelector('[data-editor] .field-list')");
+            assertEquals(fieldName, js(scenario, "document.querySelector('.field-list b').textContent"));
+            assertEquals("true", js(scenario, "document.activeElement.matches('.field-list button')"));
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
+            awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'");
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
             awaitJs(scenario, "document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='false'");
             assertEquals(profile, js(scenario, "document.querySelector('.profile-switcher select').value"));

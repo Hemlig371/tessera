@@ -157,6 +157,14 @@ try {
   await clickText('Поля'); await clickText('+ Новое поле'); await input('Native Markdown');
   await selectOption('Тип поля', 'Markdown'); await clickText('Сохранить поле');
   await until("[...document.querySelectorAll('.field-list b')].some(element=>element.textContent==='Native Markdown')");
+  const originalFieldName = await execute("return document.querySelector('.field-list b').textContent");
+  await execute("document.querySelector('.field-list button').click()");
+  await until("!!document.querySelector('.field-properties input:not(:disabled)')");
+  await execute("const input=document.querySelector('.field-properties input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Cancelled native field name'); input.dispatchEvent(new Event('input',{bubbles:true}));");
+  const propertyInput = await request('POST', `/session/${session}/element`, { using: 'css selector', value: '.field-properties input' });
+  await request('POST', `/session/${session}/element/${propertyInput['element-6066-11e4-a52e-4f735466cecf']}/value`, { text: '\uE00C' });
+  await until("!document.querySelector('.field-properties') && document.activeElement.matches('.field-list button')");
+  assert.equal(await execute("return document.querySelector('.field-list b').textContent"), originalFieldName);
   await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
   await clickText('Настройки коллекции');
   await selectOption('Поле для входящих', 'Native Markdown');

@@ -35,7 +35,7 @@ test('mobile shared Trash filters libraries, restores, confirms purge, persists 
   await page.locator('.trash-list').getByRole('button', { name: 'Восстановить', exact: true }).click();
   await expect(page.getByText('Корзина пуста.', { exact: true })).toBeVisible();
   expect(await rows(page, 'SELECT count(*) AS n FROM record_versions')).toEqual(before);
-  await page.getByLabel('Библиотека в корзине', { exact: true }).selectOption('');
+  await page.getByLabel('Библиотека в корзине', { exact: true }).selectOption(second.library_id);
   await expect(page.locator('.trash-list > li')).toHaveCount(1);
   await page.getByRole('button', { name: 'Удалить окончательно', exact: true }).click();
   await page.getByRole('region', { name: 'Подтвердить окончательное удаление', exact: true }).getByRole('button', { name: 'Отмена', exact: true }).click();

@@ -19,4 +19,13 @@ describe('CI scope', () => {
     expect(ciScope({ name: 'push', message: 'test: checkpoint [full ci]' }, ['src/ui/App.tsx']).native).toBe(true);
     expect(() => ciScope({ name: 'unknown' })).toThrow('Unsupported CI event');
   });
+  it('permits explicit Android-only acceptance while full remains the default', () => {
+    expect(ciScope({ name: 'workflow_dispatch' })).toMatchObject({ native: true, bridge: true, desktop: true, target: 'all' });
+    expect(ciScope({ name: 'workflow_dispatch', target: 'android' })).toMatchObject({ native: true, bridge: false, desktop: false, target: 'android' });
+    expect(ciScope({ name: 'workflow_dispatch', target: 'android', fullNative: false })).toMatchObject({ native: false, bridge: false, desktop: false });
+    expect(() => ciScope({ name: 'workflow_dispatch', target: 'unknown' })).toThrow('Unsupported native target');
+  });
+  it('never narrows automatic native acceptance using an unrelated manual target', () => {
+    expect(ciScope({ name: 'push', target: 'android' }, ['android/app/build.gradle'])).toMatchObject({ native: true, bridge: true, desktop: true, target: 'all' });
+  });
 });

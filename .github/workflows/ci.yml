@@ -8,12 +8,17 @@ on:
         description: Run the complete native acceptance and build matrix
         type: boolean
         default: true
+      native_target:
+        description: Full matrix or targeted Android acceptance
+        type: choice
+        options: [all, android]
+        default: all
 
 permissions:
   contents: read
 
 concurrency:
-  group: tessera-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.full_native }}
+  group: tessera-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.full_native }}-${{ inputs.native_target }}
   cancel-in-progress: true
 
 jobs:
@@ -21,6 +26,8 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       native: ${{ steps.scope.outputs.native }}
+      bridge: ${{ steps.scope.outputs.bridge }}
+      desktop: ${{ steps.scope.outputs.desktop }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -70,7 +77,7 @@ jobs:
 
   native-checks:
     needs: [scope, checks, sync-foundation]
-    if: needs.scope.outputs.native == 'true'
+    if: needs.scope.outputs.bridge == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -104,7 +111,7 @@ jobs:
 
   desktop:
     needs: [scope, checks, sync-foundation, native-checks]
-    if: needs.scope.outputs.native == 'true'
+    if: needs.scope.outputs.desktop == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +167,11 @@ jobs:
 
   android-apk:
     needs: [scope, checks, sync-foundation, native-checks]
-    if: needs.scope.outputs.native == 'true'
+    if: >-
+      ${{ !cancelled() && needs.scope.outputs.native == 'true' &&
+          needs.checks.result == 'success' && needs['sync-foundation'].result == 'success' &&
+          (needs['native-checks'].result == 'success' ||
+           (needs.scope.outputs.bridge == 'false' && needs['native-checks'].result == 'skipped')) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -189,7 +200,11 @@ jobs:
 
   android-emulator:
     needs: [scope, checks, sync-foundation, native-checks]
-    if: needs.scope.outputs.native == 'true'
+    if: >-
+      ${{ !cancelled() && needs.scope.outputs.native == 'true' &&
+          needs.checks.result == 'success' && needs['sync-foundation'].result == 'success' &&
+          (needs['native-checks'].result == 'success' ||
+           (needs.scope.outputs.bridge == 'false' && needs['native-checks'].result == 'skipped')) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

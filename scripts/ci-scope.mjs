@@ -5,12 +5,20 @@ import { fileURLToPath } from 'node:url';
 
 /** Native/build contracts trigger the complete matrix; product checkpoints can request it explicitly. */
 export function ciScope(event, files = []) {
-  if (event.name === 'workflow_dispatch') return { native: event.fullNative !== false, reason: 'manual' };
-  if (!['push', 'pull_request'].includes(event.name)) throw new Error('Unsupported CI event');
-  if (event.tag) return { native: true, reason: 'tag' };
-  if (/\[(?:full|native) ci\]/i.test(event.message ?? '')) return { native: true, reason: 'checkpoint' };
-  const critical = /^(?:\.github\/workflows\/|android\/|src-tauri\/|src\/platform\/|src\/core\/(?:schema|migrate|ports|sqlite-check)\.ts$|scripts\/|tests\/native\/|tests\/support\/(?:android-main|sqlite-contract|rust-database|.*-scenario|draft-fixture|scale)\.tsx?$|tests\/fixtures\/|package(?:-lock)?\.json$|capacitor\.config\.ts$|vite(?:\.[\w-]+)?\.config\.ts$|vitest\.config\.ts$|tsconfig[^/]*\.json$)/;
-  return { native: files.some(path => !/\.md$/i.test(path) && critical.test(path)), reason: 'changed-paths' };
+  const target = event.name === 'workflow_dispatch' ? event.target ?? 'all' : 'all';
+  if (!['all', 'android'].includes(target)) throw new Error('Unsupported native target');
+  let result;
+  if (event.name === 'workflow_dispatch') result = { native: event.fullNative !== false, reason: 'manual' };
+  else {
+    if (!['push', 'pull_request'].includes(event.name)) throw new Error('Unsupported CI event');
+    if (event.tag) result = { native: true, reason: 'tag' };
+    else if (/\[(?:full|native) ci\]/i.test(event.message ?? '')) result = { native: true, reason: 'checkpoint' };
+    else {
+      const critical = /^(?:\.github\/workflows\/|android\/|src-tauri\/|src\/platform\/|src\/core\/(?:schema|migrate|ports|sqlite-check)\.ts$|scripts\/|tests\/native\/|tests\/support\/(?:android-main|sqlite-contract|rust-database|.*-scenario|draft-fixture|scale)\.tsx?$|tests\/fixtures\/|package(?:-lock)?\.json$|capacitor\.config\.ts$|vite(?:\.[\w-]+)?\.config\.ts$|vitest\.config\.ts$|tsconfig[^/]*\.json$)/;
+      result = { native: files.some(path => !/\.md$/i.test(path) && critical.test(path)), reason: 'changed-paths' };
+    }
+  }
+  return { ...result, target, bridge: result.native && target === 'all', desktop: result.native && target === 'all' };
 }
 async function main() {
   const payload = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
@@ -22,8 +30,8 @@ async function main() {
     const args = /^0+$/.test(base) ? ['ls-tree', '-r', '--name-only', '-z', head] : ['diff', '--name-only', '-z', base, head];
     files = execFileSync('git', args, { encoding: 'utf8' }).split('\0').filter(Boolean);
   }
-  const result = ciScope({ name, tag: process.env.GITHUB_REF?.startsWith('refs/tags/'), fullNative: String(payload.inputs?.full_native ?? 'true') === 'true', message: payload.head_commit?.message }, files);
-  await appendFile(process.env.GITHUB_OUTPUT, `native=${result.native}\n`);
-  console.log(`Native matrix: ${result.native}; selection: ${result.reason}`);
+  const result = ciScope({ name, target: payload.inputs?.native_target, tag: process.env.GITHUB_REF?.startsWith('refs/tags/'), fullNative: String(payload.inputs?.full_native ?? 'true') === 'true', message: payload.head_commit?.message }, files);
+  await appendFile(process.env.GITHUB_OUTPUT, `native=${result.native}\nbridge=${result.bridge}\ndesktop=${result.desktop}\n`);
+  console.log(`Native matrix: ${result.native}; target: ${result.target}; selection: ${result.reason}`);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

@@ -7,6 +7,8 @@ import type { Repository } from '../core/repository';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
 import { fieldConfig } from '../core/validation';
+import { QuickActionsEditor } from './QuickActionsEditor';
+import type { QuickActionDefinition } from '../core/quick-actions';
 export function LayoutEditor({
   api,
   kind,
@@ -15,6 +17,7 @@ export function LayoutEditor({
   save,
   cancel,
   busy,
+  allowQuickActions = true,
 }: {
   api: Repository;
   kind: UiKind;
@@ -23,6 +26,7 @@ export function LayoutEditor({
   save: (definition: UiDefinition) => void;
   cancel: () => void;
   busy: boolean;
+  allowQuickActions?: boolean;
 }) {
   const { t } = useTranslation();
   const [storedItems, setItems] = useState(() => layoutItems(definition, fields));
@@ -30,6 +34,7 @@ export function LayoutEditor({
   const order = new Map(rows.flatMap(row => row.field_ids).map((id, index) => [id, index]));
   const items = kind === 'list' ? storedItems : [...storedItems].sort((a, b) => (order.get(a.field_id) ?? Infinity) - (order.get(b.field_id) ?? Infinity));
   const [list, setList] = useState<ListOptions>(definition.list ?? {});
+  const [actions, setActions] = useState<QuickActionDefinition[]>(definition.quick_actions ?? []);
   function patch(id: string, value: Partial<LayoutItem>) {
     setItems((old) => old.map((item) => (item.field_id === id ? { ...item, ...value } : item)));
   }
@@ -54,7 +59,7 @@ export function LayoutEditor({
       className="layout-editor"
       onSubmit={(e) => {
         e.preventDefault();
-        save({ fields: items, ...(kind === 'list' ? { list } : { rows: rows.filter(row => row.field_ids.length) }) });
+        save({ ...definition, fields: items, ...(allowQuickActions && kind !== 'form' ? { quick_actions: actions } : {}), ...(kind === 'list' ? { list } : { rows: rows.filter(row => row.field_ids.length) }) });
       }}
     >
       <p className="screen-hint">{t('independentLayouts')}</p>
@@ -312,6 +317,7 @@ export function LayoutEditor({
           </button>
         </fieldset>
       )}
+      {allowQuickActions && kind !== 'form' && <QuickActionsEditor fields={fields} actions={actions} change={setActions} busy={busy} />}
       <div className="actions">
         <button type="button" disabled={busy} onClick={cancel}>
           {t('cancel')}

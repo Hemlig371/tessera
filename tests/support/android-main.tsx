@@ -1,3 +1,4 @@
+import { nutritionScenario } from './nutrition-scenario';
 import type { DatabaseAdapter } from '../../src/core/ports';
 import { nativeArchiveScenario } from './native-archive-scenario';
 import { recoverDatabaseImport } from '../../src/platform/database-import';
@@ -84,6 +85,8 @@ async function run() {
   await layoutScenario(api);
   document.documentElement.dataset.acceptanceStage = 'markdown';
   await markdownScenario(api);
+  document.documentElement.dataset.acceptanceStage = 'nutrition';
+  await nutritionScenario(api);
   const external = registerPlugin<{ openUrl(options: { url: string }): Promise<void> }>('ExternalActions');
   for (const url of ['javascript:alert(1)', 'file:///private', 'data:text/html,test']) {
     let rejected = false;

@@ -2,6 +2,7 @@ import { AppError } from './errors';
 import type { Field, LayoutItem, LayoutRow, UiDefinition, UiKind } from './model';
 import { canonical } from './model';
 import { fieldConfig, requireId, validateValue } from './validation';
+import { quickControls } from './quick-actions';
 
 export function layoutItems(definition: UiDefinition, fields: readonly Field[]): LayoutItem[] {
   const known = new Set(fields.map((f) => f.id));
@@ -55,6 +56,16 @@ export function validateUiDefinition(
   if (!definition || !Array.isArray(definition.fields)) throw new AppError('invalidUiConfig');
   const byId = new Map(fields.map((field) => [field.id, field])),
     seen = new Set<string>();
+  if (definition.quick_actions != null) {
+    if (kind === 'form' || !Array.isArray(definition.quick_actions) || definition.quick_actions.length > fields.length) throw new AppError('invalidQuickAction');
+    const assigned = new Set<string>();
+    for (const action of definition.quick_actions) {
+      if (!action || typeof action !== 'object') throw new AppError('invalidQuickAction');
+      const field = byId.get(action.field_id);
+      if (!field || assigned.has(field.id) || !quickControls(field).includes(action.control)) throw new AppError('invalidQuickAction');
+      assigned.add(field.id);
+    }
+  }
   for (const item of definition.fields) {
     requireId(item.field_id);
     const field = byId.get(item.field_id);

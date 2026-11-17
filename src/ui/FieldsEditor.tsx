@@ -74,7 +74,7 @@ export function FieldsEditor({
             <span>
               <b>{f.name}</b> <small>{t(`types.${f.type}`)}</small>
             </span>
-            <button disabled={busy} aria-pressed={editing === f.id} onClick={event => select(f.id, event.currentTarget)}>
+            <button data-testid={'field-edit-' + f.id} disabled={busy} aria-pressed={editing === f.id} onClick={event => select(f.id, event.currentTarget)}>
               {t('edit')}
             </button>
           </div>

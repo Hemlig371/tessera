@@ -150,6 +150,7 @@ export interface UiDefinition {
   fields: LayoutItem[];
   rows?: LayoutRow[];
   list?: ListOptions;
+  quick_actions?: import('./quick-actions').QuickActionDefinition[];
 }
 export interface UiConfiguration extends Stamp {
   collection_id: string;

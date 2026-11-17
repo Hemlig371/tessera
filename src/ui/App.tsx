@@ -2,6 +2,7 @@ import { quickLayout } from '../core/quick-forms';
 import { SecretValue } from './TypedFieldInput';
 import { CalculatedValue } from './CalculatedValue';
 import { isCalculated } from '../core/calculated-fields';
+import { QuickActions } from './QuickActions';
 import { Catalog } from './Catalog';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
@@ -986,18 +987,20 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                     {virtual.getVirtualItems().map((v) => {
                       const row = page.items[v.index]!,
                         collectionMode = ui.scope === 'collection' && !collection?.system_kind;
-                      return (
+                      const actions = collectionMode ? layouts.list.quick_actions : undefined;
+                      const withActions = actions?.some(action => fields.some(field => field.id === action.field_id)) === true;
+                      const content = (
                         <button
                           key={row.id}
                           data-index={v.index}
                           data-entry-id={row.id}
-                          ref={virtual.measureElement}
+                          ref={withActions ? undefined : virtual.measureElement}
                           className={
                             'entry ' +
                             (collectionMode ? (layouts.list.list?.mode ?? 'rows') : 'rows') +
                             (selected?.id === row.id ? ' active' : '')
                           }
-                          style={{ minHeight: rowHeight, transform: `translateY(${v.start}px)` }}
+                          style={{ minHeight: rowHeight, ...(!withActions ? { transform: `translateY(${v.start}px)` } : {}) }}
                           disabled={disabled || !rowsReady}
                           onClick={() => {
                             void selectEntry(row.id);
@@ -1045,6 +1048,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                           </small>
                         </button>
                       );
+                      return withActions ? <div key={row.id} data-index={v.index} className="entry-shell" ref={virtual.measureElement} style={{ transform: `translateY(${v.start}px)` }}>
+                        {content}<QuickActions entry={row} fields={fields} actions={actions} busy={disabled || !rowsReady} execute={(fieldId, mutation) => run(async () => { await api.quickAction(row.id, fieldId, mutation, row.hlc); }, false)} />
+                      </div> : content;
                     })}
                   </div>
                 </div>
@@ -1113,6 +1119,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                     </dl>
                   );
                 }} />
+            <QuickActions entry={selected} fields={context.fields} actions={context.layouts.card.quick_actions} busy={busy} execute={(fieldId, mutation) => run(async () => { await api.quickAction(selected.id, fieldId, mutation, selected.hlc); }, false)} />
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
             {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
             <div className="actions">
@@ -1232,7 +1239,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               else await saveDraftAction(action, collection.id, data);
               await complete(); setSaved(true);
             }); }} />}
-          {ui.editor === 'quick' && collection && <><p>{t('quickFormHint')}</p><LayoutEditor api={api} kind="card" fields={fields.filter(field => field.type !== 'backlink')}
+          {ui.editor === 'quick' && collection && <><p>{t('quickFormHint')}</p><LayoutEditor api={api} kind="card" allowQuickActions={false} fields={fields.filter(field => field.type !== 'backlink')}
             definition={quickDefinition} busy={busy} cancel={close} save={definition => { void run(() => api.saveQuickForm(collection.id, definition)); }} /></>}
           {ui.editor === 'fields' && collection && (
             <FieldsEditor

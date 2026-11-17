@@ -25,6 +25,7 @@ function needsInput(field: Field, primary: string, form: UiDefinition): boolean 
   catch { return true; }
 }
 export function validateQuickForm(definition: UiDefinition, collection: Collection, fields: Field[], form: UiDefinition): void {
+  if (definition.quick_actions?.length) throw new AppError('invalidQuickAction');
   validateUiDefinition(definition, 'card', fields, collection.primary_field_id);
   const visible = new Set(definition.fields.filter(item => item.visible).map(item => item.field_id));
   for (const item of definition.fields) {

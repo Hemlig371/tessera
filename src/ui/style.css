@@ -1059,3 +1059,11 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .formula-editor{min-width:0;border:1px solid var(--border);border-radius:.6rem;padding:.7rem;display:grid;gap:.55rem}
 .formula-editor textarea{font-family:ui-monospace,monospace;overflow-wrap:anywhere}
 .formula-error{color:var(--error-text);font-weight:600;overflow-wrap:anywhere}
+.entry-shell{position:absolute;top:0;left:0;width:100%;min-width:0;border-bottom:1px solid var(--border)}
+.entry-shell>.entry{position:static;transform:none;border-bottom:0}
+.quick-actions{display:flex;flex-wrap:wrap;gap:.65rem;padding:.55rem .8rem;min-width:0}
+.quick-field{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;min-width:0;max-width:100%;font-size:.9rem}
+.quick-field>label,.quick-field>span{max-width:100%;min-width:0;overflow-wrap:anywhere}.quick-field select{max-width:100%;min-width:7rem}
+.quick-counter{display:flex;gap:.25rem}.quick-counter button{min-width:2.8rem}
+.quick-field>progress,.quick-field>input[type=range]{width:100%;min-width:8rem}
+.quick-action-setting{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;margin-bottom:.5rem}

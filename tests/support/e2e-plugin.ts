@@ -1,3 +1,4 @@
+import { createNutritionFixture } from '../fixtures/nutrition';
 import { migrate } from '../../src/core/migrate';
 import { attachmentFixture } from './attachments-scenario';
 import { createReadStream } from 'node:fs';
@@ -224,6 +225,10 @@ export function e2ePlugin(): Plugin {
           }
           if (op === 'presets-seed') {
             const value = await presetsScenario(await Repository.open(db));
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
+          }
+          if (op === 'nutrition-seed') {
+            const value = await createNutritionFixture(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'profiles-seed') {

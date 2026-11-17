@@ -1,5 +1,6 @@
 import { attachmentLimit, attachmentRow, bindAttachments, mediaReferences, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
 import { calculatedDynamics, ensureCalculated, invalidateCalculated, isCalculated, previewCalculated, resetCalculatedMetadata, validateCalculatedField } from './calculated-fields';
+import { quickValue, type QuickMutation } from './quick-actions';
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
 import { libraryNavigation, navigationLibrary, resolveLibraryStart, validLibraryLocation, validateLibraryNavigation, type LibraryLocation, type LibraryNavigation } from './library-navigation';
 import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
@@ -1019,7 +1020,8 @@ export class Repository {
     data: RecordData,
     id?: string,
     createId?: string,
-    expectedHlc?: string
+    expectedHlc?: string,
+    history = true
   ): Promise<Entry> {
     requireId(collectionId);
     if (id) requireId(id);
@@ -1063,10 +1065,10 @@ export class Repository {
       created_local: previous?.created_local ?? local,
       updated_local: local,
     };
-    await this.persistEntry(s, row, !!previous, fields);
+    await this.persistEntry(s, row, !!previous, fields, undefined, history);
     return row;
   }
-  private async persistEntry(s: SqlSession, row: Entry, exists: boolean, fields: Field[], savedAt = row.updated_at): Promise<void> {
+  private async persistEntry(s: SqlSession, row: Entry, exists: boolean, fields: Field[], savedAt = row.updated_at, history = true): Promise<void> {
     const encoded = canonical(row.data);
     if (exists)
       await s.execute(
@@ -1082,25 +1084,27 @@ export class Repository {
         search_data: '{}',
       });
     await bindAttachments(s, row, fields, (entity, meta, payload) => this.log(s, entity, meta, payload));
-    const version = {
-      id: crypto.randomUUID(),
-      record_id: row.id,
-      hlc: row.hlc,
-      device_id: this.deviceId,
-      saved_at: savedAt,
-      snapshot: { ...row },
-    };
-    await s.execute('INSERT INTO record_versions VALUES(?,?,?,?,?,?)', [
-      version.id,
-      row.id,
-      row.hlc,
-      this.deviceId,
-      savedAt,
-      canonical(version.snapshot),
-    ]);
-    await trimHistory(s, row.id);
     await this.log(s, 'record', row, row);
-    await this.log(s, 'record_version', { ...row, id: version.id }, version);
+    if (history) {
+      const version = {
+        id: crypto.randomUUID(),
+        record_id: row.id,
+        hlc: row.hlc,
+        device_id: this.deviceId,
+        saved_at: savedAt,
+        snapshot: { ...row },
+      };
+      await s.execute('INSERT INTO record_versions VALUES(?,?,?,?,?,?)', [
+        version.id,
+        row.id,
+        row.hlc,
+        this.deviceId,
+        savedAt,
+        canonical(version.snapshot),
+      ]);
+      await trimHistory(s, row.id);
+      await this.log(s, 'record_version', { ...row, id: version.id }, version);
+    }
     await this.refreshRecords(
       s,
       [{ ...row, data: encoded, sort_data: '{}', sort_version: 0, search_data: '{}' }],
@@ -1109,6 +1113,20 @@ export class Repository {
   }
   queryEntries(query: EntryQuery): Promise<Page<EntryListItem>> {
     return this.db.transaction((s) => queryEntries(s, query));
+  }
+  /** One-step edits update current state/journal/derived keys atomically, without a user version. */
+  quickAction(recordId: string, fieldId: string, mutation: QuickMutation, expectedHlc: string): Promise<Entry> {
+    requireId(recordId); requireId(fieldId);
+    if (!expectedHlc) throw new AppError('staleRecord');
+    return this.db.transaction(async s => {
+      const [row] = await s.query<StoredEntry>('SELECT r.* ' + activeRecords + ' AND r.id=?', [recordId]);
+      if (!row) throw new AppError('notFound');
+      if (row.hlc !== expectedHlc) throw new AppError('staleRecord');
+      const [field] = await s.query<Field>('SELECT * FROM fields WHERE id=? AND collection_id=? AND deleted_at IS NULL', [fieldId, row.collection_id]);
+      if (!field) throw new AppError('notFound');
+      const value = quickValue(field, (JSON.parse(row.data) as RecordData)[fieldId], mutation);
+      return this.saveEntryInSession(s, row.collection_id, { [fieldId]: value }, recordId, undefined, expectedHlc, false);
+    });
   }
   formulaCatalog(collectionId: string): Promise<Field[]> {
     requireId(collectionId);

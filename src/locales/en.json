@@ -139,7 +139,8 @@
     "formulaArguments": "Check the number of function arguments.",
     "formulaDate": "The formula contains an invalid date.",
     "formulaBudget": "The formula or its result is too large.",
-    "dynamicFormulaIndex": "This formula depends on NOW(): it can be displayed, but cannot be indexed, sorted, filtered or grouped."
+    "dynamicFormulaIndex": "This formula depends on NOW(): it can be displayed, but cannot be indexed, sorted, filtered or grouped.",
+    "invalidQuickAction": "This quick action is unavailable for the field or value."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -596,5 +597,21 @@
   "formulaResultType": "Result type",
   "formulaSyntaxHint": "Put fields in square brackets. Separate function arguments with commas and decimal places with a dot.",
   "formulaDynamicHint": "NOW() and its dependents refresh on display; sorting, filtering and grouping by these fields are unavailable.",
-  "formulaPreviewFirstEntry": "Preview on the first entry"
+  "formulaPreviewFirstEntry": "Preview on the first entry",
+  "quickActions": "Quick actions",
+  "quickActionsHint": "Assigned actions update the entry immediately without a user history version. Formulas and related totals are refreshed.",
+  "quickActionField": "Quick action field",
+  "quickActionControl": "Quick action control",
+  "addQuickAction": "Add action",
+  "removeQuickAction": "Remove action “{{name}}”",
+  "unavailableField": "Unavailable field",
+  "remove": "Remove",
+  "quickControls": {
+    "toggle": "Switch",
+    "counter": "Counter −/+",
+    "choice": "Status choice",
+    "rating": "Rating",
+    "slider": "Slider",
+    "progress": "Progress −/+"
+  }
 }

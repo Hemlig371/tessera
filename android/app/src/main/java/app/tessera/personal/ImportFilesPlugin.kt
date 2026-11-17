@@ -48,12 +48,12 @@ class ImportFilesPlugin : Plugin() {
                         for (suffix in listOf("-wal", "-shm")) File(file.path + suffix).delete()
                     }
                     "activate" -> { try { replacement.activate() } catch (error: Exception) { replacement.recover(); throw error } }
-                    "file_begin" -> files.begin(args.getString("id"))
+                    "file_begin" -> files.begin(args.getString("id") ?: error("fileError"))
                     "file_write" -> {
-                        val text = args.getString("data"); check(text.length <= (BinaryStore.CHUNK_SIZE + 2) / 3 * 4)
-                        files.write(args.getString("id"), args.getLong("offset"), Base64.decode(text, Base64.NO_WRAP))
+                        val text = args.getString("data") ?: error("fileError"); check(text.length <= (BinaryStore.CHUNK_SIZE + 2) / 3 * 4)
+                        files.write(args.getString("id") ?: error("fileError"), args.getLong("offset"), Base64.decode(text, Base64.NO_WRAP))
                     }
-                    "file_finish" -> files.finish(args.getString("id"), args.getLong("size"), args.getString("sha256")).let { value = JSObject().put("size", it.size).put("sha256", it.sha256) }
+                    "file_finish" -> files.finish(args.getString("id") ?: error("fileError"), args.getLong("size"), args.getString("sha256") ?: error("fileError")).let { value = JSObject().put("size", it.size).put("sha256", it.sha256) }
                     else -> error("fileError")
                 }
                 call.resolve(JSObject().put("value", value))

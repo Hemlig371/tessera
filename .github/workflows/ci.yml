@@ -9,9 +9,9 @@ on:
         type: boolean
         default: true
       native_target:
-        description: Full matrix or targeted Android acceptance
+        description: Full matrix, Android, or remaining Linux/Android (verified resume only)
         type: choice
-        options: [all, android]
+        options: [all, android, linux_android]
         default: all
       native_resume:
         description: Resume unfinished native jobs using verified ancestor fast checks (partial acceptance)
@@ -19,6 +19,9 @@ on:
         default: false
       baseline_run:
         description: Completed main push run with successful Linux/Windows checks and sync (required for resume)
+        type: string
+      native_baseline_run:
+        description: Completed native/desktop ancestor (required for targeted resume; selected jobs rerun)
         type: string
 
 permissions:
@@ -39,6 +42,7 @@ jobs:
       bridge: ${{ steps.scope.outputs.bridge }}
       desktop: ${{ steps.scope.outputs.desktop }}
       resume: ${{ steps.scope.outputs.resume }}
+      desktop_matrix: ${{ steps.scope.outputs.desktop_matrix }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -133,25 +137,14 @@ jobs:
     needs: [scope, checks, sync-foundation, native-checks]
     if: >-
       ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.desktop == 'true' &&
-          needs['native-checks'].result == 'success' &&
+          (needs['native-checks'].result == 'success' ||
+           (needs.scope.outputs.resume == 'true' && needs.scope.outputs.bridge == 'false' && needs['native-checks'].result == 'skipped')) &&
           ((needs.checks.result == 'success' && needs['sync-foundation'].result == 'success') ||
            (needs.scope.outputs.resume == 'true' && needs.checks.result == 'skipped' && needs['sync-foundation'].result == 'skipped')) }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact: windows-x64
-            bundles: nsis
-          - os: macos-15
-            target: aarch64-apple-darwin
-            artifact: macos-arm64
-            bundles: dmg
-          - os: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            artifact: linux-x64
-            bundles: appimage
+        include: ${{ fromJSON(needs.scope.outputs.desktop_matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

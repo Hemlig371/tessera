@@ -6,9 +6,10 @@ import { fileURLToPath } from 'node:url';
 /** Native/build contracts trigger the complete matrix; product checkpoints can request it explicitly. */
 export function ciScope(event, files = []) {
   const target = event.name === 'workflow_dispatch' ? event.target ?? 'all' : 'all';
-  if (!['all', 'android'].includes(target)) throw new Error('Unsupported native target');
-  if (event.resume && (event.name !== 'workflow_dispatch' || event.ref !== 'refs/heads/main' || event.fullNative === false || target !== 'all')) {
-    throw new Error('Native resume requires manual main/full native/all targets');
+  if (!['all', 'android', 'linux_android'].includes(target)) throw new Error('Unsupported native target');
+  if (target === 'linux_android' && !event.resume) throw new Error('Remaining Linux/Android jobs require verified resume');
+  if (event.resume && (event.name !== 'workflow_dispatch' || event.ref !== 'refs/heads/main' || event.fullNative === false)) {
+    throw new Error('Native resume requires manual main/full native');
   }
   let result;
   if (event.name === 'workflow_dispatch') result = { native: event.fullNative !== false, reason: 'manual' };
@@ -21,12 +22,17 @@ export function ciScope(event, files = []) {
       result = { native: files.some(path => !/\.md$/i.test(path) && critical.test(path)), reason: 'changed-paths' };
     }
   }
-  return { ...result, target, bridge: result.native && target === 'all', desktop: result.native && target === 'all' };
+  const desktopMatrix = [
+    { os: 'windows-latest', target: 'x86_64-pc-windows-msvc', artifact: 'windows-x64', bundles: 'nsis' },
+    { os: 'macos-15', target: 'aarch64-apple-darwin', artifact: 'macos-arm64', bundles: 'dmg' },
+    { os: 'ubuntu-24.04', target: 'x86_64-unknown-linux-gnu', artifact: 'linux-x64', bundles: 'appimage' },
+  ].filter(job => target !== 'linux_android' || job.os === 'ubuntu-24.04');
+  return { ...result, target, bridge: result.native && target === 'all', desktop: result.native && target !== 'android', desktopMatrix };
 }
 
 // Resume only the unfinished native acceptance. This is not a successful full CI
 // on the new SHA: the summary records which checks belong to the ancestor.
-export function validateNativeBaseline(run, jobs, { repository, workflowId, head, ancestor, files }) {
+export function validateNativeBaseline(run, jobs, { repository, workflowId, head, ancestor, files, target = 'all' }) {
   if (run.status !== 'completed' || run.event !== 'push' || run.head_branch !== 'main' ||
       run.repository?.full_name !== repository || run.head_repository?.full_name !== repository ||
       run.workflow_id !== workflowId || run.path !== '.github/workflows/ci.yml' ||
@@ -44,8 +50,33 @@ export function validateNativeBaseline(run, jobs, { repository, workflowId, head
   // may differ; all native jobs run again, including both bridge platforms.
   const allowed = new Set(['src-tauri/src/replacement_store.rs', '.github/workflows/ci.yml',
     'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'AGENTS.md', 'audit.md', 'README.md', 'tests/fixtures/README.md']);
+  if (target === 'android' || target === 'linux_android') for (const path of androidImportPaths) allowed.add(path);
+  if (target === 'linux_android') allowed.add('scripts/desktop-e2e.mjs');
   const changed = files.filter(path => !allowed.has(path));
   if (changed.length) throw new Error(`Baseline does not cover changed paths: ${changed.join(', ')}`);
+  return run.head_sha;
+}
+
+const androidImportPaths = ['android/app/src/main/java/app/tessera/personal/ImportFilesPlugin.kt',
+  'android/app/src/main/java/app/tessera/personal/ReplacementStore.kt'];
+export function validateAndroidContinuation(run, jobs, { repository, workflowId, head, ancestor, files, target = 'android' }) {
+  if (run.status !== 'completed' || !['push', 'workflow_dispatch'].includes(run.event) || run.head_branch !== 'main' ||
+      run.repository?.full_name !== repository || run.head_repository?.full_name !== repository ||
+      run.workflow_id !== workflowId || run.path !== '.github/workflows/ci.yml' ||
+      !/^[a-f0-9]{40}$/.test(run.head_sha ?? '') || run.head_sha === head || !ancestor) {
+    throw new Error('Android continuation requires a completed native ancestor from this main workflow');
+  }
+  for (const name of ['scope', 'native-checks (ubuntu-24.04)', 'native-checks (windows-latest)',
+    'desktop (windows-latest, x86_64-pc-windows-msvc, windows-x64, nsis)',
+    'desktop (macos-15, aarch64-apple-darwin, macos-arm64, dmg)',
+    ...(target === 'linux_android' ? [] : ['desktop (ubuntu-24.04, x86_64-unknown-linux-gnu, linux-x64, appimage)'])]) {
+    const matches = jobs.filter(job => job.name === name);
+    if (matches.length !== 1 || matches[0].status !== 'completed' || matches[0].conclusion !== 'success') throw new Error(`Native baseline check is not successful: ${name}`);
+  }
+  const allowed = new Set([...androidImportPaths, '.github/workflows/ci.yml', 'scripts/ci-scope.mjs',
+    'tests/unit/ci-scope.test.mjs', 'audit.md', 'README.md']);
+  if (target === 'linux_android') allowed.add('scripts/desktop-e2e.mjs');
+  if (files.some(path => !allowed.has(path))) throw new Error('Desktop/native inputs changed after the native baseline');
   return run.head_sha;
 }
 
@@ -58,10 +89,9 @@ async function github(path) {
   return response.json();
 }
 
-async function nativeBaseline(id) {
+async function baselineRun(id) {
   if (!/^[1-9][0-9]*$/.test(id ?? '')) throw new Error('A numeric baseline_run is required');
   const run = await github(`actions/runs/${id}`);
-  const current = await github(`actions/runs/${process.env.GITHUB_RUN_ID}`);
   const jobs = [];
   for (let page = 1; ; page++) {
     const result = await github(`actions/runs/${id}/attempts/${run.run_attempt}/jobs?per_page=100&page=${page}`);
@@ -74,8 +104,18 @@ async function nativeBaseline(id) {
     try { execFileSync('git', ['merge-base', '--is-ancestor', run.head_sha, head]); ancestor = true; } catch { /* rejected below */ }
     files = execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', run.head_sha, head], { encoding: 'utf8' }).split('\0').filter(Boolean);
   }
-  const sha = validateNativeBaseline(run, jobs, { repository: process.env.GITHUB_REPOSITORY, workflowId: current.workflow_id, head, ancestor, files });
-  await appendFile(process.env.GITHUB_STEP_SUMMARY, `### Partial native continuation\nBaseline [${id}](${run.html_url}), SHA \`${sha}\`: successful Linux/Windows fast checks and sync-foundation.\nNative contracts, desktop builds/WebView, APK and emulator run on \`${head}\`. This is not one full green run on the new SHA.\n`);
+  return { run, jobs, context: { repository: process.env.GITHUB_REPOSITORY, head, ancestor, files } };
+}
+async function nativeBaseline(id, nativeId, target) {
+  const baseline = await baselineRun(id), current = await github(`actions/runs/${process.env.GITHUB_RUN_ID}`);
+  const sha = validateNativeBaseline(baseline.run, baseline.jobs, { ...baseline.context, workflowId: current.workflow_id, target });
+  let description = `Native contracts, desktop builds/WebView, APK and emulator run on \`${process.env.GITHUB_SHA}\`.`;
+  if (target === 'android' || target === 'linux_android') {
+    const native = await baselineRun(nativeId);
+    const nativeSha = validateAndroidContinuation(native.run, native.jobs, { ...native.context, workflowId: current.workflow_id, target });
+    description = `Desktop/native evidence: [${nativeId}](${native.run.html_url}), SHA \`${nativeSha}\`. Only ${target === 'linux_android' ? 'Linux desktop/WebView, ' : ''}APK and emulator run on \`${process.env.GITHUB_SHA}\`.`;
+  }
+  await appendFile(process.env.GITHUB_STEP_SUMMARY, `### Partial native continuation\nBaseline [${id}](${baseline.run.html_url}), SHA \`${sha}\`: successful Linux/Windows fast checks and sync-foundation.\n${description} This is not one full green run on the new SHA.\n`);
 }
 async function main() {
   const payload = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
@@ -89,8 +129,8 @@ async function main() {
   }
   const resume = String(payload.inputs?.native_resume ?? 'false') === 'true';
   const result = ciScope({ name, ref: process.env.GITHUB_REF, resume, target: payload.inputs?.native_target, tag: process.env.GITHUB_REF?.startsWith('refs/tags/'), fullNative: String(payload.inputs?.full_native ?? 'true') === 'true', message: payload.head_commit?.message }, files);
-  if (resume) await nativeBaseline(payload.inputs?.baseline_run);
-  await appendFile(process.env.GITHUB_OUTPUT, `native=${result.native}\nbridge=${result.bridge}\ndesktop=${result.desktop}\nresume=${resume}\n`);
+  if (resume) await nativeBaseline(payload.inputs?.baseline_run, payload.inputs?.native_baseline_run, result.target);
+  await appendFile(process.env.GITHUB_OUTPUT, `native=${result.native}\nbridge=${result.bridge}\ndesktop=${result.desktop}\nresume=${resume}\ndesktop_matrix=${JSON.stringify(result.desktopMatrix)}\n`);
   console.log(`Native matrix: ${result.native}; target: ${result.target}; selection: ${result.reason}`);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

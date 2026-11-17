@@ -74,7 +74,10 @@ internal class ReplacementStore(private val root: File, private val database: Fi
     private fun remove(file: File) { if (file.exists()) check(if (file.isDirectory) file.deleteRecursively() else file.delete()) }
     private fun sync(directory: File) {
         if (!directory.exists()) return
-        val fd = Os.open(directory.path, OsConstants.O_RDONLY or OsConstants.O_DIRECTORY, 0)
+        check(directory.isDirectory)
+        // O_DIRECTORY is not part of Android's public OsConstants API. These
+        // private paths are directories; a read-only descriptor supports fsync.
+        val fd = Os.open(directory.path, OsConstants.O_RDONLY, 0)
         try { Os.fsync(fd) } finally { Os.close(fd) }
     }
 }

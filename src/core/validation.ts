@@ -1,6 +1,9 @@
 import { AppError } from './errors';
 import { canonical, FIELD_TYPES, UUID_RE } from './model';
 import type { Appearance, Field, FieldConfig, FieldType, JsonValue, RecordData } from './model';
+import { choiceTypes, decimalTypes, normalizeFieldValue, validateAdditionalValue, validDate } from './field-values';
+import { Decimal, normalizeDecimal } from './decimal';
+export { validDate } from './field-values';
 
 export function requireId(id: string): void {
   if (typeof id !== 'string' || !UUID_RE.test(id)) throw new AppError('invalidId');
@@ -24,7 +27,7 @@ export function appearanceValue(value: Appearance): Appearance {
   };
 }
 export function isText(type: string): boolean {
-  return type === 'text' || type === 'multiline' || type === 'markdown';
+  return ['text', 'multiline', 'markdown', 'url', 'email', 'phone', 'barcode', 'address', 'color', 'icon'].includes(type);
 }
 export function requireFieldType(type: string): asserts type is FieldType {
   if (!(FIELD_TYPES as readonly string[]).includes(type)) throw new AppError('unsupportedField');
@@ -32,11 +35,6 @@ export function requireFieldType(type: string): asserts type is FieldType {
 export function fieldConfig(field: Pick<Field, 'type' | 'config'>): FieldConfig {
   const raw = JSON.parse(field.config) as FieldConfig;
   return { ...raw, fts: isText(field.type) && raw.fts !== false, indexed: raw.indexed === true };
-}
-export function validDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value + 'T00:00:00Z');
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 export function validateValue(
   type: string,
@@ -76,6 +74,7 @@ export function validateValue(
       throw new AppError('outOfRange');
   }
   if (type === 'date' && (typeof value !== 'string' || !validDate(value))) throw new AppError('invalidDate');
+  validateAdditionalValue(type, value, config);
 }
 export function validateFieldConfig(type: string, input: FieldConfig): FieldConfig {
   requireFieldType(type);
@@ -104,12 +103,35 @@ export function validateFieldConfig(type: string, input: FieldConfig): FieldConf
   if (input.hint != null && (typeof input.hint !== 'string' || input.hint.length > 1000))
     throw new AppError('invalidData');
   if (!isText(type) && input.fts) throw new AppError('invalidData');
+  if (type === 'secret' && (input.indexed || Object.hasOwn(input, 'default'))) throw new AppError('invalidSecret');
+  if (choiceTypes.has(type)) {
+    if (!Array.isArray(input.options) || !input.options.length || input.options.length > 1000 || new Set(input.options.map(option => option.id)).size !== input.options.length) throw new AppError('invalidChoice');
+    for (const option of input.options) {
+      requireId(option.id); nameValue(option.label);
+      if (option.archived != null && typeof option.archived !== 'boolean') throw new AppError('invalidChoice');
+    }
+  } else if (input.options != null) throw new AppError('invalidChoice');
+  if (input.precision != null && (!['decimal', 'money'].includes(type) || !Number.isInteger(input.precision) || input.precision < 0 || input.precision > 5)) throw new AppError('invalidDecimal');
+  if (input.currency != null && (type !== 'money' || typeof input.currency !== 'string' || input.currency.length > 16)) throw new AppError('invalidDecimal');
+  for (const bound of [input.decimal_min, input.decimal_max]) if (bound != null) {
+    if (!decimalTypes.has(type) || typeof bound !== 'string') throw new AppError('invalidDecimal');
+    normalizeDecimal(bound);
+  }
+  if (input.decimal_min != null && input.decimal_max != null && Decimal.parse(input.decimal_min).compare(Decimal.parse(input.decimal_max)) > 0) throw new AppError('outOfRange');
+  if (input.widget != null && (!['input', 'counter', 'rating', 'progress', 'slider', 'switch'].includes(input.widget) ||
+    (type === 'boolean' ? !['input', 'switch'].includes(input.widget) : !(type === 'integer' || decimalTypes.has(type)) || input.widget === 'switch'))) throw new AppError('invalidWidget');
+  if (input.step != null && (!(type === 'integer' || decimalTypes.has(type)) || typeof input.step !== 'string' || Decimal.parse(input.step).compare(Decimal.parse('0')) <= 0 || (type === 'integer' && !/^\d+$/.test(input.step)))) throw new AppError('invalidWidget');
+  if (input.barcode_label != null && (type !== 'barcode' || typeof input.barcode_label !== 'string' || input.barcode_label.length > 200)) throw new AppError('invalidData');
   for (const bound of [input.min, input.max]) {
     if (bound != null && (type !== 'integer' || !Number.isSafeInteger(bound)))
       throw new AppError('invalidInteger');
   }
   if (input.min != null && input.max != null && input.min > input.max) throw new AppError('outOfRange');
-  if (Object.hasOwn(input, 'default')) validateValue(type, input.default, { ...input, required: false });
+  if (Object.hasOwn(input, 'default')) {
+    const value = normalizeFieldValue(type, input.default);
+    validateValue(type, value, { ...input, required: false });
+    input = { ...input, default: value };
+  }
   canonical(input as Record<string, JsonValue>);
   return { ...input, fts: isText(type) && input.fts !== false, indexed: input.indexed === true };
 }

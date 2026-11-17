@@ -62,7 +62,25 @@ export const FIELD_TYPES = [
   'markdown',
   'boolean',
   'integer',
+  'decimal',
+  'money',
+  'select',
+  'multiselect',
   'date',
+  'time',
+  'local_datetime',
+  'date_range',
+  'duration',
+  'url',
+  'email',
+  'phone',
+  'barcode',
+  'secret',
+  'address',
+  'coordinates',
+  'color',
+  'icon',
+  'json',
   'relation',
   'backlink',
   'file',
@@ -80,6 +98,14 @@ export interface FieldConfig {
   target_collection_id?: string;
   multiple?: boolean;
   source_field_id?: string;
+  precision?: number;
+  currency?: string;
+  decimal_min?: string;
+  decimal_max?: string;
+  step?: string;
+  widget?: 'input' | 'counter' | 'rating' | 'progress' | 'slider' | 'switch';
+  options?: { id: string; label: string; archived?: boolean }[];
+  barcode_label?: string;
 }
 export interface Appearance {
   icon?: string;

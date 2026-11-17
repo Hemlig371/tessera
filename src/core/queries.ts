@@ -3,7 +3,8 @@ import { AppError } from './errors';
 import type { EntryListItem, EntryQuery, Field, JsonValue, Page, UiDefinition } from './model';
 import { canonical } from './model';
 import type { SqlSession, SqlValue } from './ports';
-import { fieldExpression, searchTerms, textSortKey } from './search-keys';
+import { fieldExpression, fieldSortKey, searchTerms } from './search-keys';
+import { decimalTypes } from './field-values';
 import { fieldConfig, isText, requireId, validateValue } from './validation';
 import { activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 
@@ -59,7 +60,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   if (q.search?.trim() && !terms.length) where.push('0');
   for (const term of terms) {
     where.push(`r.id IN(SELECT records_fts.record_id FROM records_fts JOIN fields sf ON sf.id=records_fts.field_id
-      WHERE records_fts MATCH ? AND sf.deleted_at IS NULL AND sf.type IN('text','multiline','markdown') AND json_extract(sf.config,'$.fts') IS NOT 0)`);
+      WHERE records_fts MATCH ? AND sf.deleted_at IS NULL AND sf.type IN('text','multiline','markdown','url','email','phone','barcode','address','color','icon') AND json_extract(sf.config,'$.fts') IS NOT 0)`);
     params.push(term);
   }
   for (const filter of q.filters ?? []) {
@@ -80,7 +81,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
       where.push((['empty', 'ne'].includes(filter.op) ? 'NOT ' : '') + clause + ')');
       continue;
     }
-    if (['file', 'image'].includes(field.type)) {
+    if (['file', 'image', 'multiselect'].includes(field.type)) {
       if (!['eq','ne','empty','filled'].includes(filter.op)) throw new AppError('invalidFilter');
       let clause = `EXISTS(SELECT 1 FROM json_each(CASE WHEN json_type(r.data,'$."${field.id}"')='array' THEN json_extract(r.data,'$."${field.id}"') ELSE json('[]') END) af WHERE af.type='text'`;
       if (filter.op === 'eq' || filter.op === 'ne') { requireId(filter.value as string); clause += ' AND af.value=?'; params.push(filter.value as string); }
@@ -95,11 +96,11 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     const operator = { eq: '=', ne: '<>', gt: '>', lt: '<' }[filter.op];
     if (!operator || filter.value == null) throw new AppError('invalidFilter');
     validateValue(field.type, filter.value, { ...fieldConfig(field), required: false });
-    const value = isText(field.type)
-      ? textSortKey(String(filter.value))
+    const value = isText(field.type) || decimalTypes.has(field.type) || field.type === 'select'
+      ? fieldSortKey(field, String(filter.value))
       : typeof filter.value === 'boolean'
         ? Number(filter.value)
-        : filter.value;
+        : typeof filter.value === 'object' ? canonical(filter.value) : filter.value;
     where.push(`${expr}${operator}?`);
     params.push(value as SqlValue);
   }
@@ -108,8 +109,8 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   const ids = [...new Set([q.group_field, q.sort_field ?? 'updated_at'].filter((id): id is string => !!id))];
   const expressions = [...ids.map(expression), 'r.id'];
   // Derived keys are either fully rebuilt or unavailable; never silently show partial results.
-  if (terms.length || ids.some(id => byId.has(id) && isText(byId.get(id)!.type)) ||
-    q.filters?.some(filter => isText(byId.get(filter.field_id)!.type))) {
+  if (terms.length || ids.some(id => byId.has(id) && (isText(byId.get(id)!.type) || decimalTypes.has(byId.get(id)!.type) || byId.get(id)!.type === 'select')) ||
+    q.filters?.some(filter => isText(byId.get(filter.field_id)!.type) || decimalTypes.has(byId.get(filter.field_id)!.type) || byId.get(filter.field_id)!.type === 'select')) {
     if ((await s.query('SELECT r.id ' + activeRecords + ' AND r.sort_version=0' +
       scopeWhere.map(clause => ' AND ' + clause).join('') + ' LIMIT 1', scopeParams)).length)
       throw new AppError('searchUpdating');

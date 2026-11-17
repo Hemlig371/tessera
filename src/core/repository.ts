@@ -761,7 +761,9 @@ export class Repository {
       const parent = await activeCollection(s, old.collection_id);
       if (parent.system_kind) throw new AppError('systemContainer');
       if (patch.type && patch.type !== old.type) throw new AppError('fieldTypeChange');
-      const checked = patch.config ? validateFieldConfig(old.type, patch.config) : fieldConfig(old);
+      const checked = patch.config ? validateFieldConfig(old.type, ['select', 'multiselect'].includes(old.type) ? {
+        ...patch.config, options: [...(patch.config.options ?? []), ...(fieldConfig(old).options ?? []).filter(option => !patch.config!.options?.some(next => next.id === option.id)).map(option => ({ ...option, archived: true }))],
+      } : patch.config) : fieldConfig(old);
       await validateRelationDefinition(s, parent, old.type, checked, old);
       if (['file','image'].includes(old.type) && !!fieldConfig(old).multiple !== !!checked.multiple) throw new AppError('attachmentMultiplicity');
       const updated = await this.update(s, 'fields', 'field', old, {
@@ -769,7 +771,7 @@ export class Repository {
         ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
         ...(patch.config ? { config: canonical(checked as Record<string, JsonValue>) } : {}),
       });
-      if (fieldConfig(old).fts !== checked.fts)
+      if (fieldConfig(old).fts !== checked.fts || (old.type === 'select' && old.config !== updated.config))
         await s.execute('UPDATE records SET sort_version=0 WHERE collection_id=?', [old.collection_id]);
       await this.indexesInSession(s, old.collection_id);
       return updated;
@@ -1505,8 +1507,8 @@ export class Repository {
       if (profileId && !row) throw new AppError('notFound');
       const definition = row ? (JSON.parse(row.config) as UiDefinition) : { fields: [] };
       const fields = await s.query<{ id: string }>(
-        'SELECT id FROM fields WHERE collection_id=? AND deleted_at IS NULL',
-        [collectionId]
+        "SELECT id FROM fields WHERE collection_id=? AND deleted_at IS NULL AND (?<>'list' OR type<>'secret')",
+        [collectionId, kind]
       );
       const ids = new Set(fields.map((f) => f.id));
       definition.fields = definition.fields.filter((item) => ids.has(item.field_id));
@@ -1670,7 +1672,7 @@ export class Repository {
       `INSERT INTO search_documents(record_id,field_id) SELECT r.id,f.id FROM records r
       JOIN fields f ON f.collection_id=r.collection_id JOIN collections c ON c.id=r.collection_id JOIN libraries l ON l.id=c.library_id
       WHERE r.id IN(${marks}) AND r.deleted_at IS NULL AND r.purged=0 AND f.deleted_at IS NULL AND c.deleted_at IS NULL AND l.deleted_at IS NULL
-      AND f.type IN('text','multiline','markdown') AND json_extract(f.config,'$.fts') IS NOT 0 AND json_type(r.data,'$."'||f.id||'"')='text'`,
+      AND f.type IN('text','multiline','markdown','url','email','phone','barcode','address','color','icon') AND json_extract(f.config,'$.fts') IS NOT 0 AND json_type(r.data,'$."'||f.id||'"')='text'`,
       ids
     );
     await s.execute(

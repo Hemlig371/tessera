@@ -4,6 +4,9 @@ import { markdownPreview } from '../core/markdown';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import type { Field, JsonValue } from '../core/model';
+import { TypedFieldInput, typedInputs } from './TypedFieldInput';
+import { formatDecimal } from '../core/decimal';
+import { fieldConfig } from '../core/validation';
 export function errorKey(error: unknown): string {
   return error instanceof Error && /^[a-zA-Z]+$/.test(error.message) ? error.message : 'generic';
 }
@@ -58,7 +61,7 @@ export function FieldInput({
   label,
   disabled = false,
 }: {
-  field: Pick<Field, 'name' | 'type'>;
+  field: Pick<Field, 'name' | 'type'> & { config?: string };
   value: JsonValue | undefined;
   change: (value: JsonValue) => void;
   required?: boolean;
@@ -68,6 +71,7 @@ export function FieldInput({
   const { t } = useTranslation();
   const text = value == null ? '' : String(value);
   const attrs = { disabled, 'aria-label': label ?? field.name };
+  if (typedInputs.has(field.type) || (field.config && ['integer', 'boolean'].includes(field.type) && JSON.parse(field.config).widget && JSON.parse(field.config).widget !== 'input')) return <TypedFieldInput {...{ field, value, change, required, label, disabled }} />;
   if (['file','image'].includes(field.type)) return <small>{t('fileDefaultsUnavailable')}</small>;
   if (field.type === 'boolean')
     return (
@@ -96,7 +100,7 @@ export function FieldInput({
     <input
       {...attrs}
       required={required}
-      type={field.type === 'integer' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+      type={field.type === 'integer' ? 'number' : field.type === 'date' ? 'date' : field.type === 'url' ? 'url' : field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
       step={field.type === 'integer' ? 1 : undefined}
       value={text}
       onChange={(e) => {
@@ -111,8 +115,17 @@ export function FieldInput({
 export function useFormatValue() {
   const { t, i18n } = useTranslation();
   return (field: Field, value: JsonValue | undefined): string => {
+    if (field.type === 'secret') return value ? '••••••' : t('unset');
     if (['file','image'].includes(field.type)) return Array.isArray(value) && value.length ? t('attachmentCount', { count: value.length }) : t('noAttachments');
     if (value == null || value === '') return t('unset');
+    const config = fieldConfig(field);
+    if (['decimal', 'money', 'duration'].includes(field.type) && typeof value === 'string') return formatDecimal(value, i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision) + (field.type === 'money' ? ' ' + (config.currency ?? '') : field.type === 'duration' ? ' ' + t('seconds') : '');
+    if (field.type === 'select' || field.type === 'multiselect') return (Array.isArray(value) ? value : [value]).map(id => config.options?.find(option => option.id === id)?.label ?? t('unavailableChoice')).join(', ') || t('unset');
+    if (field.type === 'json') return JSON.stringify(value);
+    if (field.type === 'date_range' && typeof value === 'object' && !Array.isArray(value)) return String(value.start) + ' — ' + String(value.end);
+    if (field.type === 'coordinates' && typeof value === 'object' && !Array.isArray(value)) return String(value.latitude) + ', ' + String(value.longitude);
+    if (field.type === 'local_datetime' && typeof value === 'string') return value.replace('T', ' ');
+    if (field.type === 'barcode' && config.barcode_label) return config.barcode_label + ': ' + String(value);
     if (field.type === 'markdown' && typeof value === 'string') return markdownPreview(value);
     if (typeof value === 'boolean') return t(value ? 'yes' : 'no');
     if (field.type === 'date' && typeof value === 'string') {

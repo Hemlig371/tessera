@@ -3,6 +3,7 @@ import { AppError } from './errors';
 import type { Collection, Field, RecordData, UiDefinition } from './model';
 import { formConfig } from './ui-definition';
 import { validateData, validateValue } from './validation';
+import { normalizeFieldValue } from './field-values';
 export class FieldError extends AppError {
   constructor(
     code: string,
@@ -49,6 +50,7 @@ export function prepareEntryData(
     if (!previous && !Object.hasOwn(data, field.id) && Object.hasOwn(config, 'default'))
       data[field.id] = config.default!;
     try {
+      if (Object.hasOwn(data, field.id)) data[field.id] = normalizeFieldValue(field.type, data[field.id])!;
       validateValue(field.type, data[field.id], config, primary);
     } catch (e) {
       throw new FieldError(e instanceof Error ? e.message : 'invalidData', field.name);

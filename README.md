@@ -2,7 +2,7 @@
 
 Внутренний dev-документ. Local-first база для Android, Windows, macOS и Linux: React/TypeScript Core + нативные SQLite/Rust/Kotlin, без обязательных сервера, аккаунта и сети.
 
-Версия **0.19.0**, Android **versionCode=20**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
+Версия разработки **0.20.0** (M2), Android **versionCode=21**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
 
 | Документ | Назначение |
 | --- | --- |

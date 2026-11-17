@@ -1,4 +1,5 @@
 import { quickLayout } from '../core/quick-forms';
+import { SecretValue } from './TypedFieldInput';
 import { Catalog } from './Catalog';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
@@ -236,7 +237,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         .join(' · ') + (preview.count > 3 ? t('moreRelations', { count: preview.count - 3 }) : '')
     );
   }
-  const listItems = layoutItems(layouts.list, fields).filter((item) => item.visible),
+  const listItems = layoutItems(layouts.list, fields).filter((item) => item.visible && fields.find(field => field.id === item.field_id)?.type !== 'secret'),
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
   const compact = appearance.density === 'compact';
   const rowHeight = appearance.font_scale * (
@@ -1105,7 +1106,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                           />
                         ) : isFile(f.type) ? <AttachmentList api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
                           <MarkdownView key={selected.id + f.id} source={String(selected.data[f.id])} />
-                        ) : format(f, selected.data[f.id])}
+                        ) : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );
@@ -1269,7 +1270,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               api={api}
               key={ui.editor}
               kind={ui.editor}
-              fields={fields}
+              fields={ui.editor === 'list' ? fields.filter(field => field.type !== 'secret') : fields}
               definition={layouts[ui.editor]}
               busy={busy}
               cancel={close}

@@ -6,6 +6,8 @@ import type { EntryQuery, Field, JsonValue, RecordData } from './model';
 import type { Repository } from './repository';
 import { queryEntries } from './queries';
 import { fieldConfig, isText, validateValue } from './validation';
+import { decimalTypes, normalizeFieldValue } from './field-values';
+import { normalizeDecimal } from './decimal';
 export type CsvLocale = 'ru' | 'en';
 export interface CsvDocument {
   headers: string[];
@@ -114,7 +116,13 @@ export function csvValue(text: string, field: Field, locale: CsvLocale): JsonVal
   if (!text.trim()) return null;
   const value = text.trim();
   let result: JsonValue = value;
-  if (field.type === 'integer') {
+  if (decimalTypes.has(field.type)) {
+    const pattern = locale === 'ru' ? /^[+-]?(?:\d+|\d{1,3}(?:[ \u00a0\u202f]\d{3})+)(?:,\d+)?$/ : /^[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/;
+    if (!pattern.test(value)) throw new AppError('invalidDecimal');
+    result = normalizeDecimal(locale === 'ru' ? value.replace(/[ \u00a0\u202f]/g, '').replace(',', '.') : value.replaceAll(',', ''));
+  } else if (['json', 'date_range', 'coordinates', 'multiselect'].includes(field.type)) {
+    try { result = normalizeFieldValue(field.type, JSON.parse(value) as JsonValue)!; } catch { throw new AppError('invalidData'); }
+  } else if (field.type === 'integer') {
     const pattern =
       locale === 'ru'
         ? /^[+-]?(?:\d+|\d{1,3}(?:[ \u00a0\u202f]\d{3})+)$/
@@ -206,7 +214,8 @@ export async function exportCsv(
               const v =
                 field.type === 'backlink' ? (derived.get(entry.id)?.[field.id] ?? []) : entry.data[field.id];
               if (v == null) return '';
-              if (Array.isArray(v)) return JSON.stringify(v);
+              if (typeof v === 'object') return JSON.stringify(v);
+              if (decimalTypes.has(field.type) && locale === 'ru') return String(v).replace('.', ',');
               if (typeof v === 'boolean') return locale === 'ru' ? (v ? 'да' : 'нет') : v ? 'true' : 'false';
               if (field.type === 'date' && locale === 'ru') return String(v).split('-').reverse().join('.');
               return String(v);

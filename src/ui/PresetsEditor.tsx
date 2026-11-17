@@ -44,7 +44,7 @@ function PresetProperties({ api, fields, preset, isDefault, busy, save }: { api:
     setDefinition(old => {
       const data = { ...old.data }, today_fields = old.today_fields.filter(id => id !== field.id);
       if (!enabled) delete data[field.id];
-      else data[field.id] = field.type === 'integer' ? 0 : field.type === 'boolean' ? false : field.type === 'date' ? localTimestamp(new Date()).slice(0,10) : field.type === 'relation' ? null : '';
+      else data[field.id] = field.type === 'integer' ? 0 : ['decimal', 'money', 'duration'].includes(field.type) ? '0' : field.type === 'boolean' ? false : field.type === 'date' ? localTimestamp(new Date()).slice(0,10) : field.type === 'multiselect' ? [] : ['relation', 'select', 'time', 'local_datetime', 'date_range', 'coordinates', 'json', 'color'].includes(field.type) ? null : '';
       return { ...old, data, today_fields };
     });
   }

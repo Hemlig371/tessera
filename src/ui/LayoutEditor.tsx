@@ -128,7 +128,7 @@ export function LayoutEditor({
                     onChange={(e) => patch(field.id, { hint: e.target.value })}
                   />
                 </label>
-                {!['file','image'].includes(field.type) && <>                <label className="check">
+                {!['secret','file','image'].includes(field.type) && <>                <label className="check">
                   <input
                     type="checkbox"
                     checked={Object.hasOwn(item, 'default')}

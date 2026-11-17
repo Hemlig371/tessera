@@ -70,6 +70,7 @@ export function validateUiDefinition(
       throw new AppError('invalidUiConfig');
     if (field.type === 'backlink' && (item.required || Object.hasOwn(item, 'default')))
       throw new AppError('readOnlyField');
+    if (field.type === 'secret' && ((kind === 'list' && item.visible) || Object.hasOwn(item, 'default'))) throw new AppError('invalidSecret');
     if (['file', 'image'].includes(field.type) && Object.hasOwn(item, 'default') && item.default != null && (!Array.isArray(item.default) || item.default.length)) throw new AppError('invalidAttachment');
     if (Object.hasOwn(item, 'default'))
       validateValue(field.type, item.default, { ...fieldConfig(field), required: false });
@@ -108,13 +109,14 @@ export function validateUiDefinition(
       if (
         id &&
         id !== 'updated_at' &&
-        (!byId.has(id) || ['relation', 'backlink'].includes(byId.get(id)!.type))
+        (!byId.has(id) || ['secret', 'relation', 'backlink'].includes(byId.get(id)!.type))
       )
         throw new AppError('invalidUiConfig');
     for (const filter of list.filters ?? []) {
       const field = byId.get(filter.field_id);
       if (!field || !['eq', 'ne', 'gt', 'lt', 'empty', 'filled'].includes(filter.op))
         throw new AppError('invalidUiConfig');
+      if (field.type === 'secret') throw new AppError('invalidSecret');
       if (['relation', 'backlink'].includes(field.type) && ['gt', 'lt'].includes(filter.op))
         throw new AppError('invalidFilter');
       if (!['empty', 'filled'].includes(filter.op)) {

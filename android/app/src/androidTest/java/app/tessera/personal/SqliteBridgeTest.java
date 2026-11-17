@@ -329,7 +329,9 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!!" + item + "?.querySelector('button:not(:disabled)')");
             js(scenario, item + ".querySelectorAll('button')[1].click()");
             awaitJs(scenario, "!!document.querySelector('.trash-confirm')");
-            js(scenario, "document.querySelector('.trash-confirm button').click()");
+            String confirmPurgeButton = "[...document.querySelectorAll('.trash-confirm button:not(:disabled)')].find(button=>button.textContent==='Подтвердить окончательное удаление')";
+            awaitJs(scenario, "!!(" + confirmPurgeButton + ")");
+            js(scenario, "(" + confirmPurgeButton + ").click()");
             awaitJs(scenario, "!" + item);
             awaitJs(scenario, "!!document.querySelector('[data-trash] fieldset select:not(:disabled)')");
             js(scenario, "const select=document.querySelector('[data-trash] fieldset select');select.value='forever';select.dispatchEvent(new Event('change',{bubbles:true}))");

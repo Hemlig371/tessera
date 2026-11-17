@@ -8,7 +8,7 @@ export type StoredEntry = Omit<Entry, 'data'> & {
   search_data: string;
 };
 export function decodeEntry(row: StoredEntry): Entry {
-  return {
+  const entry: Entry = {
     id: row.id,
     hlc: row.hlc,
     device_id: row.device_id,
@@ -21,6 +21,9 @@ export function decodeEntry(row: StoredEntry): Entry {
     purged: row.purged,
     data: JSON.parse(row.data) as RecordData,
   };
+  const computed = (JSON.parse(row.sort_data ?? '{}') as { _formula?: Entry['computed'] })._formula;
+  if (computed && typeof computed === 'object' && !Array.isArray(computed)) Object.defineProperty(entry, 'computed', { value: computed, enumerable: false });
+  return entry;
 }
 export async function activeCollection(s: SqlSession, id: string): Promise<Collection> {
   const [row] = await s.query<Collection>(

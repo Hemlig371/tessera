@@ -119,7 +119,10 @@ export function useFormatValue() {
     if (['file','image'].includes(field.type)) return Array.isArray(value) && value.length ? t('attachmentCount', { count: value.length }) : t('noAttachments');
     if (value == null || value === '') return t('unset');
     const config = fieldConfig(field);
-    if (['decimal', 'money', 'duration'].includes(field.type) && typeof value === 'string') return formatDecimal(value, i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision) + (field.type === 'money' ? ' ' + (config.currency ?? '') : field.type === 'duration' ? ' ' + t('seconds') : '');
+    if (['decimal', 'money', 'duration'].includes(field.type)) {
+      try { if (typeof value !== 'string') throw new Error('invalidDecimal'); return formatDecimal(value, i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision) + (field.type === 'money' ? ' ' + (config.currency ?? '') : field.type === 'duration' ? ' ' + t('seconds') : ''); }
+      catch { return t('errors.invalidDecimal'); }
+    }
     if (field.type === 'select' || field.type === 'multiselect') return (Array.isArray(value) ? value : [value]).map(id => config.options?.find(option => option.id === id)?.label ?? t('unavailableChoice')).join(', ') || t('unset');
     if (field.type === 'json') return JSON.stringify(value);
     if (field.type === 'date_range' && typeof value === 'object' && !Array.isArray(value)) return String(value.start) + ' — ' + String(value.end);

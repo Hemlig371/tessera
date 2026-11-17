@@ -6,6 +6,7 @@ import { layoutItems, layoutRows } from '../core/ui-definition';
 import type { Repository } from '../core/repository';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
+import { fieldConfig } from '../core/validation';
 export function LayoutEditor({
   api,
   kind,
@@ -110,7 +111,7 @@ export function LayoutEditor({
               </label>
             </div>}
             {kind !== 'list' && <label className="check"><input type="checkbox" checked={item.collapsed ?? false} onChange={event => patch(field.id, { collapsed: event.target.checked })} />{t('fieldCollapsed')}</label>}
-            {kind === 'form' && field.type !== 'backlink' && (
+            {kind === 'form' && !['backlink', 'formula', 'aggregate'].includes(field.type) && (
               <>
                 <label className="check">
                   <input
@@ -279,7 +280,9 @@ export function LayoutEditor({
                       fields.find((field) => field.id === f.field_id)?.type ?? ''
                     )
                       ? { ...fields.find((field) => field.id === f.field_id)!, type: 'text' }
-                      : fields.find((field) => field.id === f.field_id)!
+                      : ['formula', 'aggregate'].includes(fields.find(field => field.id === f.field_id)?.type ?? '')
+                        ? { ...fields.find(field => field.id === f.field_id)!, type: fieldConfig(fields.find(field => field.id === f.field_id)!).result_type ?? 'decimal' }
+                        : fields.find((field) => field.id === f.field_id)!
                   }
                   label={t('filterValue')}
                   value={f.value}

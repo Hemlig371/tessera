@@ -8,6 +8,7 @@ import type { RelationSource } from '../core/model';
 import { ErrorMessage, errorKey } from './common';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
+import { FormulaEditor } from './FormulaEditor';
 export function FieldsEditor({
   api,
   collection,
@@ -86,6 +87,7 @@ export function FieldsEditor({
       {editing && (
         <FieldEditor
           api={api}
+          collectionId={collection.id}
           key={editing}
           field={fields.find((f) => f.id === editing)}
           targets={targets}
@@ -103,6 +105,7 @@ export function FieldsEditor({
 }
 function FieldEditor({
   api,
+  collectionId,
   field,
   targets,
   sources,
@@ -114,6 +117,7 @@ function FieldEditor({
   busy,
 }: {
   api: Repository;
+  collectionId: string;
   field?: Field;
   targets: Collection[];
   sources: RelationSource[];
@@ -141,10 +145,12 @@ function FieldEditor({
     [source, setSource] = useState(config.source_field_id ?? '');
   const [position, setPosition] = useState(field?.position ?? count);
   const [options, setOptions] = useState(config.options ?? []), [precision, setPrecision] = useState(config.precision ?? (field?.type === 'money' ? 2 : 5)),
-    [currency, setCurrency] = useState(config.currency ?? '₽'), [widget, setWidget] = useState<FieldConfig['widget']>(config.widget ?? 'input'),
+    [currency, setCurrency] = useState(config.currency ?? (field?.type === 'money' ? '₽' : '')), [widget, setWidget] = useState<FieldConfig['widget']>(config.widget ?? 'input'),
     [step, setStep] = useState(config.step ?? '1'), [decimalMin, setDecimalMin] = useState(config.decimal_min ?? ''),
     [decimalMax, setDecimalMax] = useState(config.decimal_max ?? ''), [barcodeLabel, setBarcodeLabel] = useState(config.barcode_label ?? '');
+  const [formula, setFormula] = useState(config.formula ?? ''), [resultType, setResultType] = useState<FieldConfig['result_type']>(config.result_type ?? 'decimal');
   const numeric = ['integer', 'decimal', 'money', 'duration'].includes(type);
+  const calculated = ['formula', 'aggregate'].includes(type), readOnly = calculated || type === 'backlink';
   const nameInput = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => { window.scrollTo(0, 0); nameInput.current?.focus({ preventScroll: true }); }, []);
   return (
@@ -157,19 +163,20 @@ function FieldEditor({
           name,
           type,
           {
-            required: type === 'backlink' ? false : required,
+            required: readOnly ? false : required,
             hint,
             indexed: ['secret', 'relation', 'backlink', 'file', 'image'].includes(type) ? false : indexed,
             ...(type === 'relation' ? { target_collection_id: target, multiple } : {}),
             ...(['file','image'].includes(type) ? { multiple } : {}),
             ...(type === 'backlink' ? { source_field_id: source } : {}),
             fts: isText(type) && fts,
-            ...(hasDefault && !['secret','backlink','file','image'].includes(type) ? { default: value } : {}),
+            ...(hasDefault && !['secret','backlink','formula','aggregate','file','image'].includes(type) ? { default: value } : {}),
             ...(type === 'integer' && min !== '' ? { min: Number(min) } : {}),
             ...(type === 'integer' && max !== '' ? { max: Number(max) } : {}),
             ...(['select', 'multiselect'].includes(type) ? { options } : {}),
-            ...(['decimal', 'money'].includes(type) ? { precision } : {}),
-            ...(type === 'money' ? { currency } : {}),
+            ...(['decimal', 'money'].includes(type) || (calculated && resultType === 'decimal') ? { precision } : {}),
+            ...(type === 'money' || (calculated && resultType === 'decimal' && currency) ? { currency } : {}),
+            ...(calculated ? { formula, result_type: resultType } : {}),
             ...(numeric || type === 'boolean' ? { widget, ...(numeric ? { step } : {}) } : {}),
             ...(['decimal', 'money', 'duration'].includes(type) ? { ...(decimalMin ? { decimal_min: decimalMin.replace(',', '.') } : {}), ...(decimalMax ? { decimal_max: decimalMax.replace(',', '.') } : {}) } : {}),
             ...(type === 'barcode' ? { barcode_label: barcodeLabel } : {}),
@@ -202,6 +209,7 @@ function FieldEditor({
             setHasDefault(false);
             setWidget('input');
             setPrecision(e.target.value === 'money' ? 2 : 5);
+            setCurrency(e.target.value === 'money' ? '₽' : '');
           }}
         >
           {FIELD_TYPES.map((type) => (
@@ -212,6 +220,8 @@ function FieldEditor({
         </select>
       </label>
       {field && <small>{t('stableFieldType')}</small>}
+      {calculated && <><FormulaEditor api={api} collectionId={collectionId} value={formula} resultType={resultType} change={setFormula} disabled={busy} />
+        <label>{t('formulaResultType')}<select value={resultType} disabled={busy} onChange={event => setResultType(event.target.value as FieldConfig['result_type'])}>{['decimal', 'text', 'boolean', 'date', 'local_datetime'].map(value => <option key={value} value={value}>{t('types.' + value)}</option>)}</select></label></>}
       {['select', 'multiselect'].includes(type) && <fieldset disabled={busy}><legend>{t('choiceOptions')}</legend>
         {options.map((option, index) => <div className="choice-option" key={option.id}><label>{t('optionLabel', { number: index + 1 })}<input required maxLength={200} value={option.label} onChange={event => setOptions(old => old.map(item => item.id === option.id ? { ...item, label: event.target.value } : item))} /></label>
           <label className="check"><input type="checkbox" checked={option.archived ?? false} onChange={event => setOptions(old => old.map(item => item.id === option.id ? { ...item, archived: event.target.checked } : item))} />{t('archivedChoice')}</label>
@@ -222,8 +232,8 @@ function FieldEditor({
         {(type === 'boolean' ? ['input', 'switch'] : ['input', 'counter', 'rating', 'progress', 'slider']).map(value => <option key={value} value={value}>{t('widgets.' + value)}</option>)}
       </select></label>}
       {numeric && <label>{t('numberStep')}<input inputMode="decimal" value={step} disabled={busy} onChange={event => setStep(event.target.value.replace(',', '.'))} /></label>}
-      {['decimal', 'money'].includes(type) && <label>{t('displayPrecision')}<select value={precision} disabled={busy} onChange={event => setPrecision(Number(event.target.value))}>{[0, 1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{value}</option>)}</select></label>}
-      {type === 'money' && <label>{t('currencySymbol')}<input maxLength={16} value={currency} disabled={busy} onChange={event => setCurrency(event.target.value)} /></label>}
+      {(['decimal', 'money'].includes(type) || (calculated && resultType === 'decimal')) && <label>{t('displayPrecision')}<select value={precision} disabled={busy} onChange={event => setPrecision(Number(event.target.value))}>{[0, 1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{value}</option>)}</select></label>}
+      {(type === 'money' || (calculated && resultType === 'decimal')) && <label>{t('currencySymbol')}<input maxLength={16} value={currency} disabled={busy} onChange={event => setCurrency(event.target.value)} /></label>}
       {['decimal', 'money', 'duration'].includes(type) && <div className="field-grid"><label>{t('minimum')}<input inputMode="decimal" value={decimalMin} disabled={busy} onChange={event => setDecimalMin(event.target.value)} /></label><label>{t('maximum')}<input inputMode="decimal" value={decimalMax} disabled={busy} onChange={event => setDecimalMax(event.target.value)} /></label></div>}
       {type === 'barcode' && <label>{t('barcodeLabel')}<input maxLength={200} value={barcodeLabel} disabled={busy} onChange={event => setBarcodeLabel(event.target.value)} /></label>}
       {type === 'secret' && <p className="warning">{t('secretPlaintextHint')}</p>}
@@ -274,8 +284,8 @@ function FieldEditor({
       <label className="check">
         <input
           type="checkbox"
-          checked={type === 'backlink' ? false : required}
-          disabled={busy || type === 'backlink'}
+          checked={readOnly ? false : required}
+          disabled={busy || readOnly}
           onChange={(e) => setRequired(e.target.checked)}
         />
         {t('required')}
@@ -284,7 +294,7 @@ function FieldEditor({
         {t('hint')}
         <input maxLength={1000} value={hint} disabled={busy} onChange={(e) => setHint(e.target.value)} />
       </label>
-      {!['secret','backlink','file','image'].includes(type) && (type !== 'relation' || !!field) && (
+      {!['secret','backlink','formula','aggregate','file','image'].includes(type) && (type !== 'relation' || !!field) && (
         <label className="check">
           <input
             type="checkbox"
@@ -296,7 +306,7 @@ function FieldEditor({
         </label>
       )}
       {hasDefault &&
-        !['secret','backlink','file','image'].includes(type) &&
+        !['secret','backlink','formula','aggregate','file','image'].includes(type) &&
         (type === 'relation' && field ? (
           <RelationInput api={api} field={field} value={value} disabled={busy} change={setValue} />
         ) : (

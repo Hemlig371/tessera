@@ -5,6 +5,7 @@ import { canonical } from './model';
 import type { SqlSession, SqlValue } from './ports';
 import { fieldExpression, fieldSortKey, searchTerms } from './search-keys';
 import { decimalTypes } from './field-values';
+import { ensureCalculated, isCalculated } from './calculated-fields';
 import { fieldConfig, isText, requireId, validateValue } from './validation';
 import { activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 
@@ -23,6 +24,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     : [];
   if (input.profile_id && !saved) throw new AppError('notFound');
   const q = { ...(saved ? (JSON.parse(saved.config) as UiDefinition).list : {}), ...input };
+  const dynamic = q.collection_id ? await ensureCalculated(s, q.collection_id) : new Set<string>();
   const params: SqlValue[] = [],
     where: string[] = [];
   if (q.collection_id) {
@@ -54,6 +56,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     if (id === 'updated_at') return 'r.updated_at';
     const field = byId.get(id);
     if (!field || ['secret', 'relation', 'backlink', 'file', 'image'].includes(field.type)) throw new AppError('invalidFilter');
+    if (dynamic.has(field.id)) throw new AppError('dynamicFormulaIndex');
     return fieldExpression(field, 'r.');
   }
   const terms = searchTerms(q.search ?? '');
@@ -87,20 +90,19 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
       if (filter.op === 'eq' || filter.op === 'ne') { requireId(filter.value as string); clause += ' AND af.value=?'; params.push(filter.value as string); }
       where.push((['empty','ne'].includes(filter.op) ? 'NOT ' : '') + clause + ')'); continue;
     }
+    const valueType = isCalculated(field.type) ? fieldConfig(field).result_type ?? 'decimal' : field.type;
     const expr = expression(field.id),
-      empty = `(${expr} IS NULL${isText(field.type) ? ` OR ${expr}=''` : ''})`;
+      empty = `(${expr} IS NULL${isText(valueType) ? ` OR ${expr}=''` : ''})`;
     if (filter.op === 'empty' || filter.op === 'filled') {
       where.push(filter.op === 'empty' ? empty : `NOT ${empty}`);
       continue;
     }
     const operator = { eq: '=', ne: '<>', gt: '>', lt: '<' }[filter.op];
     if (!operator || filter.value == null) throw new AppError('invalidFilter');
-    validateValue(field.type, filter.value, { ...fieldConfig(field), required: false });
-    const value = isText(field.type) || decimalTypes.has(field.type) || field.type === 'select'
+    validateValue(valueType, filter.value, { ...fieldConfig(field), required: false });
+    const value = typeof filter.value === 'boolean' ? Number(filter.value) : isText(field.type) || decimalTypes.has(field.type) || field.type === 'select' || isCalculated(field.type)
       ? fieldSortKey(field, String(filter.value))
-      : typeof filter.value === 'boolean'
-        ? Number(filter.value)
-        : typeof filter.value === 'object' ? canonical(filter.value) : filter.value;
+      : typeof filter.value === 'object' ? canonical(filter.value) : filter.value;
     where.push(`${expr}${operator}?`);
     params.push(value as SqlValue);
   }
@@ -155,14 +157,19 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
   );
   const visible = rows.slice(0, limit),
     last = visible.at(-1);
+  if (q.collection_id && dynamic.size && visible.length) {
+    await ensureCalculated(s, q.collection_id, visible.map(row => row.id));
+    const caches = await s.query<{ id: string; sort_data: string }>(`SELECT id,sort_data FROM records WHERE id IN(${visible.map(() => '?').join(',')})`, visible.map(row => row.id));
+    const byId = new Map(caches.map(row => [row.id, row.sort_data]));
+    for (const row of visible) row.sort_data = byId.get(row.id)!;
+  }
   const previews = await relationPreviews(
     s,
     fields,
     visible.map((row) => row.id)
   );
   return {
-    items: visible.map((row) => ({
-      ...decodeEntry(row),
+    items: visible.map((row) => Object.assign(decodeEntry(row), {
       title: String(row.display_title ?? ''),
       collection_name: String(row.collection_name),
       ...(row.collection_system_kind === 'inbox' ? { collection_system_kind: 'inbox' as const } : {}),

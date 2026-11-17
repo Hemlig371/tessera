@@ -1,4 +1,5 @@
 import { attachmentLimit, attachmentRow, bindAttachments, mediaReferences, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
+import { calculatedDynamics, ensureCalculated, invalidateCalculated, isCalculated, previewCalculated, resetCalculatedMetadata, validateCalculatedField } from './calculated-fields';
 import { checkCancelled, yieldOperation, type OperationProgress } from './operations';
 import { libraryNavigation, navigationLibrary, resolveLibraryStart, validLibraryLocation, validateLibraryNavigation, type LibraryLocation, type LibraryNavigation } from './library-navigation';
 import { applyHistoryClear, readHistory, trimHistory, type HistoryClear, type HistoryState } from './history';
@@ -93,6 +94,7 @@ export class Repository {
       return { datasetId, deviceId };
     });
     const repository = new Repository(db, ids.deviceId, ids.datasetId, files);
+    await db.read(async s => { resetCalculatedMetadata(s); });
     await repository.recoverAttachmentStages();
     await repository.repairUiChangeTypes();
     await repository.prepareSearchKeys();
@@ -745,6 +747,8 @@ export class Repository {
       };
       await this.insert(s, 'fields', field);
       await this.log(s, 'field', field, field);
+      await validateCalculatedField(s, field);
+      await invalidateCalculated(s);
       await this.indexesInSession(s, collectionId);
       return field;
     });
@@ -771,6 +775,8 @@ export class Repository {
         ...(patch.position != null ? { position: positionValue(patch.position) } : {}),
         ...(patch.config ? { config: canonical(checked as Record<string, JsonValue>) } : {}),
       });
+      await validateCalculatedField(s, updated);
+      await invalidateCalculated(s);
       if (fieldConfig(old).fts !== checked.fts || (old.type === 'select' && old.config !== updated.config))
         await s.execute('UPDATE records SET sort_version=0 WHERE collection_id=?', [old.collection_id]);
       await this.indexesInSession(s, old.collection_id);
@@ -844,6 +850,7 @@ export class Repository {
       await this.update(s, table, kind, stored as Library | Collection | Field, {
         deleted_at: deleted ? new Date().toISOString() : null,
       });
+      await invalidateCalculated(s);
       if (kind === 'field' || kind === 'collection')
         await s.execute('UPDATE records SET sort_version=0,relation_version=0 WHERE collection_id=?', [
           kind === 'field' ? (stored as Field).collection_id : id,
@@ -1101,7 +1108,23 @@ export class Repository {
     );
   }
   queryEntries(query: EntryQuery): Promise<Page<EntryListItem>> {
-    return this.db.read((s) => queryEntries(s, query));
+    return this.db.transaction((s) => queryEntries(s, query));
+  }
+  formulaCatalog(collectionId: string): Promise<Field[]> {
+    requireId(collectionId);
+    return this.db.read(async s => { await activeCollection(s, collectionId); return s.query<Field>('SELECT * FROM fields WHERE deleted_at IS NULL ORDER BY collection_id,position,id'); });
+  }
+  previewFormulas(collectionId: string, data: RecordData, id: string = crypto.randomUUID()) {
+    requireId(collectionId); requireId(id); validateData(data);
+    return this.db.read(async s => { await activeCollection(s, collectionId); return previewCalculated(s, collectionId, data, id); });
+  }
+  previewFormula(collectionId: string, source: string, resultType: FieldConfig['result_type'] = 'decimal') {
+    requireId(collectionId);
+    return this.db.read(async s => {
+      await activeCollection(s, collectionId);
+      const [sample] = await s.query<{ id: string; data: string }>('SELECT id,data FROM records WHERE collection_id=? AND deleted_at IS NULL AND purged=0 ORDER BY id LIMIT 1', [collectionId]);
+      return previewCalculated(s, collectionId, sample ? JSON.parse(sample.data) as RecordData : {}, sample?.id ?? crypto.randomUUID(), source, undefined, resultType);
+    });
   }
   getHistory(recordId: string): Promise<HistoryState> {
     requireId(recordId);
@@ -1334,9 +1357,12 @@ export class Repository {
   }
   async getEntry(id: string): Promise<Entry | null> {
     requireId(id);
-    return this.db.read(async (s) => {
+    return this.db.transaction(async (s) => {
       const [row] = await s.query<StoredEntry>('SELECT r.* ' + activeRecords + ' AND r.id=?', [id]);
-      return row ? decodeEntry(row) : null;
+      if (!row) return null;
+      await ensureCalculated(s, row.collection_id, [id]);
+      const [cached] = await s.query<{ sort_data: string }>('SELECT sort_data FROM records WHERE id=?', [id]);
+      return decodeEntry({ ...row, sort_data: cached!.sort_data });
     });
   }
   async getDraftTarget(id: string): Promise<Entry | null> {
@@ -1628,6 +1654,7 @@ export class Repository {
     knownFields?: Field[]
   ): Promise<void> {
     if (!rows.length) return;
+    await invalidateCalculated(s, rows);
     const fieldsByCollection = new Map<string, Field[]>();
     if (knownFields && rows[0]) fieldsByCollection.set(rows[0].collection_id, knownFields);
     const params: SqlValue[] = [],
@@ -1681,6 +1708,7 @@ export class Repository {
       ids
     );
     await refreshRelationRecords(s, ids);
+    await invalidateCalculated(s, rows);
   }
   listRelationSources(collectionId: string): Promise<RelationSource[]> {
     requireId(collectionId);
@@ -1779,7 +1807,7 @@ export class Repository {
   }
   /** Restartable local cache rebuild. No user versions, HLC or change_log events. */
   async rebuildRelationIndex(force = true): Promise<void> {
-    if (force) await this.db.transaction((s) => s.execute('UPDATE records SET relation_version=0'));
+    if (force) await this.db.transaction(async s => { await s.execute('UPDATE records SET relation_version=0'); await invalidateCalculated(s); });
     for (;;) {
       const count = await this.db.transaction(async (s) => {
         const rows = await s.query<{ id: string }>(
@@ -1799,14 +1827,17 @@ export class Repository {
   }
   private async indexesInSession(s: SqlSession, collectionId: string): Promise<void> {
     const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=?', [collectionId]);
+    const dynamic = fields.some(field => isCalculated(field.type)) ? await calculatedDynamics(s) : new Set<string>();
     const profiles = await s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE collection_id=? AND deleted_at IS NULL', [collectionId]);
     const automatic = new Set(profiles.flatMap(profile => {
       const list = (JSON.parse(profile.config) as UiDefinition).list;
       return [list?.sort_field, list?.group_field, ...(list?.filters?.map(filter => filter.field_id) ?? [])];
     }));
+    if ([...dynamic].some(id => automatic.has(id))) throw new AppError('dynamicFormulaIndex');
     for (const field of fields) {
       if (
         !field.deleted_at &&
+        !dynamic.has(field.id) &&
         !['secret', 'relation', 'backlink', 'file', 'image'].includes(field.type) &&
         (fieldConfig(field).indexed || automatic.has(field.id))
       ) {

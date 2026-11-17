@@ -82,4 +82,13 @@ describe.each(adapters)('%s typed values', kind => {
     expect(csvValue('12,345.123456', field, 'en')).toBe('12345.12346');
     expect(() => csvValue('12,34.5', field, 'en')).toThrow('invalidDecimal');
   });
+  it('preserves unknown future Decimal encodings while rebuilding disposable keys', async () => {
+    const { f, api, collection } = await setup(), field = await api.createField(collection.id, 'Число', 'decimal');
+    const entry = await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Будущий формат', [field.id]: '1' });
+    // Simulate a newer remote representation; the current UI must preserve it.
+    await f.db.transaction(s => s.execute('UPDATE records SET data=json_set(data,?,?),sort_version=0 WHERE id=?', [`$."${field.id}"`, 'future:exact-number', entry.id]));
+    await api.rebuildDerived();
+    expect((await api.getEntry(entry.id))!.data[field.id]).toBe('future:exact-number');
+    expect((await api.queryEntries({ collection_id: collection.id, sort_field: field.id })).items[0]!.id).toBe(entry.id);
+  });
 });

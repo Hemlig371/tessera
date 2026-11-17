@@ -11,6 +11,8 @@ import type { Repository } from '../core/repository';
 import { RelationBlock } from './RelationBlock';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
+import { CalculatedValue } from './CalculatedValue';
+import { isCalculated } from '../core/calculated-fields';
 export function RecordForm({
   api,
   initialData,
@@ -61,6 +63,16 @@ export function RecordForm({
     return { ...values, ...initialData };
   });
   const currentData = useRef(data);
+  const [calculated, setCalculated] = useState<{ input: RecordData; values: Entry['computed'] }>({ input: data, values: entry?.computed });
+  useEffect(() => {
+    if (!fields.some(field => isCalculated(field.type))) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      void api.previewFormulas(collection.id, data, ownerId).then(values => { if (active) setCalculated({ input: data, values: values as NonNullable<Entry['computed']> }); })
+        .catch(error => { if (active) setCalculated({ input: data, values: Object.fromEntries(fields.filter(field => isCalculated(field.type)).map(field => [field.id, { value: null, error: errorKey(error), dynamic: false }])) }); });
+    }, 200);
+    return () => { active = false; clearTimeout(timer); };
+  }, [api, collection.id, data, fields, ownerId]);
   useEffect(() => {
     active.current = true; const ownedControllers = controllers.current;
     if (!creating && ownerId) void api.discardAttachmentStages(ownerId).then(() => { if (active.current) setFileReady(true); }).catch(e => { if (active.current) setFileError(errorKey(e)); });
@@ -131,7 +143,7 @@ export function RecordForm({
                     <input type="file" aria-label={displayField.name === 'attachments' ? t('attachments') : displayField.name} aria-required={required} accept={field.type === 'image' ? 'image/*' : undefined}
                       multiple={config.multiple === true} disabled={blocked} onChange={event => { const files = [...(event.target.files ?? [])]; event.target.value = ''; upload(field, files); }} />
                     <AttachmentList api={api} ownerId={ownerId} ids={fileIds(data[field.id])} busy={blocked} removeReference={id => update(field.id, fileIds(currentData.current[field.id]).filter(value => value !== id))} />
-                  </div> : field.type === 'backlink' ? (
+                  </div> : isCalculated(field.type) ? <CalculatedValue field={field} value={calculated.input === data ? calculated.values?.[field.id] : undefined} /> : field.type === 'backlink' ? (
                     entry ? (
                       <RelationBlock api={api} field={field} entry={entry} busy={blocked} readOnly />
                     ) : (

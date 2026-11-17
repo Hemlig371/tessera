@@ -18,17 +18,21 @@ export function sortData(data: RecordData, fields: readonly Field[]): Record<str
   return Object.fromEntries(
     fields
       .filter((f) => (isText(f.type) || decimalTypes.has(f.type) || f.type === 'select') && typeof data[f.id] === 'string')
-      .map((f) => [f.id, fieldSortKey(f, data[f.id] as string)])
+      .flatMap((f) => { try { return [[f.id, fieldSortKey(f, data[f.id] as string)]]; } catch { return []; } })
   );
 }
 export function fieldSortKey(field: Pick<Field, 'type' | 'config'>, value: string): string {
+  if (['formula', 'aggregate'].includes(field.type)) {
+    const type = fieldConfig(field).result_type ?? 'decimal';
+    return type === 'decimal' ? decimalKey(value) : type === 'text' ? textSortKey(value) : value;
+  }
   if (decimalTypes.has(field.type)) return decimalKey(value);
   if (field.type === 'select') return String(fieldConfig(field).options?.findIndex(option => option.id === value) ?? -1).padStart(6, '0');
   return textSortKey(value);
 }
 export function fieldExpression(field: Pick<Field, 'id' | 'type'>, alias = ''): string {
   requireId(field.id);
-  return `json_extract(${alias}${isText(field.type) || decimalTypes.has(field.type) || field.type === 'select' ? 'sort_data' : 'data'}, '$."${field.id}"')`;
+  return `json_extract(${alias}${isText(field.type) || decimalTypes.has(field.type) || ['select', 'formula', 'aggregate'].includes(field.type) ? 'sort_data' : 'data'}, '$."${field.id}"')`;
 }
 export function fieldIndexName(id: string): string {
   requireId(id);

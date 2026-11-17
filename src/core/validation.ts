@@ -3,6 +3,7 @@ import { canonical, FIELD_TYPES, UUID_RE } from './model';
 import type { Appearance, Field, FieldConfig, FieldType, JsonValue, RecordData } from './model';
 import { choiceTypes, decimalTypes, normalizeFieldValue, validateAdditionalValue, validDate } from './field-values';
 import { Decimal, normalizeDecimal } from './decimal';
+import { parseFormula, printFormula } from './formula';
 export { validDate } from './field-values';
 
 export function requireId(id: string): void {
@@ -48,7 +49,7 @@ export function validateValue(
   if ((config.required || primary) && (empty || (typeof value === 'string' && !value.trim())))
     throw new AppError(primary ? 'requiredText' : 'requiredField');
   if (value == null) return;
-  if (type === 'backlink') throw new AppError('readOnlyField');
+  if (['backlink', 'formula', 'aggregate'].includes(type)) throw new AppError('readOnlyField');
   if (type === 'relation') {
     if (config.multiple) {
       if (
@@ -78,6 +79,11 @@ export function validateValue(
 }
 export function validateFieldConfig(type: string, input: FieldConfig): FieldConfig {
   requireFieldType(type);
+  if (['formula', 'aggregate'].includes(type)) {
+    if (typeof input.formula !== 'string' || !input.formula.trim() || input.required || input.fts || Object.hasOwn(input, 'default') ||
+      (input.result_type != null && !['decimal', 'text', 'boolean', 'date', 'local_datetime'].includes(input.result_type))) throw new AppError('invalidFormula');
+    input = { ...input, formula: printFormula(parseFormula(input.formula)), result_type: input.result_type ?? 'decimal' };
+  } else if (input.formula != null || input.result_type != null) throw new AppError('invalidFormula');
   if (type === 'relation') {
     requireId(input.target_collection_id!);
     if (input.indexed) throw new AppError('invalidRelation');
@@ -111,16 +117,24 @@ export function validateFieldConfig(type: string, input: FieldConfig): FieldConf
       if (option.archived != null && typeof option.archived !== 'boolean') throw new AppError('invalidChoice');
     }
   } else if (input.options != null) throw new AppError('invalidChoice');
-  if (input.precision != null && (!['decimal', 'money'].includes(type) || !Number.isInteger(input.precision) || input.precision < 0 || input.precision > 5)) throw new AppError('invalidDecimal');
-  if (input.currency != null && (type !== 'money' || typeof input.currency !== 'string' || input.currency.length > 16)) throw new AppError('invalidDecimal');
-  for (const bound of [input.decimal_min, input.decimal_max]) if (bound != null) {
+  if (input.precision != null && (!['decimal', 'money', 'formula', 'aggregate'].includes(type) || !Number.isInteger(input.precision) || input.precision < 0 || input.precision > 5)) throw new AppError('invalidDecimal');
+  if (input.currency != null && (!['money', 'formula', 'aggregate'].includes(type) || typeof input.currency !== 'string' || input.currency.length > 16)) throw new AppError('invalidDecimal');
+  for (const key of ['decimal_min', 'decimal_max'] as const) if (input[key] != null) {
+    const bound = input[key]!;
     if (!decimalTypes.has(type) || typeof bound !== 'string') throw new AppError('invalidDecimal');
-    normalizeDecimal(bound);
+    input = { ...input, [key]: normalizeDecimal(bound) };
   }
   if (input.decimal_min != null && input.decimal_max != null && Decimal.parse(input.decimal_min).compare(Decimal.parse(input.decimal_max)) > 0) throw new AppError('outOfRange');
   if (input.widget != null && (!['input', 'counter', 'rating', 'progress', 'slider', 'switch'].includes(input.widget) ||
     (type === 'boolean' ? !['input', 'switch'].includes(input.widget) : !(type === 'integer' || decimalTypes.has(type)) || input.widget === 'switch'))) throw new AppError('invalidWidget');
-  if (input.step != null && (!(type === 'integer' || decimalTypes.has(type)) || typeof input.step !== 'string' || Decimal.parse(input.step).compare(Decimal.parse('0')) <= 0 || (type === 'integer' && !/^\d+$/.test(input.step)))) throw new AppError('invalidWidget');
+  if (input.step != null) {
+    if (!(type === 'integer' || decimalTypes.has(type)) || typeof input.step !== 'string') throw new AppError('invalidWidget');
+    const number = Decimal.parse(input.step);
+    if (type === 'integer' && (number.denominator !== 1n || number.numerator > BigInt(Number.MAX_SAFE_INTEGER))) throw new AppError('invalidWidget');
+    const step = type === 'integer' ? number.toString(0) : normalizeDecimal(input.step);
+    if (Decimal.parse(step).compare(Decimal.parse('0')) <= 0 || (type === 'integer' && !/^\d+$/.test(step))) throw new AppError('invalidWidget');
+    input = { ...input, step };
+  }
   if (input.barcode_label != null && (type !== 'barcode' || typeof input.barcode_label !== 'string' || input.barcode_label.length > 200)) throw new AppError('invalidData');
   for (const bound of [input.min, input.max]) {
     if (bound != null && (type !== 'integer' || !Number.isSafeInteger(bound)))

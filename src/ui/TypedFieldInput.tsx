@@ -37,7 +37,7 @@ export function TypedFieldInput({ field, value, change, required, label, disable
   if (!numeric) return <input {...attrs} value={text} onChange={event => change(event.target.value)} />;
   const widget = config.widget ?? 'input';
   let rounded = '';
-  try { if (text) rounded = formatDecimal(normalizeDecimal(text), i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision); } catch { /* Partial numeric input remains editable. */ }
+  try { if (text) rounded = formatDecimal(normalizeDecimal(text), i18n.language); } catch { /* Partial numeric input remains editable. */ }
   const increment = (direction: 1 | -1) => {
     try {
       const next = Decimal.parse(text || '0').add(Decimal.parse(config.step ?? '1').multiply(new Decimal(BigInt(direction)))).toString();

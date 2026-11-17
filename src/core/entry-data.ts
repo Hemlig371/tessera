@@ -39,12 +39,13 @@ export function prepareEntryData(
   validateData(input);
   const data = { ...previous, ...input };
   for (const { field, config, primary } of rules) {
-    if (field.type === 'backlink') {
+    if (['backlink', 'formula', 'aggregate'].includes(field.type)) {
       if (
         Object.hasOwn(input, field.id) &&
         (!previous || canonical(input[field.id]!) !== canonical(previous[field.id] ?? null))
       )
         throw new FieldError('readOnlyField', field.name);
+      if (field.type !== 'backlink') delete data[field.id];
       continue;
     }
     if (!previous && !Object.hasOwn(data, field.id) && Object.hasOwn(config, 'default'))

@@ -68,7 +68,7 @@ export function validateUiDefinition(
     if ((item.collapsed != null && typeof item.collapsed !== 'boolean') || (kind === 'list' && item.collapsed)) throw new AppError('invalidUiConfig');
     if (item.hint != null && (typeof item.hint !== 'string' || item.hint.length > 1000))
       throw new AppError('invalidUiConfig');
-    if (field.type === 'backlink' && (item.required || Object.hasOwn(item, 'default')))
+    if (['backlink', 'formula', 'aggregate'].includes(field.type) && (item.required || Object.hasOwn(item, 'default')))
       throw new AppError('readOnlyField');
     if (field.type === 'secret' && ((kind === 'list' && item.visible) || Object.hasOwn(item, 'default'))) throw new AppError('invalidSecret');
     if (['file', 'image'].includes(field.type) && Object.hasOwn(item, 'default') && item.default != null && (!Array.isArray(item.default) || item.default.length)) throw new AppError('invalidAttachment');
@@ -125,7 +125,7 @@ export function validateUiDefinition(
           continue;
         }
         if (filter.value == null) throw new AppError('invalidFilter');
-        validateValue(field.type, filter.value, { ...fieldConfig(field), required: false });
+        validateValue(['formula', 'aggregate'].includes(field.type) ? fieldConfig(field).result_type ?? 'decimal' : field.type, filter.value, { ...fieldConfig(field), required: false });
       }
     }
   }

@@ -1056,3 +1056,6 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .choice-option>label:first-child{flex:1;min-width:8rem}
 .secret-value,.color-value{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;overflow-wrap:anywhere}
 .color-value>input[type=color]{width:3rem;min-width:3rem;padding:.15rem}
+.formula-editor{min-width:0;border:1px solid var(--border);border-radius:.6rem;padding:.7rem;display:grid;gap:.55rem}
+.formula-editor textarea{font-family:ui-monospace,monospace;overflow-wrap:anywhere}
+.formula-error{color:var(--error-text);font-weight:600;overflow-wrap:anywhere}

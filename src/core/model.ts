@@ -37,6 +37,8 @@ export interface Entry extends Stamp {
   created_local: string;
   updated_local: string;
   purged: number;
+  /** Query-only, non-enumerable metadata; never source data, history or sync. */
+  computed?: Record<string, { value: JsonValue; error: string | null; dynamic: boolean }>;
 }
 /** Query-only labels; never included in record snapshots or synchronization payloads. */
 export interface EntryListItem extends Entry {
@@ -81,6 +83,8 @@ export const FIELD_TYPES = [
   'color',
   'icon',
   'json',
+  'formula',
+  'aggregate',
   'relation',
   'backlink',
   'file',
@@ -106,6 +110,8 @@ export interface FieldConfig {
   widget?: 'input' | 'counter' | 'rating' | 'progress' | 'slider' | 'switch';
   options?: { id: string; label: string; archived?: boolean }[];
   barcode_label?: string;
+  formula?: string;
+  result_type?: 'decimal' | 'text' | 'boolean' | 'date' | 'local_datetime';
 }
 export interface Appearance {
   icon?: string;

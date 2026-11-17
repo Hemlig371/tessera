@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateValue, validDate } from '../../src/core/validation';
+import { validateFieldConfig, validateValue, validDate } from '../../src/core/validation';
 import { textSortKey, searchTerms } from '../../src/core/search-keys';
 describe('field semantics and Russian search keys', () => {
   it('retains false and zero as required values and rejects unsafe integers', () => {
@@ -13,6 +13,11 @@ describe('field semantics and Russian search keys', () => {
     expect(validDate('2023-02-29')).toBe(false);
     expect(validDate('2026-04-31')).toBe(false);
     expect(validDate('2026-01-01T00:00:00Z')).toBe(false);
+  });
+  it('normalizes numeric bounds and rejects steps smaller than storage precision', () => {
+    expect(validateFieldConfig('decimal', { decimal_min: '1.000004', decimal_max: '1.000003', step: '+0.100000' })).toMatchObject({ decimal_min: '1', decimal_max: '1', step: '0.1' });
+    expect(() => validateFieldConfig('decimal', { step: '0.000001' })).toThrow('invalidWidget');
+    expect(validateFieldConfig('integer', { step: '9007199254740991' }).step).toBe('9007199254740991');
   });
   it('sorts normalized Russian text with ё after е, independently of SQLite NOCASE', () => {
     const words = ['Яблоко', 'Жук', 'Ёж', 'Еда', 'Аист'];

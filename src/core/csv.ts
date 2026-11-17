@@ -99,7 +99,7 @@ export async function parseCsvAsync(text: string, options: { signal?: AbortSigna
 }
 export function csvValue(text: string, field: Field, locale: CsvLocale): JsonValue {
   if (['file','image'].includes(field.type)) throw new AppError('csvAttachment');
-  if (field.type === 'backlink') throw new AppError('readOnlyField');
+  if (['backlink', 'formula', 'aggregate'].includes(field.type)) throw new AppError('readOnlyField');
   if (field.type === 'relation') {
     let value: JsonValue = text.trim() || null;
     if (fieldConfig(field).multiple && text.trim()) {
@@ -150,7 +150,7 @@ export function* csvRecords(
   if (
     mapping.length !== doc.headers.length ||
     new Set(ids).size !== ids.length ||
-    ids.some((id) => !byId.has(id) || ['backlink','file','image'].includes(byId.get(id)?.type ?? ''))
+    ids.some((id) => !byId.has(id) || ['backlink','formula','aggregate','file','image'].includes(byId.get(id)?.type ?? ''))
   )
     throw new AppError('csvMapping');
   for (let i = 0; i < doc.rows.length; i++) {
@@ -212,10 +212,11 @@ export async function exportCsv(
           chunk += csvLine(
             fields.map((field) => {
               const v =
-                field.type === 'backlink' ? (derived.get(entry.id)?.[field.id] ?? []) : entry.data[field.id];
+                field.type === 'backlink' ? (derived.get(entry.id)?.[field.id] ?? []) : ['formula', 'aggregate'].includes(field.type) ? entry.computed?.[field.id]?.value : entry.data[field.id];
+              if (entry.computed?.[field.id]?.error) return '#' + entry.computed[field.id]!.error;
               if (v == null) return '';
               if (typeof v === 'object') return JSON.stringify(v);
-              if (decimalTypes.has(field.type) && locale === 'ru') return String(v).replace('.', ',');
+              if ((decimalTypes.has(field.type) || (['formula', 'aggregate'].includes(field.type) && (fieldConfig(field).result_type ?? 'decimal') === 'decimal')) && locale === 'ru') return String(v).replace('.', ',');
               if (typeof v === 'boolean') return locale === 'ru' ? (v ? 'да' : 'нет') : v ? 'true' : 'false';
               if (field.type === 'date' && locale === 'ru') return String(v).split('-').reverse().join('.');
               return String(v);

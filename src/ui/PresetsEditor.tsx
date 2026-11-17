@@ -58,7 +58,7 @@ function PresetProperties({ api, fields, preset, isDefault, busy, save }: { api:
     </select></label>
     <label className="check"><input type="checkbox" disabled={busy || isDefault} checked={isDefault || makeDefault} onChange={event => setMakeDefault(event.target.checked)} />{t('usePresetByDefault')}</label>
     <p className="screen-hint">{t('presetValuesHint')}</p>
-    {fields.filter(field => !['backlink','secret','file','image'].includes(field.type)).map(field => {
+    {fields.filter(field => !['backlink','formula','aggregate','secret','file','image'].includes(field.type)).map(field => {
       const today = definition.today_fields.includes(field.id), included = today || Object.hasOwn(definition.data, field.id);
       return <fieldset key={field.id} disabled={busy}><legend>{field.name}</legend>
         <label className="check"><input type="checkbox" checked={included} onChange={event => include(field, event.target.checked)} />{t('presetInclude')}</label>
@@ -74,7 +74,7 @@ function PresetProperties({ api, fields, preset, isDefault, busy, save }: { api:
         </>}
       </fieldset>;
     })}
-    {[...new Set([...Object.keys(definition.data), ...definition.today_fields])].filter(id => !fields.some(field => field.id === id && !['backlink','secret','file','image'].includes(field.type))).map(id => <p key={id}>{t('presetUnknownField', { id })}
+    {[...new Set([...Object.keys(definition.data), ...definition.today_fields])].filter(id => !fields.some(field => field.id === id && !['backlink','formula','aggregate','secret','file','image'].includes(field.type))).map(id => <p key={id}>{t('presetUnknownField', { id })}
       <button type="button" disabled={busy} onClick={() => setDefinition(old => { const data = { ...old.data }; delete data[id]; return { ...old, data, today_fields: old.today_fields.filter(fieldId => fieldId !== id) }; })}>{t('presetRemoveValue')}</button></p>)}
     <button disabled={busy} className="primary">{t('savePreset')}</button>
   </form>;

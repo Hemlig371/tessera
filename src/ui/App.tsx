@@ -1,5 +1,7 @@
 import { quickLayout } from '../core/quick-forms';
 import { SecretValue } from './TypedFieldInput';
+import { CalculatedValue } from './CalculatedValue';
+import { isCalculated } from '../core/calculated-fields';
 import { Catalog } from './Catalog';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
@@ -1003,7 +1005,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                         >
                           {collectionMode && groupField && (
                             <small className="list-group">
-                              {groupField.name}: {format(groupField, row.data[groupField.id])}
+                              {groupField.name}: {isCalculated(groupField.type) ? <CalculatedValue field={groupField} value={row.computed?.[groupField.id]} /> : format(groupField, row.data[groupField.id])}
                             </small>
                           )}
                           {collectionMode ? (
@@ -1023,7 +1025,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                                   <span key={f.id} className={(item.width === 'half' ? 'half' : 'full') + (f.id === collection?.primary_field_id ? ' entry-primary' : '')}>
                                     {item.group && <small>{item.group} · </small>}
                                     <small className="entry-field-label">{f.name}: </small>
-                                    {['relation', 'backlink'].includes(f.type)
+                                    {isCalculated(f.type) ? <CalculatedValue field={f} value={row.computed?.[f.id]} /> : ['relation', 'backlink'].includes(f.type)
                                       ? formatRelations(row, f.id)
                                       : format(f, row.data[f.id])}
                                   </span>
@@ -1106,7 +1108,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                           />
                         ) : isFile(f.type) ? <AttachmentList api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
                           <MarkdownView key={selected.id + f.id} source={String(selected.data[f.id])} />
-                        ) : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : format(f, selected.data[f.id])}
+                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 test('a damaged creation draft is preserved and a fresh record can be created explicitly', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto('/'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();

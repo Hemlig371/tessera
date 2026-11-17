@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ciScope, validateNativeBaseline, validateAndroidContinuation } from '../../scripts/ci-scope.mjs';
+import { ciScope, validateNativeBaseline, validateAndroidContinuation, validatePriorityBaseline, normalizePriorityUiTest } from '../../scripts/ci-scope.mjs';
 
 describe('CI scope', () => {
   it('keeps ordinary product/documentation changes on the fast checks', () => {
@@ -130,5 +130,52 @@ describe('Android continuation requires separate desktop/native evidence', () =>
     for (const name of ['native-checks (windows-latest)', 'native-checks (ubuntu-24.04)', 'desktop (macos-15, aarch64-apple-darwin, macos-arm64, dmg)', 'desktop (windows-latest, x86_64-pc-windows-msvc, windows-x64, nsis)']) {
       expect(() => validateAndroidContinuation(run, failed.map(job => job.name === name ? { ...job, conclusion: 'failure' } : job), { ...changed, target: 'linux_android' })).toThrow('not successful');
     }
+  });
+});
+
+
+describe('user-directed priority native continuation', () => {
+  const repository = 'owner/repo',sha = 'a'.repeat(40),head = 'b'.repeat(40);
+  const run = { status: 'completed',event: 'workflow_dispatch',head_branch: 'main',repository: { full_name: repository },head_repository: { full_name: repository },workflow_id: 123,path: '.github/workflows/ci.yml',head_sha: sha };
+  const passed = name => ({ name,status: 'completed',conclusion: 'success' });
+  const steps = ['typecheck','check:platforms','lint','licenses','test:unit','test:db','test:e2e','build'].map(command => passed('Run npm run '+command));
+  const jobs = [passed('scope'),{ ...passed('checks (windows-latest)'),steps: [...steps,passed('Windows smoke cleanup regression')] },{ ...passed('sync-foundation'),steps: [passed('Run npm run test:sync')] },{ name: 'checks (ubuntu-24.04)',status: 'completed',conclusion: 'failure' }];
+  const context = { repository,workflowId: 123,head,ancestor: true,files: ['AGENTS.md','audit.md','tests/support/e2e-test.ts'] };
+  it('selects Android, Windows native and Windows/macOS desktop without Linux application jobs', () => {
+    const scope = ciScope({ name: 'workflow_dispatch',target: 'priority',ref: 'refs/heads/main',resume: true });
+    expect(scope).toMatchObject({ native: true,bridge: true,desktop: true,checkMatrix: ['windows-latest'],bridgeMatrix: ['windows-latest'] });
+    expect(scope.desktopMatrix.map(job => job.os)).toEqual(['windows-latest','macos-15']);
+    expect(validatePriorityBaseline(run,jobs,context)).toBe(sha);
+    // The original all-platform resume guard is deliberately unchanged.
+    expect(() => validateNativeBaseline(run,jobs,context)).toThrow();
+  });
+  it('requires successful Windows core/DB/UI/build steps and sync, not just a green job label', () => {
+    for (const change of [{ ancestor: false },{ head: sha },{ workflowId: 999 }]) expect(() => validatePriorityBaseline(run,jobs,{ ...context,...change })).toThrow();
+    for (const event of ['pull_request','schedule']) expect(() => validatePriorityBaseline({ ...run,event },jobs,context)).toThrow();
+    for (const conclusion of ['skipped','cancelled','failure',null]) {
+      expect(() => validatePriorityBaseline(run,jobs.map(job => job.name === 'checks (windows-latest)' ? { ...job,conclusion } : job),context)).toThrow('not successful');
+      expect(() => validatePriorityBaseline(run,jobs.map(job => job.steps ? { ...job,steps: job.steps.map(step => step.name === 'Run npm run test:db' ? { ...step,conclusion } : step) } : job),context)).toThrow('not successful');
+    }
+    expect(() => validatePriorityBaseline(run,jobs.map(job => job.name === 'checks (windows-latest)' ? { ...job,steps: [] } : job),context)).toThrow('step');
+  });
+  it.each(['src/core/repository.ts','src/ui/App.tsx','src/ui/style.css','src/platform/android-database.ts','src-tauri/src/replacement_store.rs','android/app/build.gradle','package-lock.json','tests/fixtures/nutrition.ts','tests/support/android-main.tsx','tests/native/storage-crash.test.ts','vite.config.ts'])('rejects every changed production/native input: %s', path => {
+    expect(() => validatePriorityBaseline(run,jobs,{ ...context,files: [...context.files,path] })).toThrow('changed input');
+  });
+  it('accepts only the exact added smoke script while preserving versions, dependencies and existing scripts', () => {
+    const before = { version: '0.20.0',scripts: { build: 'vite build' },dependencies: { react: '19.3.1' } };
+    const after = { ...before,scripts: { ...before.scripts,'test:e2e:smoke': 'playwright test tests/e2e/foundation.spec.ts' } };
+    const proof = after => ({ ...context,files: ['package.json'],contents: { 'package.json': { before: JSON.stringify(before),after: JSON.stringify(after) } } });
+    expect(validatePriorityBaseline(run,jobs,proof(after))).toBe(sha);
+    for (const change of [{ ...after,version: '0.21.0' },{ ...after,dependencies: { react: 'other' } },{ ...after,scripts: { ...after.scripts,build: 'true' } }]) expect(() => validatePriorityBaseline(run,jobs,proof(change))).toThrow();
+    expect(() => validatePriorityBaseline(run,jobs,{ ...context,files: ['package.json'] })).toThrow('changed input');
+  });
+  it('permits only mechanical fixture imports and reviewed startup budgets; assertions remain identical', () => {
+    const path = 'tests/e2e/foundation.spec.ts',before = "import { test } from '@playwright/test';\nawait expect(page.locator('[data-catalog=libraries]')).toBeVisible();";
+    const after = before.replace("from '@playwright/test'","from '../support/e2e-test'").replace('.toBeVisible();','.toBeVisible({ timeout: 30000 });');
+    expect(normalizePriorityUiTest(path,before)).toBe(normalizePriorityUiTest(path,after));
+    const proof = text => ({ ...context,files: [path],contents: { [path]: { before,after: text } } });
+    expect(validatePriorityBaseline(run,jobs,proof(after))).toBe(sha);
+    expect(() => validatePriorityBaseline(run,jobs,proof(after.replace('toBeVisible','toBeHidden')))).toThrow('changed input');
+    expect(() => validatePriorityBaseline(run,jobs,{ ...context,files: [path] })).toThrow('changed input');
   });
 });

@@ -1,9 +1,10 @@
 import { openConstructor } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('mobile profiles keep common records, independent layouts and a persistent default', async ({ page }) => {
+  test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/'); await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible();
+  await page.goto('/'); await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible({ timeout: 30000 });
   await expect(page.locator('aside')).not.toBeVisible();
   const seed = await page.request.post('/__test-sqlite', { data: { op: 'profiles-seed' } }); expect(seed.ok(), await seed.text()).toBe(true);
   const libraryId = (await seed.json()).value as string;

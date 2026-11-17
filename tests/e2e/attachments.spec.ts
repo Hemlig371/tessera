@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../support/e2e-test';
 import { readFile } from 'node:fs/promises';
 type Scope = { library_name: string; library_id: string; collection_id: string; file_id: string; image_id: string };
 const bytes = Buffer.from([0,255,2,3]), filename = 'Документ — длинное название с пробелами и символами 🦔.bin';

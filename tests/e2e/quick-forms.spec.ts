@@ -1,5 +1,5 @@
 import { openConstructor, openQuickCreation, showList } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('mobile quick form inherits hidden defaults, cancels without writes and has its own field selection', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

@@ -160,6 +160,10 @@ export function e2ePlugin(): Plugin {
             else throw new Error('fileError');
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
+          if (op === 'renderer-cleanup') {
+            await remote.closeAll();
+            res.setHeader('Content-Type', 'application/json'); res.end('{"value":null}'); return;
+          }
           if (op === 'cleanup') {
             await cleanup();
             res.setHeader('Content-Type', 'application/json');

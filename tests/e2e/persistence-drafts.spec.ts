@@ -1,5 +1,5 @@
 import { openQuickCreation, showList } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 import type { Entry } from '../../src/core/model';
 test('Notes creation drafts survive close/restart; existing edits and stale-form rejection leave the draft unchanged', async ({ page }) => {
   test.setTimeout(90000);

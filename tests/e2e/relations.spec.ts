@@ -1,5 +1,5 @@
 import { openConstructor, showList } from '../support/ui-actions';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 
 test('mobile single/multiple relations, reverse card, linked creation, cancel and deleted targets', async ({
   page,

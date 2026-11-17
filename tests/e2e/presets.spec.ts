@@ -1,5 +1,5 @@
 import { openConstructor } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('creation choices, quick/standard presets and defaults respect one shared creation draft', async ({ page }) => {
   test.setTimeout(60000);

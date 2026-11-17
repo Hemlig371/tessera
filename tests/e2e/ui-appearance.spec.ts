@@ -1,5 +1,5 @@
 import { showList } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('system/light/dark themes and local density/text size persist without record writes or draft loss', async ({ page }) => {
   test.setTimeout(60000);

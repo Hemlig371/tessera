@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../support/e2e-test';
 type Scope = { library_name: string; collection_id: string; field_id: string; record_id: string; first_version_id: string; other_id: string };
 
 async function seed(page: Page): Promise<Scope> {

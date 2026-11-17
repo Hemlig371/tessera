@@ -4,6 +4,7 @@ import type { DatabaseAdapter, SqlSession, SqlValue } from '../../src/core/ports
 export class HttpSqliteSession {
   private active?: { client: string; session: SqlSession; write: boolean; release: () => void; done: Promise<void> };
   private readonly closed = new Set<string>();
+  private readonly clients = new Set<string>();
   constructor(private readonly database: () => DatabaseAdapter) {}
   private async acquire(client: string, write: boolean): Promise<void> {
     let ready!: () => void, failed!: (error: unknown) => void, release!: () => void;
@@ -19,6 +20,7 @@ export class HttpSqliteSession {
     await started;
   }
   async request(client: string, op: string, sql: string, params: readonly SqlValue[] = []): Promise<unknown> {
+    this.clients.add(client);
     if (op === 'close') { await this.close(client); return; }
     if (this.closed.has(client)) throw new Error('databaseUnavailable');
     if (op === 'begin' || op === 'read-begin') { await this.acquire(client, op === 'begin'); return; }
@@ -44,5 +46,9 @@ export class HttpSqliteSession {
     try { if (lease.write) await lease.session.rollback(); }
     finally { this.active = undefined; lease.release(); await lease.done; }
   }
-  async closeAll(): Promise<void> { if (this.active) await this.close(this.active.client); }
+  async closeAll(): Promise<void> {
+    for (const client of this.clients) this.closed.add(client);
+    this.clients.clear();
+    if (this.active) await this.close(this.active.client);
+  }
 }

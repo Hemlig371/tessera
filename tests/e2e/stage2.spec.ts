@@ -1,5 +1,5 @@
 import { openConstructor, showList } from '../support/ui-actions';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 import { readFile } from 'node:fs/promises';
 
 test('mobile field builder, typed records, independent layouts, search and CSV roundtrip', async ({

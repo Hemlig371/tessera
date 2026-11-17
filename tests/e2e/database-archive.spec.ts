@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../support/e2e-test';
 async function query(page: Page, sql: string, params: unknown[] = []) {
   const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql, params } }); expect(response.ok()).toBe(true);
   return (await response.json()).value as Record<string, string | number>[];

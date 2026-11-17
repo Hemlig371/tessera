@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../support/e2e-test';
 
 async function holdFailure(page: Page, matches: (sql: string, params: unknown[]) => boolean) {
   let release!: () => void, held = false;

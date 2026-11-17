@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 
 test('retained rows become interactive after the refreshed range and browse position are ready', async ({ page }) => {
   await page.goto('/'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 
 test('catalog creation and global actions stay reachable with large text and after scrolling', async ({ page }) => {
   test.setTimeout(90000);

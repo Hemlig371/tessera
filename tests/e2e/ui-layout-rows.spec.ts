@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 import { openConstructor, showList } from '../support/ui-actions';
 
 test('visual rows preserve cells while resizing/reordering; forms adapt and reveal collapsed required inputs', async ({ page }) => {

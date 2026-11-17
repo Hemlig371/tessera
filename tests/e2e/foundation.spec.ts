@@ -1,11 +1,12 @@
 import { showList } from '../support/ui-actions';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 
 test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and reopen', async ({ page }) => {
+  test.setTimeout(60000);
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
-  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible({ timeout: 30000 });
   const count = async () => page.request.post('/__test-sqlite', { data: { op: 'query', sql: 'SELECT count(*) AS n FROM records' } }).then(r => r.json()) as Promise<{ value: { n: number }[] }>;
   const initialCount = (await count()).value[0]!.n;
   await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../support/e2e-test';
 
 async function seed(page: Page, name: string) {
   await page.goto('/'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();

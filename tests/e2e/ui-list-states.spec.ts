@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 
 test('a delayed failed list read shows loading and Retry, without claiming the collection is empty', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');

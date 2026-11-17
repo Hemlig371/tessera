@@ -1,5 +1,5 @@
 import { openConstructor, showList } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('safe Markdown capture, preview, configured move and editing retain the exact original', async ({ page }) => {
   const network: string[] = [];

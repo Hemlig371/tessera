@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 import { openConstructor, showList } from '../support/ui-actions';
 
 test('builder isolates schema tools, preserves collection context and uses back without touching records or drafts', async ({ page }) => {

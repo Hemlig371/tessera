@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('record and editor pages keep list position, relation trail, unsaved edits and creation drafts', async ({ page }) => {
   test.setTimeout(90000);

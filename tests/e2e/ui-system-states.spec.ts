@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../support/e2e-test';
 
 async function holdRead(page: Page, matches: (sql: string) => boolean) {
   let release!: () => void, held = false;

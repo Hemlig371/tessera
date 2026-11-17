@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('capture waits for its own field metadata before constructing a draft session', async ({ page }) => {
   await page.goto('/'); await expect(page.locator('aside')).toBeVisible();

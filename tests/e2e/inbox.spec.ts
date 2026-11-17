@@ -1,5 +1,5 @@
 import { showList } from '../support/ui-actions';
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/e2e-test';
 
 test('global capture and inbox move preserve one record; cancel never writes', async ({ page }) => {
   await page.goto('/');

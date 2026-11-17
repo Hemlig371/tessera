@@ -40,4 +40,15 @@ describe.each(adapters)('%s HTTP test bridge ownership', kind => {
     await f.db.transaction(s => s.execute('INSERT INTO test_state VALUES(4)'));
     expect(await f.db.read(s => s.query('SELECT * FROM test_state'))).toEqual([{ value: 4 }]);
   });
+  it('cleans abandoned active and queued renderer operations when the browser context skips pagehide', async () => {
+    const remote = await setup(); await remote.request('disposed','begin','');
+    await remote.request('disposed','execute','INSERT INTO test_state VALUES(9)');
+    const pending = remote.request('queued-old-page','read-begin','');
+    const rejected = expect(pending).rejects.toThrow('databaseUnavailable');
+    await remote.closeAll(); await rejected;
+    await remote.request('new-test','read-begin','');
+    expect(await remote.request('new-test','query','SELECT * FROM test_state')).toEqual([]);
+    await remote.request('new-test','read-end','');
+  });
+
 });

@@ -17,6 +17,7 @@
     "test:integration": "npm run test:db",
     "test:sync": "vitest run tests/sync",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test tests/e2e/foundation.spec.ts",
     "test:all": "npm run test:unit && npm run test:db && npm run test:sync && npm run test:native && npm run test:native-api && npm run test:e2e",
     "test:native": "cargo test --manifest-path src-tauri/sqlite-bridge/Cargo.toml --locked",
     "test:native-api": "node scripts/native-contract.mjs",

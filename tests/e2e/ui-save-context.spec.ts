@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-test';
 
 test('explicit save refreshes the loaded deep range and restores search, profile, scroll and focus', async ({ page }) => {
   test.setTimeout(90000);

@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 /** Native/build contracts trigger the complete matrix; product checkpoints can request it explicitly. */
 export function ciScope(event, files = []) {
   const target = event.name === 'workflow_dispatch' ? event.target ?? 'all' : 'all';
-  if (!['all', 'priority', 'android', 'linux_android'].includes(target)) throw new Error('Unsupported native target');
-  if (target === 'linux_android' && !event.resume) throw new Error('Remaining Linux/Android jobs require verified resume');
+  if (!['all', 'priority', 'android', 'android_priority', 'linux_android'].includes(target)) throw new Error('Unsupported native target');
+  if (['linux_android','android_priority'].includes(target) && !event.resume) throw new Error('Targeted jobs require verified resume');
   if (event.resume && (event.name !== 'workflow_dispatch' || event.ref !== 'refs/heads/main' || event.fullNative === false)) {
     throw new Error('Native resume requires manual main/full native');
   }
@@ -27,7 +27,7 @@ export function ciScope(event, files = []) {
     { os: 'macos-15', target: 'aarch64-apple-darwin', artifact: 'macos-arm64', bundles: 'dmg' },
     { os: 'ubuntu-24.04', target: 'x86_64-unknown-linux-gnu', artifact: 'linux-x64', bundles: 'appimage' },
   ].filter(job => (target !== 'linux_android' || job.os === 'ubuntu-24.04') && (target !== 'priority' || job.os !== 'ubuntu-24.04'));
-  return { ...result, target, checkMatrix: target === 'priority' ? ['windows-latest'] : ['ubuntu-24.04', 'windows-latest'], bridgeMatrix: target === 'priority' ? ['windows-latest'] : ['ubuntu-24.04', 'windows-latest'], bridge: result.native && ['all','priority'].includes(target), desktop: result.native && target !== 'android', desktopMatrix };
+  return { ...result, target, checkMatrix: ['priority','android_priority'].includes(target) ? ['windows-latest'] : ['ubuntu-24.04', 'windows-latest'], bridgeMatrix: ['priority','android_priority'].includes(target) ? ['windows-latest'] : ['ubuntu-24.04', 'windows-latest'], bridge: result.native && ['all','priority'].includes(target), desktop: result.native && !['android','android_priority'].includes(target), desktopMatrix };
 }
 
 // Resume only the unfinished native acceptance. This is not a successful full CI
@@ -69,7 +69,7 @@ export function normalizePriorityUiTest(path, source) {
   if (path === 'tests/e2e/ui-catalog.spec.ts') result = result.replace('  test.setTimeout(90000);\n','').replace('expect(result.ok(), await result.text()).toBe(true);','expect(result.ok()).toBe(true);');
   return result;
 }
-export function validatePriorityBaseline(run, jobs, { repository, workflowId, head, ancestor, files, contents = {} }) {
+export function validatePriorityBaseline(run, jobs, { repository, workflowId, head, ancestor, files, contents = {}, androidContinuation = false }) {
   if (run.status !== 'completed' || !['push','workflow_dispatch'].includes(run.event) || run.head_branch !== 'main' ||
       run.repository?.full_name !== repository || run.head_repository?.full_name !== repository ||
       run.workflow_id !== workflowId || run.path !== '.github/workflows/ci.yml' ||
@@ -89,8 +89,18 @@ export function validatePriorityBaseline(run, jobs, { repository, workflowId, he
   step(checks,['Run npm run test:e2e','Run npm run test:e2e:smoke']);
   step(checks,['Windows smoke cleanup regression']);
   step(selected.get('sync-foundation'),['Run npm run test:sync']);
+  validatePriorityInputs(files,contents,androidContinuation);
+  return run.head_sha;
+}
+
+function validatePriorityInputs(files, contents, androidContinuation = false) {
   const allowed = new Set(['.github/workflows/ci.yml','scripts/ci-scope.mjs','tests/unit/ci-scope.test.mjs','AGENTS.md','audit.md',
-    'tests/support/e2e-plugin.ts','tests/support/open-e2e.ts','tests/support/http-sqlite-session.ts','tests/support/e2e-test.ts','tests/db/http-sqlite-session.test.ts']);
+    'tests/support/e2e-plugin.ts','tests/support/open-e2e.ts','tests/support/http-sqlite-session.ts','tests/support/e2e-test.ts','tests/db/http-sqlite-session.test.ts','README.md']);
+  if (androidContinuation) for (const path of [
+    'android/app/build.gradle','android/app/tessera-debug.keystore',
+    'android/app/src/androidTest/java/app/tessera/personal/SqliteLifecycleTest.java',
+    'scripts/patch-sqlite-lifecycle.mjs','scripts/run-android-tests.mjs','scripts/check-android-manifest.py',
+  ]) allowed.add(path);
   for (const path of files) {
     if (allowed.has(path)) continue;
     const proof = contents[path];
@@ -99,10 +109,39 @@ export function validatePriorityBaseline(run, jobs, { repository, workflowId, he
       const before = JSON.parse(proof.before), after = JSON.parse(proof.after);
       if (after.scripts?.['test:e2e:smoke'] !== 'playwright test tests/e2e/foundation.spec.ts') throw new Error('Unexpected UI smoke command');
       delete before.scripts['test:e2e:smoke']; delete after.scripts['test:e2e:smoke'];
+      if (androidContinuation) {
+        if (after.scripts?.postinstall !== 'node scripts/patch-sqlite-lifecycle.mjs') throw new Error('Unexpected native patch command');
+        delete before.scripts.postinstall; delete after.scripts.postinstall;
+      }
+      if (JSON.stringify(before) === JSON.stringify(after)) continue;
+    }
+    if (androidContinuation && path === 'package-lock.json' && proof) {
+      const before = JSON.parse(proof.before),after = JSON.parse(proof.after);
+      if (after.packages?.['']?.hasInstallScript !== true) throw new Error('Missing native patch install marker');
+      delete before.packages[''].hasInstallScript; delete after.packages[''].hasInstallScript;
       if (JSON.stringify(before) === JSON.stringify(after)) continue;
     }
     throw new Error(`Priority baseline does not cover changed input: ${path}`);
   }
+}
+
+export function validatePriorityAndroidNative(run, jobs, { repository, workflowId, head, ancestor, files, contents = {} }) {
+  if (run.status !== 'completed' || !['push','workflow_dispatch'].includes(run.event) || run.head_branch !== 'main' ||
+      run.repository?.full_name !== repository || run.head_repository?.full_name !== repository ||
+      run.workflow_id !== workflowId || run.path !== '.github/workflows/ci.yml' ||
+      !/^[a-f0-9]{40}$/.test(run.head_sha ?? '') || run.head_sha === head || !ancestor) throw new Error('Android priority continuation requires a completed native main ancestor');
+  for (const name of ['scope','native-checks (windows-latest)',
+    'desktop (windows-latest, x86_64-pc-windows-msvc, windows-x64, nsis)',
+    'desktop (macos-15, aarch64-apple-darwin, macos-arm64, dmg)']) {
+    const matches = jobs.filter(job => job.name === name);
+    if (matches.length !== 1 || matches[0].status !== 'completed' || matches[0].conclusion !== 'success') throw new Error(`Priority native baseline check is not successful: ${name}`);
+    const commands = name === 'native-checks (windows-latest)' ? ['Run npm run test:native','Run npm run test:native-api'] : name.startsWith('desktop (windows') ? ['Run npm run build:desktop -- --target x86_64-pc-windows-msvc --bundles nsis'] : name.startsWith('desktop (macos') ? ['Run npm run build:desktop -- --target aarch64-apple-darwin --bundles dmg'] : [];
+    for (const command of commands) {
+      const steps = (matches[0].steps ?? []).filter(step => step.name === command);
+      if (steps.length !== 1 || steps[0].status !== 'completed' || steps[0].conclusion !== 'success') throw new Error(`Priority native baseline step is not successful: ${command}`);
+    }
+  }
+  validatePriorityInputs(files,contents,true);
   return run.head_sha;
 }
 
@@ -154,15 +193,23 @@ async function baselineRun(id) {
     files = execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', run.head_sha, head], { encoding: 'utf8' }).split('\0').filter(Boolean);
   }
   const contents = {};
-  for (const path of files) if (path === 'package.json' || /^tests\/e2e\/[a-z0-9-]+\.spec\.ts$/.test(path)) {
+  for (const path of files) if (['package.json','package-lock.json'].includes(path) || /^tests\/e2e\/[a-z0-9-]+\.spec\.ts$/.test(path)) {
     try { contents[path] = { before: execFileSync('git',['show',`${run.head_sha}:${path}`],{ encoding: 'utf8', stdio: ['ignore','pipe','ignore'] }), after: execFileSync('git',['show',`${head}:${path}`],{ encoding: 'utf8', stdio: ['ignore','pipe','ignore'] }) }; } catch { /* Missing comparison proof fails closed. */ }
   }
   return { run, jobs, context: { repository: process.env.GITHUB_REPOSITORY, head, ancestor, files, contents } };
 }
 async function nativeBaseline(id, nativeId, target) {
   const baseline = await baselineRun(id), current = await github(`actions/runs/${process.env.GITHUB_RUN_ID}`);
+  if (target === 'android_priority') {
+    const sha = validatePriorityBaseline(baseline.run,baseline.jobs,{ ...baseline.context,workflowId: current.workflow_id,androidContinuation: true });
+    const native = await baselineRun(nativeId);
+    const nativeSha = validatePriorityAndroidNative(native.run,native.jobs,{ ...native.context,workflowId: current.workflow_id });
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, `### Partial Android continuation\nWindows fast/sync baseline [${id}](${baseline.run.html_url}), SHA \`${sha}\`. Windows native and Windows/macOS desktop baseline [${nativeId}](${native.run.html_url}), SHA \`${nativeSha}\`. Only reviewed Android lifecycle/signing/data-test changes are allowed; Core/UI/desktop inputs and dependencies must remain identical.\nOnly APK and emulator data/force-stop checks run on \`${process.env.GITHUB_SHA}\`. Linux application checks/builds are intentionally omitted. This is not one full green run on the new SHA.\n`);
+    return;
+  }
   const sha = (target === 'priority' ? validatePriorityBaseline : validateNativeBaseline)(baseline.run, baseline.jobs, { ...baseline.context, workflowId: current.workflow_id, target });
   let description = `Native contracts, desktop builds/WebView, APK and emulator run on \`${process.env.GITHUB_SHA}\`.`;
+  if (target === 'priority') description = `Windows native contracts, Windows/macOS desktop builds, APK and emulator run on \`${process.env.GITHUB_SHA}\`.`;
   if (target === 'android' || target === 'linux_android') {
     const native = await baselineRun(nativeId);
     const nativeSha = validateAndroidContinuation(native.run, native.jobs, { ...native.context, workflowId: current.workflow_id, target });

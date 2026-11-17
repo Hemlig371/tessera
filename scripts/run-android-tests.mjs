@@ -3,7 +3,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 // Scope to the application. Unqualified connectedDebugAndroidTest also launches
 // empty instrumentation APKs of transitive Android library projects.
-const child = spawn(process.execPath, ['scripts/gradle.mjs', ':app:connectedDebugAndroidTest', '-Pacceptance', '-Pandroid.testInstrumentationRunnerArguments.notAnnotation=androidx.test.filters.LargeTest'], { stdio: ['inherit', 'pipe', 'pipe'] });
+const dataClasses = ['SqliteLifecycleTest','BinaryStoreTest','ReplacementStoreTest','CsvStagingTest',
+  'SqliteBridgeTest#sharedTrashRestoresPurgesAndKeepsRetentionAcrossRecreation'].map(name => 'app.tessera.personal.' + name);
+const selection = process.env.TESSERA_ANDROID_FULL_UI === '1' ? [] : ['-Pandroid.testInstrumentationRunnerArguments.class=' + dataClasses.join(',')];
+console.log('Android acceptance: ' + (selection.length ? 'native data contracts and Activity recovery; broad UI deferred' : 'full instrumentation/UI'));
+const child = spawn(process.execPath, ['scripts/gradle.mjs', ':app:connectedDebugAndroidTest', '-Pacceptance', '-Pandroid.testInstrumentationRunnerArguments.notAnnotation=androidx.test.filters.LargeTest', ...selection], { stdio: ['inherit', 'pipe', 'pipe'] });
 let tail = '';
 function capture(chunk, stream) {
   stream.write(chunk);

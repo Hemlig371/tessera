@@ -28,6 +28,8 @@ Windows: Visual Studio Build Tools (Desktop C++/Windows SDK), MSVC Rust, WebView
 
 Android: JDK **21**, SDK platform/build-tools **36**, Gradle wrapper. `npm run android:sync`, затем build/test команды ниже; acceptance APK отдельный, тестовый JS в обычную сборку не входит. Конкретные runner/эмуляторные настройки — в [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
+Debug APK подписываются постоянным **публичным тестовым** ключом `android/app/tessera-debug.keystore` (alias `androiddebugkey`, пароль `android`); это не релизная подпись. При переходе с прежних CI APK с временным сертификатом сначала экспортировать БД во внешнюю папку и проверить ZIP; после переустановки импортировать архив. Затем debug-обновления совместимы по подписи. CI проверяет сертификат фактического APK. `npm ci` также применяет checksum-проверенный lifecycle-патч к SQLite 8.1.1: при уничтожении WebView откатить незавершённую транзакцию и закрыть соединения на их рабочем потоке.
+
 До публичного релиза один bootstrap, без переходов между dev-схемами. Несовместимую базу не удалять: сохранять каталог и использовать совместимую сборку для доступного экспорта. После релиза — последовательные миграции/snapshots/recovery, без небезопасного downgrade. «Экспорт/Импорт БД» — единственная пользовательская backup-функция, CSV — обмен строками коллекции.
 
 ## Команды (npm run)
@@ -54,16 +56,10 @@ Android: JDK **21**, SDK platform/build-tools **36**, Gradle wrapper. `npm run a
 
 ## CI и расположение кода
 
-Обычный push — быстрые проверки; критические native/схемные/сборочные пути и `[full ci]`/`[native ci]` выбирают полную матрицу. Промежуточные коммиты `[skip ci]`. Ритм/карантин — AGENTS.md, фактические результаты — audit.md; успешная сборка APK не равна выполнению Android-тестов.
+Обычный push запускает быстрые проверки, обязательный UI ограничен `test:e2e:smoke` (один главный путь сохранения/отмены/перезапуска). Полный `test:e2e` сохранён для итоговой UI-приёмки. Промежуточные коммиты `[skip ci]`; правила/карантин — AGENTS.md, фактические результаты — audit.md. Успешная сборка APK не равна выполнению Android-тестов.
 
-- Полный ручной: `gh workflow run ci.yml --ref main -f full_native=true`.
-- Только быстрые: тот же вызов с `full_native=false`.
-- Android при доказанно неизменённых остальных исходниках: `full_native=true -f native_target=android`; это частичная приёмка.
-- Продолжить незавершённую native-приёмку: `gh workflow run ci.yml --ref main -f full_native=true -f native_resume=true -f baseline_run=44017728014`. Guard требует completed push/main того же workflow, успешные быстрые Linux/Windows + sync jobs, строгого предка HEAD и неизменность всех исходников/зависимостей/фикстур кроме `replacement_store.rs`, gate/его тестов и документов `AGENTS.md`, `audit.md`, `README.md`, `tests/fixtures/README.md`. Все native jobs выполняются заново; это частичная приёмка с явно указанным baseline, не полный зелёный CI нового HEAD.
-- Для исправлений Android import после успешной desktop/native-части: добавить `-f native_target=android -f native_baseline_run=44083474881`. Второй baseline обязан завершиться с успешными обоими native jobs и всеми тремя desktop jobs; после него допустимы только два Android import-адаптера, gate/его тесты и README/audit. APK и эмулятор выполняются заново. Изменения других Android-файлов или desktop/Core/UI требуют нового подходящего набора проверок.
-- Если остаётся Linux WebView вместе с Android: `-f native_target=linux_android -f native_baseline_run=44083474881`. Требуются оба native jobs и Windows/macOS desktop baseline; Linux desktop/WebView выполняется заново. Дополнительно допустима правка только `scripts/desktop-e2e.mjs`. Результат не подтверждает Android или Linux до фактического успеха соответствующих jobs.
-- Дополнительные профили смотреть в workflow. Нельзя ослаблять проверки или обходить красные тесты данных; при недопустимом diff resume завершается ошибкой.
+Ручной `ci.yml` по умолчанию использует `native_target=priority`: Android, Windows native и Windows/macOS desktop; Linux-приложение не входит. Android начинается без ожидания Windows Rust. `native_target=all` оставляет полную платформенную матрицу как явную опцию.
 
-`src/core/` — модель/правила/DDL/архив; `src/platform/` — адаптеры; `src/ui/` — UI; `src-tauri/` и `android/` — OS/SQLite; `tests/fixtures/` и `tests/support/` — только dev/CI. `work/`, node_modules, target, dist, test-results и Android build-каталоги игнорируются; не читать их рекурсивно и не коммитить результаты тестов/секреты. Toolchains и актуальные WIP/логи M1 сохранены; старые UI-материалы — work/retired-ui-0.18.zip.
+Адресный `native_resume=true` — **частичная приёмка**, не полный зелёный HEAD. `priority` требует проверяемого Windows fast/sync baseline и неизменных production/native входов; `android_priority` дополнительно требует успешных Windows native и Windows/macOS desktop baseline, допускает только перечисленные Android lifecycle/signing/test-изменения. Изменения Core/UI/зависимостей запрещают переиспользование. Guards — `scripts/ci-scope.mjs`, их тесты — `tests/unit/ci-scope.test.mjs`; конкретные run ID находятся только в audit.md.
 
-Публичных релизных tags/релизов нет. Лицензия — [LICENSE](LICENSE), зависимости — [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt). Релизные подписи, реальные устройства/почтовые провайдеры и окончательная UX-приёмка остаются отдельной приёмкой.
+`test:android` по умолчанию выполняет native-контракты данных, Activity recovery и отдельные force-stop/relaunch фазы. Для итогового полного UI/instrumentation набора: `TESSERA_ANDROID_FULL_UI=1 npm run test:android`.

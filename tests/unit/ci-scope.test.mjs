@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ciScope, validateNativeBaseline, validateAndroidContinuation, validatePriorityBaseline, normalizePriorityUiTest } from '../../scripts/ci-scope.mjs';
+import { ciScope, validateNativeBaseline, validateAndroidContinuation, validatePriorityBaseline, normalizePriorityUiTest, validatePriorityAndroidNative } from '../../scripts/ci-scope.mjs';
 
 describe('CI scope', () => {
   it('keeps ordinary product/documentation changes on the fast checks', () => {
@@ -177,5 +177,40 @@ describe('user-directed priority native continuation', () => {
     expect(validatePriorityBaseline(run,jobs,proof(after))).toBe(sha);
     expect(() => validatePriorityBaseline(run,jobs,proof(after.replace('toBeVisible','toBeHidden')))).toThrow('changed input');
     expect(() => validatePriorityBaseline(run,jobs,{ ...context,files: [path] })).toThrow('changed input');
+  });
+});
+
+
+describe('Android-only continuation after native data/signing fix', () => {
+  const repository = 'owner/repo',sha = 'a'.repeat(40),head = 'b'.repeat(40);
+  const run = { status: 'completed',event: 'workflow_dispatch',head_branch: 'main',repository: { full_name: repository },head_repository: { full_name: repository },workflow_id: 123,path: '.github/workflows/ci.yml',head_sha: sha };
+  const passed = name => ({ name,status: 'completed',conclusion: 'success' });
+  const jobs = [passed('scope'),{ ...passed('native-checks (windows-latest)'),steps: ['Run npm run test:native','Run npm run test:native-api'].map(passed) },
+    { ...passed('desktop (windows-latest, x86_64-pc-windows-msvc, windows-x64, nsis)'),steps: [passed('Run npm run build:desktop -- --target x86_64-pc-windows-msvc --bundles nsis')] },
+    { ...passed('desktop (macos-15, aarch64-apple-darwin, macos-arm64, dmg)'),steps: [passed('Run npm run build:desktop -- --target aarch64-apple-darwin --bundles dmg')] }];
+  const context = { repository,workflowId: 123,head,ancestor: true,files: ['android/app/build.gradle','android/app/tessera-debug.keystore','scripts/patch-sqlite-lifecycle.mjs'] };
+  it('runs only Android APK/emulator and refuses an unverified request', () => {
+    expect(ciScope({ name: 'workflow_dispatch',target: 'android_priority',resume: true,ref: 'refs/heads/main' })).toMatchObject({ native: true,bridge: false,desktop: false,checkMatrix: ['windows-latest'] });
+    expect(() => ciScope({ name: 'workflow_dispatch',target: 'android_priority' })).toThrow('require verified resume');
+    expect(validatePriorityAndroidNative(run,jobs,context)).toBe(sha);
+  });
+  it('requires all reused native/desktop jobs and actual native/build steps to have passed', () => {
+    for (let index = 0; index < jobs.length; index++) {
+      expect(() => validatePriorityAndroidNative(run,jobs.filter((_,n) => n !== index),context)).toThrow();
+      expect(() => validatePriorityAndroidNative(run,jobs.map((job,n) => n === index ? { ...job,conclusion: 'failure' } : job),context)).toThrow();
+      if (jobs[index].steps) expect(() => validatePriorityAndroidNative(run,jobs.map((job,n) => n === index ? { ...job,steps: [] } : job),context)).toThrow('step');
+    }
+  });
+  it('allows exactly the verified install hook and lock metadata, never new dependencies or desktop/Core inputs', () => {
+    const before = { version: '0.20.0',scripts: { 'test:e2e:smoke': 'playwright test tests/e2e/foundation.spec.ts' },dependencies: { native: '8.1.1' } };
+    const after = { ...before,scripts: { ...before.scripts,postinstall: 'node scripts/patch-sqlite-lifecycle.mjs' } };
+    const lockBefore = { packages: { '': { version: '0.20.0',dependencies: { native: '8.1.1' } } },lockfileVersion: 3 };
+    const lockAfter = JSON.parse(JSON.stringify(lockBefore));lockAfter.packages[''].hasInstallScript = true;
+    const proof = { ...context,files: [...context.files,'package.json','package-lock.json'],contents: { 'package.json': { before: JSON.stringify(before),after: JSON.stringify(after) },'package-lock.json': { before: JSON.stringify(lockBefore),after: JSON.stringify(lockAfter) } } };
+    expect(validatePriorityAndroidNative(run,jobs,proof)).toBe(sha);
+    expect(() => validatePriorityAndroidNative(run,jobs,{ ...proof,files: [...proof.files,'src/core/repository.ts'] })).toThrow('changed input');
+    const bad = JSON.parse(JSON.stringify(lockAfter));bad.packages[''].dependencies.native = 'other';
+    expect(() => validatePriorityAndroidNative(run,jobs,{ ...proof,contents: { ...proof.contents,'package-lock.json': { before: JSON.stringify(lockBefore),after: JSON.stringify(bad) } } })).toThrow('changed input');
+    expect(() => validatePriorityAndroidNative(run,jobs,{ ...proof,contents: { ...proof.contents,'package.json': { before: JSON.stringify(before),after: JSON.stringify({ ...after,scripts: { ...after.scripts,postinstall: 'different' } }) } } })).toThrow('patch command');
   });
 });

@@ -11,17 +11,17 @@ on:
       native_target:
         description: Android/Windows/macOS priority, full matrix, or verified targeted continuation
         type: choice
-        options: [priority, all, android, linux_android]
+        options: [priority, all, android, android_priority, linux_android]
         default: priority
       native_resume:
-        description: Resume unfinished native jobs using verified ancestor fast checks (partial acceptance)
+        description: Partial continuation with verified ancestor evidence; not one full green HEAD
         type: boolean
         default: false
       baseline_run:
-        description: Completed main push run with successful Linux/Windows checks and sync (required for resume)
+        description: Verified main fast/sync ancestor; required platforms depend on native_target
         type: string
       native_baseline_run:
-        description: Completed native/desktop ancestor (required for targeted resume; selected jobs rerun)
+        description: Verified main native/desktop ancestor for targeted continuation
         type: string
 
 permissions:

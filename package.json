@@ -8,6 +8,7 @@
     "node": ">=24.0.0 <25"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-sqlite-lifecycle.mjs",
     "dev": "vite --host 127.0.0.1",
     "dev:desktop": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "typecheck": "tsc --noEmit",

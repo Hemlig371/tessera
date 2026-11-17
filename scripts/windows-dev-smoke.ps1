@@ -10,7 +10,7 @@ try {
     if ($process.HasExited) { Get-Content windows-dev.stderr.log; throw 'tauri dev exited' }
     if (Test-Path $database) {
       $env:TESSERA_SMOKE_DB = $database
-      node --input-type=module -e 'import {DatabaseSync} from "node:sqlite"; const db=new DatabaseSync(process.env.TESSERA_SMOKE_DB,{readOnly:true}); const n=db.prepare("SELECT count(*) AS n FROM app_meta WHERE key IN (?,?)").get("dataset_id","format_version").n;db.close();process.exit(n===2?0:1);' 2>$null
+      node --input-type=module -e 'import {DatabaseSync} from "node:sqlite"; const db=new DatabaseSync(process.env.TESSERA_SMOKE_DB,{readOnly:true}); const n=db.prepare("SELECT count(*) AS n FROM app_meta WHERE key IN (?,?)").get("schema_id","format_version").n;db.close();process.exit(n===2?0:1);' 2>$null
       if ($LASTEXITCODE -eq 0) { $ready = $true; break }
     }
     Start-Sleep -Seconds 2

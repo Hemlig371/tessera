@@ -8,6 +8,7 @@ const paths = {
   capture: 'M12 5v14M5 12h14',
   trash: 'M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',
   tools: 'M5 4v6M5 14v6M12 4v11M12 19v1M19 4v1M19 9v11M2 10h6M9 15h6M16 9h6',
+  archive: 'M3 4h18v5H3zM5 9v12h14V9M9 13h6M12 13v5M10 16l2 2 2-2',
   appearance: 'M12 3a9 9 0 1 0 0 18V3zM12 3a9 9 0 0 1 0 18M16 7l2 2M16 12h5M16 17l2-2',
   arrow: 'M5 12h14M14 7l5 5-5 5',
   back: 'M19 12H5M10 7l-5 5 5 5',

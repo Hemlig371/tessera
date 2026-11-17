@@ -48,6 +48,8 @@ async function input(text) {
 async function start() {
   const result = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: resolve('src-tauri/target/debug/tessera') } } } });
   session = result.sessionId;
+  await until("!!document.querySelector('aside') || !!document.querySelector('[data-testid=database-create]')");
+  if (await execute("return !!document.querySelector('[data-testid=database-create]')")) await execute("document.querySelector('[data-testid=database-create]').click()");
   await until("!!document.querySelector('aside')");
 }
 try {
@@ -302,7 +304,7 @@ try {
   await clickText('Назад'); await until("!document.querySelector('[data-editor]')");
   await clickText('+ Во входящие'); await input('Native attachment draft');
   await until("!!document.querySelector('[data-editor] input[type=file]:not(:disabled)')");
-  await execute("const input=document.querySelector('[data-editor] input[type=file]'),transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array([0,255,17,13,10,42])],'Native — документ.bin',{type:'application/octet-stream'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}))");
+  await execute("const input=document.querySelector('[data-editor] input[type=file]'),transfer=new DataTransfer();transfer.items.add(new File([new Uint8Array([0,255,17,13,10,42])],'Native — документ.bin',{type:'application/octet-stream'}));transfer.items.add(new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGMQ7HD5DwADaAHd4KfbsQAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0))],'Native.png',{type:'image/png'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}))");
   await until("document.querySelector('[data-editor] [data-attachment-id] .file-state')?.textContent==='Копия на этом устройстве'");
   const attachmentId = await execute("return document.querySelector('[data-editor] [data-attachment-id]').getAttribute('data-attachment-id')");
   const privateRoot = operationalRoot.slice(0, -'operational/'.length);
@@ -315,10 +317,33 @@ try {
   await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Native attachment draft'))");
   await execute("[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Native attachment draft')).click()");
   await until(`document.querySelector('.detail [data-attachment-id="${attachmentId}"] .file-state')?.textContent==='Копия на этом устройстве'`);
+  await until("!!document.querySelector('.detail [data-testid=attachment-preview]:not(:disabled)')");
+  await execute("document.querySelector('.detail [data-testid=attachment-preview]').click()");
+  await until("document.querySelector('.detail [data-testid=attachment-image]')?.complete && document.querySelector('.detail [data-testid=attachment-image]')?.naturalWidth>0 && document.querySelector('.detail [data-testid=attachment-image]')?.src.startsWith('blob:')");
   const binaryExport = join(directory, 'Native — документ.bin');
   assert.equal(await request('POST', `/session/${session}/execute/async`, { script: `const done=arguments[arguments.length-1];(async()=>{const invoke=window.__TAURI_INTERNALS__.invoke,facts=await invoke('binary_inspect',{id:'${attachmentId}'});await invoke('binary_export',{id:'${attachmentId}',path:${JSON.stringify(binaryExport)},...facts});})().then(()=>done('ok'),error=>done(String(error)));`, args: [] }), 'ok');
   assert.deepEqual(await readFile(binaryExport), await readFile(attachmentPath));
   await clickText('История записи'); await until("document.querySelectorAll('.history-versions button').length===1");
+  await clickText('Назад');
+  await until("!!document.querySelector('[data-testid=database-archive-open]:not(:disabled)')");
+  await execute("document.querySelector('[data-testid=database-archive-open]').click()");
+  await until("!!document.querySelector('[data-testid=archive-export]:not(:disabled)') && !document.querySelector('[data-testid=archive-progress]')");
+  const archivePath = join(directory, 'Native database.zip');
+  await execute(`const original=window.__TAURI_INTERNALS__.invoke;window.__TAURI_INTERNALS__.invoke=(command,args,options)=>command==='plugin:dialog|save'?Promise.resolve(${JSON.stringify(archivePath)}):original.call(window.__TAURI_INTERNALS__,command,args,options)`);
+  const oldIdentity = await request('POST', `/session/${session}/execute/async`, { script: `const done=arguments[arguments.length-1];window.__TAURI_INTERNALS__.invoke('db_query',{sql:"SELECT value FROM local_settings WHERE key='device_id'",params:[]}).then(rows=>done(rows[0].value),error=>done(String(error)))`, args: [] });
+  await execute("document.querySelector('[data-testid=archive-export]').click()");
+  await until("!!document.querySelector('[data-testid=archive-exported]')");
+  const archiveBytes = await readFile(archivePath); assert.equal(archiveBytes.readUInt32LE(0), 0x04034b50);
+  await execute(`const input=document.querySelector('[data-testid=archive-input]'),transfer=new DataTransfer();transfer.items.add(new File([Uint8Array.from(atob('${archiveBytes.toString('base64')}'),c=>c.charCodeAt(0))],'Native.zip',{type:'application/zip'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}))`);
+  await until("!!document.querySelector('[data-testid=archive-prepare]:not(:disabled)')");
+  await execute("document.querySelector('[data-testid=archive-prepare]').click()");
+  await until("!!document.querySelector('[data-testid=archive-ready]')");
+  await execute("document.querySelector('[data-testid=archive-replace-confirm]').click()");
+  await until("!!document.querySelector('[data-testid=archive-activate]:not(:disabled)')");
+  await execute("document.querySelector('[data-testid=archive-activate]').click()");
+  await until("!!document.querySelector('[data-testid=database-archive-open]') && !document.querySelector('[data-testid=database-archive]')");
+  const newIdentity = await request('POST', `/session/${session}/execute/async`, { script: `const done=arguments[arguments.length-1];window.__TAURI_INTERNALS__.invoke('db_query',{sql:"SELECT value FROM local_settings WHERE key='device_id'",params:[]}).then(rows=>done(rows[0].value),error=>done(String(error)))`, args: [] });
+  assert.notEqual(newIdentity, oldIdentity); assert.deepEqual(await readFile(attachmentPath), Buffer.from([0,255,17,13,10,42]));
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite and native attachment bytes; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

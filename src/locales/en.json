@@ -111,7 +111,13 @@
     "previewUnavailable": "Preview supports small raster images. Export a copy to view this file.",
     "attachmentCleanup": "Some files could not be removed. Their removal remains queued for a safe retry.",
     "attachmentMultiplicity": "Changing an existing file field’s multiplicity requires conversion. Create another field.",
-    "csvAttachment": "CSV does not transfer attachment bytes. File columns can be exported, but attachment import requires a database archive."
+    "csvAttachment": "CSV does not transfer attachment bytes. File columns can be exported, but attachment import requires a database archive.",
+    "invalidArchive": "Damaged or unsupported archive.",
+    "archiveStageNotEmpty": "Import stage is not empty.",
+    "notEnoughSpace": "Not enough free space to import.",
+    "archiveRowTooLarge": "Record exceeds the archive format limit.",
+    "importRecoveryFailed": "Recovery could not complete. Original files are preserved; keep the application data directory.",
+    "archiveMissingFiles": "The archive contains placeholders for missing small files whose bytes are unavailable on this device."
   },
   "close": "Close",
   "closeCard": "Close record card",
@@ -479,5 +485,31 @@
     "2": "MiB",
     "3": "GiB",
     "4": "TiB"
+  },
+  "databaseArchive": "Export / Import database",
+  "databaseWelcome": "Create a new database or restore an archive. No internet required.",
+  "createDatabase": "Create new database",
+  "exportDatabase": "Export database",
+  "importDatabase": "Import database",
+  "archiveUnencrypted": "The archive is not encrypted. Anyone with the file can read its data, including Secret values. Store it securely.",
+  "archiveExportHint": "Portable ZIP with data and history. Small attachments are included; large ones are metadata and placeholders. Keys, mail passwords and local queues are excluded.",
+  "archiveImportHint": "The archive is checked in isolated storage. Import replaces the database; it does not merge data.",
+  "chooseDatabaseArchive": "Choose ZIP archive",
+  "archiveDate": "Export date",
+  "archiveRecords": "Records (including trash and tombstones)",
+  "archiveFiles": "Included files",
+  "archivePlaceholders": "File placeholders",
+  "archiveIndependent": "Make independent (new dataset_id, sync disabled)",
+  "archiveVerifyImport": "Validate and prepare import",
+  "archiveReady": "Data and file integrity verified. The archive is ready to restore.",
+  "archiveExportBeforeReplace": "Export the current database above before replacing it. You may explicitly confirm replacement without exporting.",
+  "archiveReplaceConfirm": "I confirm replacing the current database with this archive",
+  "archiveReplace": "Replace database",
+  "archiveExported": "Export complete. Archive saved.",
+  "archivePhases": {
+    "checking": "Reading archive",
+    "exporting": "Exporting",
+    "importing": "Validating and preparing",
+    "activating": "Activating database"
   }
 }

@@ -59,7 +59,7 @@ const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { field
 >;
 type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition>; inboxOriginal?: string | null; unmappedAttachments: string[] };
 type BrowsePosition = { token: string; count: number; documentTop: number; listTop: number; focus: HTMLElement | null; focusId?: string };
-export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
+export function App({ api, drafts, suspended = false, openArchive }: { api: Repository; drafts: DraftStore; suspended?: boolean; openArchive?: () => void }) {
   const { t, i18n } = useTranslation(),
     format = useFormatValue(),
     ui = useUi();
@@ -72,12 +72,13 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
   useAppearance(appearance);
   useEffect(() => { let active = true; void api.getDeviceAppearance().then(value => { if (active) setAppearance(value); }).catch(error => { if (active) setError(errorKey(error)); }).finally(() => { if (active) setAppearanceReady(true); }); return () => { active = false; }; }, [api]);
   useEffect(() => {
+    if (suspended) return;
     const cleanup = () => { if (!document.hidden) void api.cleanTrash().then(async count => { const files = await api.collectAttachmentFiles(); setFileCleanupPending(files.pending); if (count) refresh(value => value + 1); }).catch(e => setError(errorKey(e))); };
     void api.collectAttachmentFiles().then(result => setFileCleanupPending(result.pending)).catch(e => setError(errorKey(e)));
     const stop = drafts.lifecycle.subscribe(state => { if (state === 'active') cleanup(); });
     const timer = window.setInterval(cleanup, 5 * 60 * 1000);
     return () => { stop(); window.clearInterval(timer); };
-  }, [api, drafts]);
+  }, [api, drafts, suspended]);
   const [libraries, setLibraries] = useState<Library[]>([]),
     [collections, setCollections] = useState<Collection[]>([]);
   const [fields, setFields] = useState<Field[]>([]),
@@ -583,6 +584,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     else ui.home();
   }, [busy, rememberBrowse, ui, collection?.system_kind]);
   useEffect(() => {
+    if (suspended) return;
     const bind = (action: () => void) => bindSystemBack(() => {
       const menu = creationMenuClose.current;
       if (menu) menu(); else action();
@@ -593,9 +595,9 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
     if (ui.screen !== 'libraries' || ui.navOpen) return bind(() => {
       if (ui.navOpen) useUi.setState({ navOpen: false }); else backSection();
     });
-  }, [ui.editor, ui.constructorOpen, ui.screen, ui.navOpen, close, busy, selected, backRecord, backSection]);
+  }, [ui.editor, ui.constructorOpen, ui.screen, ui.navOpen, close, busy, selected, backRecord, backSection, suspended]);
   useEffect(() => {
-    if (ui.editor || selected || ui.screen === 'libraries') return;
+    if (suspended || ui.editor || selected || ui.screen === 'libraries') return;
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || busy) return;
       event.preventDefault();
@@ -604,7 +606,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
       else backSection();
     };
     window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape);
-  }, [ui.editor, selected, ui.screen, ui.navOpen, ui.constructorOpen, busy, backSection]);
+  }, [ui.editor, selected, ui.screen, ui.navOpen, ui.constructorOpen, busy, backSection, suspended]);
   async function saveDraftAction(action: DraftAction, collectionId: string, data: RecordData): Promise<Entry> {
     if (action.kind === 'linked') return api.createLinkedEntry(action.parent_id, action.field_id, data, action.create_id);
     return api.saveNewEntry(collectionId, data, action.create_id);
@@ -797,6 +799,7 @@ export function App({ api, drafts }: { api: Repository; drafts: DraftStore }) {
           <div className="topbar-tools">
           <button className="icon-button" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
           <button className="icon-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
+          {openArchive && <button className="icon-button" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
           <button className="icon-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
           <label className="language">
             <span className="visually-hidden">{t('language')}</span>

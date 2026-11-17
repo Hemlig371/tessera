@@ -51,11 +51,11 @@ function AttachmentItem({ api, ownerId, id, busy, removeReference }: {
       <small className={'file-state file-state-' + view.status}>{t('attachmentStates.' + view.status)}</small>
       {view.large && <p className="file-hint">{t('largeAttachmentHint')}</p>}
       {view.status === 'missing' && view.other_copies > 0 && <p>{t('attachmentOtherCopies', { count: view.other_copies })}</p>}
-      {image && <img className="attachment-preview" src={image} alt={view.name} />}
+      {image && <img data-testid="attachment-image" className="attachment-preview" src={image} alt={view.name} />}
       {saved && <p role="status">{t('attachmentExported')}</p>}
       <div className="actions">
         {!removeReference && view.status === 'present' && <button type="button" disabled={disabled} onClick={() => { void run(async () => { setSaved(await api.exportAttachment(id, ownerId)); }); }}>{t('exportAttachment')}</button>}
-        {!removeReference && view.status === 'present' && ['image/png','image/jpeg','image/gif','image/webp','image/avif','image/bmp'].includes(view.mime) && view.size <= 10 * 1024 * 1024 && <button type="button" disabled={disabled} onClick={() => { void run(async () => {
+        {!removeReference && view.status === 'present' && ['image/png','image/jpeg','image/gif','image/webp','image/avif','image/bmp'].includes(view.mime) && view.size <= 10 * 1024 * 1024 && <button data-testid="attachment-preview" type="button" disabled={disabled} onClick={() => { void run(async () => {
           const preview = await api.readAttachmentPreview(id, ownerId); if (!active.current) return; setImage(URL.createObjectURL(new Blob([Uint8Array.from(preview.bytes)], { type: preview.mime })));
         }); }}>{t('previewAttachment')}</button>}
         {!removeReference && view.status !== 'deleting' && view.status !== 'copying' && <button type="button" disabled={disabled} onClick={() => { void run(async () => { setView(await api.getAttachmentView(id, ownerId, true)); }); }}>{t('verifyAttachment')}</button>}

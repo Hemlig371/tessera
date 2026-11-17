@@ -2,6 +2,7 @@ import { openConstructor } from '../support/ui-actions';
 import { test, expect } from '@playwright/test';
 
 test('creation choices, quick/standard presets and defaults respect one shared creation draft', async ({ page }) => {
+  test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
   await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible();
   const request = async (data: object) => {
@@ -66,7 +67,10 @@ test('creation choices, quick/standard presets and defaults respect one shared c
   await expect(page.getByRole('textbox', { name: 'Тип', exact: true })).toHaveValue('Работа');
   expect(await records()).toHaveLength(4);
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Пятая');
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  // Windows CI can still be awaiting COMMIT/fsync after the usual five-second
+  // assertion window. Require the completed save and exact row count below.
+  await expect(page.locator('[data-editor]')).toHaveCount(0, { timeout: 15000 });
   expect(await records()).toHaveLength(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

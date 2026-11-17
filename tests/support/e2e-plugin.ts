@@ -1,3 +1,4 @@
+import { migrate } from '../../src/core/migrate';
 import { attachmentFixture } from './attachments-scenario';
 import { createReadStream } from 'node:fs';
 import { nodeBinaryFiles } from './node-binary-files';
@@ -36,7 +37,8 @@ export function e2ePlugin(): Plugin {
     enforce: 'pre',
     resolveId(source, importer) {
       if (source === '../platform/external-actions' && importer?.endsWith('/src/ui/MarkdownView.tsx')) return resolve('tests/support/external-actions-e2e.ts');
-      if (source === '../platform/csv-files' && importer?.endsWith('/src/ui/CsvPanel.tsx'))
+      if (source === '../platform/database-import' && importer?.endsWith('/src/ui/DatabaseArchive.tsx')) return resolve('tests/support/database-import-e2e.ts');
+      if (source === '../platform/csv-files' && (importer?.endsWith('/src/ui/CsvPanel.tsx') || importer?.endsWith('/src/ui/DatabaseArchive.tsx')))
         return resolve('tests/support/csv-files-e2e.ts');
       if (source === './platform/binary-files' && importer?.endsWith('/src/main.tsx')) return resolve('tests/support/binary-files-e2e.ts');
       if (source === './platform/open' && importer?.endsWith('/src/main.tsx'))
@@ -47,10 +49,51 @@ export function e2ePlugin(): Plugin {
     async configureServer(server) {
       directory = await mkdtemp(resolve(tmpdir(), 'tessera-e2e-'));
       db = await openNodeDatabase(resolve(directory, 'app.sqlite'));
+      // Existing UI scenarios start with an established installation. The archive scenario resets explicitly.
+      await migrate(db); await Repository.open(db);
       server.httpServer?.on('close', () => {
         void cleanup();
       });
       const files = nodeBinaryFiles(directory), exports = new Map<string, string>();
+      const stagePath = directory + '-import';
+      let stageDb: Awaited<ReturnType<typeof openNodeDatabase>> | null = null;
+      const stageFiles = nodeBinaryFiles(stagePath);
+      server.middlewares.use('/__test-archive', async (req, res) => {
+        if (req.method !== 'POST' || (req.headers.origin && req.headers.origin !== 'http://127.0.0.1:1420')) { res.statusCode = 403; res.end(); return; }
+        try {
+          let text = ''; for await (const chunk of req) { text += String(chunk); if (text.length > 1_000_000) throw new Error('request too large'); }
+          const args = JSON.parse(text) as { op: string; sql: string; params?: SqlValue[]; id: string; offset: number; data: string; size: number; sha256: string };
+          let value: unknown = null;
+          if (args.op === 'seed') {
+            const api = await Repository.open(db, files), library = await api.createLibrary('Архив ' + crypto.randomUUID().slice(0,8));
+            const collection = await api.createCollection(library.id, 'Данные', 'Название'), field = await api.createField(collection.id, 'Файл', 'file');
+            const owner = crypto.randomUUID(), contents = new Uint8Array([0,255,17,99]);
+            const staged = await api.stageAttachment(collection.id, owner, { name: 'Тест.bin', mime: 'application/octet-stream', size: contents.length, read: async (offset, size) => contents.slice(offset, offset + size) });
+            const entry = await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'До экспорта', [field.id]: [staged.id] }, owner);
+            value = { id: entry.id, hlc: entry.hlc, collection_id: collection.id, field_id: collection.primary_field_id, attachment: staged.id, device_id: api.deviceId, dataset_id: api.datasetId };
+          }
+          else if (args.op === 'reset') { await db.close(); await rm(directory, { recursive: true, force: true }); db = await openNodeDatabase(resolve(directory, 'app.sqlite')); }
+          else if (args.op === 'prepare') { await stageDb?.close(); await rm(stagePath, { recursive: true, force: true }); stageDb = await openNodeDatabase(resolve(stagePath, 'app.sqlite')); }
+          else if (args.op === 'close') { await stageDb?.close(); stageDb = null; }
+          else if (args.op === 'abort') { await stageDb?.close(); stageDb = null; await rm(stagePath, { recursive: true, force: true }); }
+          else if (args.op === 'activate') {
+            await db.close(); await stageDb?.close(); stageDb = null;
+            const old = directory + '-old'; await rm(old, { recursive: true, force: true });
+            await rename(directory, old); await rename(stagePath, directory); await rm(old, { recursive: true, force: true });
+            db = await openNodeDatabase(resolve(directory, 'app.sqlite'));
+          } else if (args.op === 'file-begin') await stageFiles.begin(args.id);
+          else if (args.op === 'file-write') await stageFiles.write(args.id, args.offset, Buffer.from(args.data, 'base64'));
+          else if (args.op === 'file-finish') value = await stageFiles.finish(args.id, args.size, args.sha256);
+          else value = await stageDb!.read(async s => {
+            if (args.op === 'query') return s.query(args.sql, args.params);
+            if (args.op === 'execute') return s.execute(args.sql, args.params);
+            if (args.op === 'begin') return s.begin(); if (args.op === 'commit') return s.commit(); if (args.op === 'rollback') return s.rollback();
+            throw new Error('invalid stage operation');
+          });
+          res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value }));
+        } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'fileError' })); }
+      });
+      server.httpServer?.on('close', () => { void Promise.resolve(stageDb?.close()).then(() => rm(stagePath, { recursive: true, force: true })); });
       server.middlewares.use('/__test-file-export', (req, res) => {
         const id = new URL(req.url ?? '', 'http://127.0.0.1:1420').searchParams.get('id'), name = id ? exports.get(id) : null;
         if (!id || !name || req.method !== 'GET') { res.statusCode = 404; res.end(); return; }

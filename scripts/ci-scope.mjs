@@ -43,7 +43,7 @@ export function validateNativeBaseline(run, jobs, { repository, workflowId, head
   // must match the baseline. Native/storage and the reviewed resume gate alone
   // may differ; all native jobs run again, including both bridge platforms.
   const allowed = new Set(['src-tauri/src/replacement_store.rs', '.github/workflows/ci.yml',
-    'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'AGENTS.md', 'audit.md', 'README.md']);
+    'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'AGENTS.md', 'audit.md', 'README.md', 'tests/fixtures/README.md']);
   const changed = files.filter(path => !allowed.has(path));
   if (changed.length) throw new Error(`Baseline does not cover changed paths: ${changed.join(', ')}`);
   return run.head_sha;

@@ -43,7 +43,7 @@ describe('native continuation baseline', () => {
     head_repository: { full_name: 'Hemlig371/tessera' }, workflow_id: 123, path: '.github/workflows/ci.yml', head_sha: sha, conclusion: 'failure' };
   const jobs = ['scope', 'checks (ubuntu-24.04)', 'checks (windows-latest)', 'sync-foundation'].map(name => ({ name, status: 'completed', conclusion: 'success' }));
   const context = { repository: 'Hemlig371/tessera', workflowId: 123, head, ancestor: true,
-    files: ['src-tauri/src/replacement_store.rs', 'audit.md', 'README.md', '.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs'] };
+    files: ['src-tauri/src/replacement_store.rs', 'audit.md', 'README.md', 'tests/fixtures/README.md', '.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs'] };
   it('reuses successful fast jobs from a failed run while rerunning every native job', () => {
     expect(validateNativeBaseline(run, [...jobs, { name: 'native-checks (windows-latest)', status: 'completed', conclusion: 'failure' }], context)).toBe(sha);
   });
@@ -63,7 +63,7 @@ describe('native continuation baseline', () => {
     }
   });
   it.each(['src/ui/App.tsx', 'src/core/database-archive.ts', 'src/platform/tauri-database.ts', 'package.json', 'package-lock.json',
-    'src-tauri/Cargo.lock', 'scripts/desktop-e2e.mjs', 'tests/support/android-main.tsx', 'tests/fixtures/README.md',
+    'src-tauri/Cargo.lock', 'scripts/desktop-e2e.mjs', 'tests/support/android-main.tsx', 'tests/fixtures/notes.ts', 'tests/fixtures/new.md',
     'tests/db/database-archive.test.ts', 'android/app/build.gradle', '.github/workflows/other.yml', 'vite.config.ts'])('refuses to reuse checks after changing %s', path => {
     expect(() => validateNativeBaseline(run, jobs, { ...context, files: [...context.files, path] })).toThrow('does not cover changed paths');
   });

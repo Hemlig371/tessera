@@ -24,3 +24,7 @@ test-driver = []
 [[test]]
 name = "binary-files"
 path = "tests/binary-files.rs"
+
+[[test]]
+name = "replacement"
+path = "tests/replacement.rs"

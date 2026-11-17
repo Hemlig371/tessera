@@ -1,6 +1,6 @@
 # Tessera — текущий статус и продолжение
 
-Срез 17.11.2026: **0.19.0**, Android code **20**, схема `tessera-dev-bootstrap-2`. **M1 не принят; M2 не начат.** Последний проверявшийся код — `9a60212`; `ae95a88` добавляет только точку продолжения. Текущий HEAD/рабочее дерево проверять Git, номер документационного коммита не является новой приёмкой кода.
+Срез 17.11.2026: **0.19.0**, Android code **20**, схема `tessera-dev-bootstrap-2`. **M1 реализован, обязательная автоприёмка завершена с одним test-only native UI карантином; текущий блок — M2.** Доказательства разделены по SHA ниже; одного полного зелёного HEAD M1 нет. Текущий HEAD/дерево проверять Git.
 
 ## Единственная актуальная очередь (сверка уже выполнена)
 
@@ -9,10 +9,10 @@
 - **Частично §5:** text/multiline/markdown/boolean/integer/date/relation/backlink/file/image. Secret исключается из поисковых производных, но полноценного типа/UI нет. Остальные типы — M2.
 - **Нет §8.5:** экран крупных вложений, групповой экспорт в папку/открытие папки. Заготовка API не является готовым экраном.
 - **Частично §9:** Back/темы/ярлыки/URL есть; прямой Android Share, календарь/напоминание Intent и desktop .ics отсутствуют.
-- **Частично §10:** ZIP/manifest/NDJSON, staging/проверка/rollback, стартовый выбор и новый device_id реализованы; Windows native блокирует приёмку.
+- **Есть §10:** ZIP/manifest/NDJSON, staging/проверка/rollback, стартовый выбор и новый device_id. Windows fsync и Android-компиляция исправлены; границы native UI карантина и ручных проверок ниже.
 - **Частично §12:** bootstrap/SQLite integrity/приватные файлы/GC/аварийные тесты/allowBackup=false есть; диагностики с экспортом без секретов нет.
 - **Частично §14.3:** CRUD/CSV/история/корзина/SQLite/черновики/файлы/50k покрыты; архивная native-приёмка, Decimal/формулы, полный sync/crypto/Share и сквозная матрица открыты.
-- **M1 — закончить сейчас:** Windows fsync исправление → проверка native-контрактов/desktop/APK/emulator, настоящий Tauri blob-preview и Android archive-flow. Полный архив не объявлять готовым до этих результатов.
+- **M1 закрыт по обязательной автоматике:** Windows/Linux native, три desktop-сборки, настоящий Tauri blob-preview, Android archive-flow, APK и force-stop/recovery. Один test-only native picker в карантине; физический телефон/SAF остаются ручной приёмкой.
 - **M2:** каталог типов по пользе (Decimal/деньги, стабильные варианты выбора, время/дата-время/диапазон/длительность, URL/email/телефон/штрихкод, формула/агрегат/секрет, остальные); счётчик/рейтинг/прогресс/слайдер. Точная арифметика до 5 знаков half-up/индексный ключ; безопасный парсер без eval, циклы/ошибки/инвалидация/агрегаты прямых и обратных связей, сортировка/фильтры/группировка по кэшу; быстрые действия без версии.
 - **M3:** Kanban/календарь/дерево, сводки библиотеки, Сегодня/Неделя, итоги всего запроса; недоступные режимы не выдавать за готовые. Гант/граф вне v4.0.
 - **M4:** недостающие Share/внешние действия/Android-блокировка/диагностика/крупные вложения/миниатюры по сверке выше.
@@ -36,27 +36,27 @@
 | `b844c3b`, [44015263642](https://github.com/Hemlig371/tessera/actions/runs/44015263642) | Windows 37 UI; Linux 36/37; быстрые unit/DB/sync | Linux overflow; native/desktop/APK/emulator пропущены |
 | `9a60212`, [44017728014](https://github.com/Hemlig371/tessera/actions/runs/44017728014) | Быстрые Windows/Linux целиком (по 37 UI), sync, Linux native | Windows replacement-тесты красные; desktop/APK/emulator пропущены; APK M1 нет |
 | `e3bb175`, [44083474881](https://github.com/Hemlig371/tessera/actions/runs/44083474881), адресный native_resume | Windows/Linux native (9 Rust + 287 DB/native на каждой ОС), Windows/macOS desktop; Linux AppImage собран, настоящий blob-preview прошёл | Linux WebView завис на save picker архива; APK/emulator остановились на компиляции Kotlin M1; это не полный зелёный HEAD |
+| `bbcd7a0`, [44087223879](https://github.com/Hemlig371/tessera/actions/runs/44087223879), адресные Linux+Android | Linux AppImage/WebView/blob-preview, Android native archive roundtrip, instrumentation + 8 отдельных force-stop/relaunch фаз, production APK/manifest | Fast/native и Windows/macOS переиспользованы проверяемыми guards из двух baseline выше; native archive picker исключён по test-only карантину |
+
+[APK M1 0.19.0 / code 20](https://github.com/Hemlig371/tessera/actions/runs/44087223879/artifacts/14329349100): `app.tessera.personal`, ARM64 включён, acceptance bundle отсутствует, `allowBackup=false`; SHA-256 APK `a82ea1e28cc75b42c679a4da4afdd84d5e7f40ac052f612d14bea3552b2f8ae7`.
 
 Локально прошли: пакет 75 Node/Rust/serial/ZIP контрактов; реальные убийства SQLite при экспорте/импорте; три Rust recovery-теста (20 границ rename, повторное восстановление, повреждённый журнал). Основной UI M1 и исправленный каталог — по три последовательных прохода. Это дополняющие пакеты, не один полный зелёный HEAD.
 
 ### Известные проблемы / ручные проверки
 
 - **Windows fsync исправлен и проверен:** write handle без create/truncate, Linux-путь прежний. На `e3bb175` Windows прошёл все replacement/crash и DB/native-контракты.
-- **Открыта Android-приёмка M1:** компиляция обнаружила nullable `JSObject.getString()` и отсутствующий в публичном API `OsConstants.O_DIRECTORY`. Исправлены явной проверкой обязательных строк и read-only directory fd + fsync. До успешных APK/emulator M1 не принят; карантин запрещён.
+- Android nullable `JSObject.getString()` и отсутствующий публичный `OsConstants.O_DIRECTORY` исправлены явной проверкой строк и read-only directory fd + fsync; APK/emulator прошли на `bbcd7a0`.
 - **Карантин `M1-native-archive-picker`**, фрагмент `scripts/desktop-e2e.mjs`: read-only `__TAURI_INTERNALS__.invoke` (locked Tauri 2.12.5) не подменяет save picker; timeout «Экспорт · 0». Две локальные GTK-попытки исправления управления диалогом: (1) клавиши в toplevel не установили фокус; (2) явный focus выбрал путь с двойным `.zip`. По политике пользователя фрагмент исключён из обязательного прогона до конца M1; native UI export/replace этим прогоном не подтверждён. Остальной WebView-сценарий, blob-preview, native DB/replacement/crash и Android archive-flow остаются обязательными. Перед M7 исправить либо удалить с ведома пользователя.
 - Прежний Windows presets pending-COMMIT таймаут закрыт увеличением ожидания до 15 с и успешным сценарием в обоих M1 CI; не отлаживать заново без нового дефекта.
 - Android DocumentsProvider не гарантирует атомарность внешнего файла при force-stop финального копирования. Успех только после записи/закрытия; неполный ZIP при импорте отклоняется, исходная база экспортом не меняется.
-- Физический телефон/OEM, реальные SAF-провайдеры, launcher pin, календарные приложения/почта/подписи — ручная приёмка по §14.4, не заменяется Node/эмулятором. Нет SDK/GTK в текущем Cloud; native запусков здесь не заявлять.
+- Физический телефон/OEM, реальные SAF-провайдеры, launcher pin, календарные приложения/почта/подписи — ручная приёмка по §14.4. Шаги M1 на тестовой БД: запись с изображением → офлайн «Экспорт БД» → открыть ZIP/manifest → изменить запись → выбрать ZIP, проверить и подтвердить замену → проверить запись/изображение и перезапуск. Повторить импорт на чистой установке и отклонение повреждённого ZIP без изменения БД.
 
 ## Точка продолжения / сохранённая работа
 
-1. После уборки сначала проверить `git status`, прочитать diff, **завершить M1**, не начинать M2/M4 и не повторять начальную сверку. Кодовый baseline выше; документационные коммиты не меняют его результаты.
-2. В новом Cloud `/workspace` исходного checkout/WIP нет. Получен чистый `main=4aa8ec2`, fetch подтвердил отсутствие новых коммитов. Указанные ранее `attachment-catalog.ts`, patch, ZIP и старые work-логи здесь отсутствуют; это не удаление прежних файлов, их исходное окружение недоступно.
-3. Windows-исправление и native_resume отправлены в `c4eee59`, точное документальное исключение — `e3bb175`. Три локальных replacement-теста и 287 DB/native-контрактов прошли; результаты Windows/Linux native подтверждены CI выше. Архив/Core/UI не переписаны.
-4. Для Android-продолжения guard дополнительно требует completed main ancestor с успешными native + тремя desktop jobs. Для оставшихся Linux+Android нужны native + Windows/macOS, Linux запускается заново. Diff ограничен двумя Android import-адаптерами, gate/его тестами, README/audit и (только с повтором Linux) `desktop-e2e.mjs`. Actionlint/typecheck/lint и scope/ZIP/archive unit+DB прошли (`work/m1-targeted-tests.log`). Два полных профиля M1 уже использованы; повторяются только необходимые адресные jobs.
-   Локальная Android-компиляция production frontend + Kotlin/Java + instrumentation APK прошла; merged manifest `allowBackup=false` проверен. SDK/JDK/Gradle установлены только в `work/`; это не выполнение эмуляторных тестов.
-5. M4 отложен; прежняя заготовка отсутствует в этом Cloud. При возвращении сохранить mediaReferences; не восстанавливать поиск ссылок по любому UUID. Git-коммиты M1: `350c359`, `409fad2`, `fb16028`, `b844c3b`, `9a60212`.
-6. После реальной native-приёмки M1: отчёт ≤15 строк с шагами телефона, красными/карантинными тестами и ссылкой APK; затем M2 без ожидания ответа.
+1. Продолжить M2 по очереди выше; спецификацию/UX читать адресно. M1 не переписывать и не повторять его зелёные UI. Карантин до конца M1 не отлаживался; перед M7 разрешить по правилам.
+2. Checkout `/workspace/tessera`, `main`; исходное прежнее окружение/WIP не перенесено. `attachment-catalog.ts`, `work/m4-catalog-repository.patch`, `work/tessera-continuation-wip.zip` и старые логи здесь отсутствовали с начала сессии. M4 отложен; при возвращении сохранить mediaReferences.
+3. M1-продолжение: `c4eee59`, `e3bb175`, `bbcd7a0`. Локально typecheck/lint/actionlint, 85 scope/ZIP/archive unit+DB, 3 Rust replacement, 287 Rust-driver DB/native и Android-компиляция прошли. Логи адресно: `work/m1-targeted-tests.log`, `work/m1-native-api-linux.log`, `work/m1-android-build.log`. SDK/JDK/Gradle/Rust — в `work/`; эмуляторные результаты подтверждены CI, локальный эмулятор не запускался.
+4. Пользователь заменил AGENTS.md приложенным файлом 17.11.2026; принят дословно. Новые правила включают локальную native-компиляцию до CI и изолированную следующую задачу во время ожидания native-приёмки. Приёмка каждого блока остаётся отдельной.
 
 ## Что не повторять / где история
 

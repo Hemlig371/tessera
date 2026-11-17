@@ -38,6 +38,23 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     expect((await reopened.queryEntries({ search: 'вложение' })).items).toEqual([]); // filenames/bytes are not FTS content
     expect(await reopened.exportAttachment(staged.id, owner)).toBe(true);
   });
+  it('only publishes new attachments through file/image fields, retaining literal UUIDs without attachment side effects', async () => {
+    const { api, collection, file, owner } = await setup(); await api.startLocalSync();
+    const staged = await api.stageAttachment(collection.id, owner, source());
+    const text = await api.createField(collection.id, 'UUID as text', 'text');
+    const unknown = crypto.randomUUID();
+    let entry = await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'Literal IDs', [text.id]: staged.id,
+      [unknown]: { nested: [staged.id] } }, owner);
+    expect(entry.data[text.id]).toBe(staged.id);
+    expect(await f.db.read(s => s.query('SELECT * FROM attachments'))).toEqual([]);
+    expect(await f.db.read(s => s.query('SELECT * FROM attachment_locations'))).toEqual([]);
+    expect(await f.db.read(s => s.query('SELECT * FROM change_log WHERE entity_id=?', [staged.id]))).toEqual([]);
+    expect((await api.getAttachmentView(staged.id, owner)).staged).toBe(true);
+    entry = await api.saveEntry(collection.id, { [file.id]: [staged.id] }, owner, entry.hlc);
+    expect((await api.getAttachmentView(staged.id, owner)).staged).toBe(false);
+    expect((await api.getHistory(owner)).versions).toHaveLength(2);
+    expect(entry.data[unknown]).toEqual({ nested: [staged.id] });
+  });
   it('retains history bytes after unlink/clear, restores an old reference, and never creates versions for local-copy actions', async () => {
     const { api, collection, file, owner } = await setup(), bytes = new Uint8Array([1,2,3,4]);
     const staged = await api.stageAttachment(collection.id, owner, source(bytes));

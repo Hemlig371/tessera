@@ -61,8 +61,8 @@ export async function attachmentLimit(s: SqlSession): Promise<number> {
 export async function bindAttachments(s: SqlSession, row: Entry, fields: Field[], log: AttachmentLog): Promise<void> {
   const typed = new Map<string, boolean>();
   for (const field of fields.filter(field => isFile(field.type))) for (const id of fileIds(row.data[field.id])) typed.set(id, (typed.get(id) ?? false) || field.type === 'image');
-  const stagedIds = new Set((await s.query<{ id: string }>('SELECT id FROM attachment_staging WHERE owner_id=?', [row.id])).map(file => file.id));
-  for (const id of dataFileCandidates(row.data)) if (!typed.has(id) && stagedIds.has(id)) typed.set(id, false);
+  // Unknown values survive schema changes, but cannot publish a new attachment.
+  // Existing unmapped/history references below only retain already-bound metadata.
   for (const [id, image] of typed) {
     const [old] = await s.query<Attachment>('SELECT * FROM attachments WHERE id=?', [id]);
     if (old) {

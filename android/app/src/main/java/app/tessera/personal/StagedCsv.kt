@@ -18,6 +18,10 @@ internal class StagedCsv(directory: File) {
         require(text.length <= 32000)
         (stream ?: error("fileError")).write(text.toByteArray(Charsets.UTF_8))
     }
+    fun writeBytes(bytes: ByteArray) {
+        require(bytes.size <= 256 * 1024)
+        (stream ?: error("fileError")).write(bytes)
+    }
     fun finish(openDestination: () -> OutputStream) {
         val output = stream ?: error("fileError")
         output.fd.sync()

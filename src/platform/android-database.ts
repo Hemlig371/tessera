@@ -2,9 +2,9 @@ import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import type { SqlSession, SqlRow, SqlValue } from '../core/ports';
 import { SerialDatabase } from './serial-database';
 
-export async function openAndroidDatabase(): Promise<SerialDatabase> {
+export async function openAndroidDatabase(databaseName = 'app'): Promise<SerialDatabase> {
   const sqlite = new SQLiteConnection(CapacitorSQLite);
-  const db = await sqlite.createConnection('app', false, 'no-encryption', 1, false);
+  const db = await sqlite.createConnection(databaseName, false, 'no-encryption', 1, false);
   await db.open();
   await db.execute('PRAGMA foreign_keys=ON;', false);
   await db.query('PRAGMA journal_mode=WAL;');
@@ -35,7 +35,7 @@ export async function openAndroidDatabase(): Promise<SerialDatabase> {
       // Private sibling of the database, never the process working directory.
       await db.run('VACUUM INTO ?', [`${directory}/migration-${crypto.randomUUID()}.sqlite`], false);
     },
-    close: async () => { await sqlite.closeConnection('app', false); },
+    close: async () => { await sqlite.closeConnection(databaseName, false); },
   };
   return new SerialDatabase(session);
 }

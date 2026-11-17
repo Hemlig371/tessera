@@ -13,6 +13,10 @@ impl Destination {
         if text.len() > 128000 { return Err("fileError".into()); }
         self.file.as_mut().ok_or("fileError")?.write_all(text.as_bytes()).map_err(|_| "fileError".into())
     }
+    fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), String> {
+        if bytes.len() > 256 * 1024 { return Err("fileError".into()); }
+        self.file.as_mut().ok_or("fileError")?.write_all(bytes).map_err(|_| "fileError".into())
+    }
     fn finish(mut self) -> Result<(), String> {
         self.file.as_mut().ok_or("fileError")?.sync_all().map_err(|_| "fileError")?;
         self.file.take();
@@ -31,6 +35,10 @@ pub fn csv_open(state: State<'_, CsvFiles>, path: String) -> Result<(), String> 
 #[tauri::command]
 pub fn csv_write(state: State<'_, CsvFiles>, text: String) -> Result<(), String> {
     state.0.lock().map_err(|_| "fileError")?.as_mut().ok_or("fileError")?.write(&text)
+}
+#[tauri::command]
+pub fn csv_write_bytes(state: State<'_, CsvFiles>, bytes: Vec<u8>) -> Result<(), String> {
+    state.0.lock().map_err(|_| "fileError")?.as_mut().ok_or("fileError")?.write_bytes(&bytes)
 }
 #[tauri::command]
 pub fn csv_finish(state: State<'_, CsvFiles>) -> Result<(), String> {

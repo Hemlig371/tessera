@@ -1,8 +1,12 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke as nativeInvoke } from '@tauri-apps/api/core';
 import type { SqlSession } from '../core/ports';
 import { SerialDatabase } from './serial-database';
 
-export function openTauriDatabase(): SerialDatabase {
+async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  try { return await nativeInvoke<T>(command, args); } catch (error) { throw error instanceof Error ? error : new Error(typeof error === 'string' ? error : 'databaseUnavailable'); }
+}
+export async function openTauriDatabase(): Promise<SerialDatabase> {
+  await invoke('db_open');
   const session: SqlSession = {
     query: (sql, params = []) => invoke('db_query', { sql, params }),
     execute: (sql, params = []) => invoke('db_execute', { sql, params }),

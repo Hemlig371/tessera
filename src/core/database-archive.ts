@@ -1,4 +1,4 @@
-import type { BinaryFileAdapter, DatabaseAdapter, SqlRow, SqlValue } from './ports';
+import type { BinaryFileAdapter, DatabaseAdapter, SqlRow, SqlSession, SqlValue } from './ports';
 import type { ByteSource, Attachment } from './attachments';
 import { attachmentLimit } from './attachments';
 import { AppError } from './errors';
@@ -131,6 +131,16 @@ export async function inspectDatabaseArchive(source: ByteSource, signal?: AbortS
   if (expected.size !== zip.entries.size || [...zip.entries.keys()].some(name => !expected.has(name))) throw invalid();
   return { zip, manifest };
 }
+async function checkArchiveReferences(s: SqlSession) {
+  // Retained historical field definitions participate; plain UUID text never becomes a file.
+  for (const [table, owner, data] of [['records', 'r.id', 'r.data'], ['record_versions', 'r.record_id', "json_extract(r.snapshot,'$.data')"]]) {
+    const base = `FROM ${table} r JOIN json_each(${data}) field JOIN fields f ON f.id=field.key AND f.type IN('file','image')`;
+    if ((await s.query(`SELECT 1 ${base} WHERE field.type NOT IN('null','array') LIMIT 1`)).length ||
+        (await s.query(`SELECT 1 ${base} JOIN json_each(CASE WHEN field.type='array' THEN field.value ELSE '[]' END) item
+          LEFT JOIN attachments a ON a.id=item.value AND a.record_id=${owner} AND a.purged=0
+          WHERE a.id IS NULL OR (f.type='image' AND a.mime NOT LIKE 'image/%') LIMIT 1`)).length) throw invalid();
+  }
+}
 /** Build only a fresh private DB. No SQL/schema, credentials, installation IDs or cursors from source. */
 export async function importDatabaseArchive(source: ByteSource, db: DatabaseAdapter,
   files: Pick<BinaryFileAdapter, 'begin' | 'write' | 'finish'>, independent = false, progress?: OperationProgress, signal?: AbortSignal): Promise<ArchiveManifest> {
@@ -143,6 +153,13 @@ export async function importDatabaseArchive(source: ByteSource, db: DatabaseAdap
     for (const [kind, table] of Object.entries(entities) as [Entity, string][]) {
       columns.set(kind, (await s.query<{ name: string }>(`PRAGMA table_info(${table})`)).map(row => row.name).filter(key => kind !== 'record' || !derived.has(key)).sort());
     }
+    let batch: { kind: Entity; keys: string[]; values: SqlValue[][]; parameters: number } | null = null;
+    const flush = async () => {
+      if (!batch) return;
+      const { kind, keys, values } = batch;
+      await s.execute(`INSERT INTO ${entities[kind]}(${keys.join(',')}) VALUES${values.map(() => '(' + keys.map(() => '?').join(',') + ')').join(',')}`, values.flat());
+      batch = null;
+    };
     for (const part of manifest.data) {
       const bytes = await zip.bytes(part.path);
       if (bytes.length !== part.size || await digest(bytes) !== part.sha256) throw invalid();
@@ -163,14 +180,24 @@ export async function importDatabaseArchive(source: ByteSource, db: DatabaseAdap
           if (key in row && (typeof row[key] !== 'string' || !UUID_RE.test(row[key] as string))) throw invalid();
         }
         if (kind !== 'setting' && kind !== 'attachment_location' && (typeof row.id !== 'string' || !UUID_RE.test(row.id))) throw invalid();
+        if (typeof row.hlc === 'string' && typeof row.device_id === 'string' && !row.hlc.endsWith('-' + row.device_id)) throw invalid();
+        if (kind === 'version') {
+          const snapshot = row.snapshot;
+          if (!object(snapshot) || snapshot.id !== row.record_id || snapshot.hlc !== row.hlc || snapshot.device_id !== row.device_id || !object(snapshot.data) ||
+              typeof row.saved_at !== 'string' || !Number.isFinite(Date.parse(row.saved_at))) throw invalid();
+        }
         const values = keys.map(key => jsonColumns.has(key) ? json(row[key]) : row[key]);
         if (!values.every(v => v === null || typeof v === 'string' || (typeof v === 'number' && Number.isFinite(v) && (!Number.isInteger(v) || Number.isSafeInteger(v))))) throw invalid();
-        await s.execute(`INSERT INTO ${entities[kind]}(${keys.join(',')}) VALUES(${keys.map(() => '?').join(',')})`, values as SqlValue[]); totals[kind]++;
+        if (batch && (batch.kind !== kind || batch.parameters + values.length > 900)) await flush();
+        batch ??= { kind, keys, values: [], parameters: 0 };
+        batch.values.push(values as SqlValue[]); batch.parameters += values.length; totals[kind]++;
       }
+      await flush();
       progress?.(Object.values(totals).reduce((a, b) => a + b, 0), 'processing'); await yieldOperation();
     }
     if (json(totals) !== json(manifest.entities) || await attachmentLimit(s) !== manifest.threshold ||
         (await s.query('PRAGMA foreign_key_check')).length || (await s.query('SELECT record_id FROM record_versions GROUP BY record_id HAVING count(*)>20')).length) throw invalid();
+    await checkArchiveReferences(s);
     const [count] = await s.query<{ n: number }>('SELECT count(*) AS n FROM attachments WHERE purged=0');
     if (count!.n !== manifest.attachments.length) throw invalid();
     let watermark = manifest.hlc;

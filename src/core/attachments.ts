@@ -12,6 +12,7 @@ export interface AttachmentView { id: string; name: string; mime: string; size: 
 export type AttachmentLog = (entity: string, row: Pick<Stamp, 'id' | 'hlc' | 'device_id'>, payload: object) => Promise<void>;
 export function isFile(type: string) { return type === 'file' || type === 'image'; }
 export function fileIds(value: JsonValue | undefined): string[] { return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []; }
+/** Conservative draft retention only: never use arbitrary UUIDs to bind/publish files. */
 export function dataFileCandidates(data: RecordData): Set<string> {
   const ids = new Set<string>();
   const scan = (value: JsonValue): void => {
@@ -20,6 +21,18 @@ export function dataFileCandidates(data: RecordData): Set<string> {
     else if (value && typeof value === 'object') Object.values(value).forEach(scan);
   };
   Object.values(data).forEach(scan); return ids;
+}
+export async function mediaReferences(s: SqlSession, data: RecordData): Promise<Set<string>> {
+  const ids = new Set<string>(), keys = Object.keys(data);
+  // Deleted/moved media fields retain stable definitions. Arbitrary text/unknown JSON UUIDs
+  // cannot link attachments; their literal values are still preserved in the record.
+  for (let offset = 0; offset < keys.length; offset += 900) {
+    const page = keys.slice(offset, offset + 900);
+    for (const field of await s.query<{ id: string }>(`SELECT id FROM fields WHERE type IN('file','image') AND id IN(${page.map(() => '?').join(',')})`, page)) {
+      for (const id of fileIds(data[field.id])) ids.add(id);
+    }
+  }
+  return ids;
 }
 export function validateFileFacts(value: FileFacts): void {
   if (!Number.isSafeInteger(value.size) || value.size < 0 || !/^[a-f0-9]{64}$/.test(value.sha256)) throw new AppError('fileCorrupt');
@@ -82,8 +95,9 @@ export async function bindAttachments(s: SqlSession, row: Entry, fields: Field[]
     await s.execute('DELETE FROM attachment_staging WHERE id=?', [id]);
     await log('attachment', meta, meta); await log('attachment_location', location, location);
   }
-  const current = dataFileCandidates(row.data);
   const attachments = await s.query<Attachment>('SELECT * FROM attachments WHERE record_id=? AND purged=0', [row.id]);
+  if (!attachments.length) return;
+  const current = await mediaReferences(s, row.data);
   for (const old of attachments) {
     const deleted_at = current.has(old.id) ? null : row.updated_at;
     if (!!old.deleted_at === !!deleted_at) continue;

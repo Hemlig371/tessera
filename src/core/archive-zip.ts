@@ -104,6 +104,7 @@ export class ZipReader {
       let name: string; try { name = decoder.decode(rest.bytes.subarray(0, nameLength)); } catch { throw bad(); }
       if (!validName(name) || zip.entries.has(name)) throw bad();
       let uncompressed = c.getUint32(24, true), compressed = c.getUint32(20, true), offset = c.getUint32(42, true);
+      const needs64 = uncompressed === max32 || compressed === max32 || offset === max32;
       let found64 = false;
       for (let e = nameLength; e < nameLength + extraLength;) {
         if (e + 4 > nameLength + extraLength) throw bad();
@@ -119,7 +120,7 @@ export class ZipReader {
         }
         e += length;
       }
-      if (uncompressed === max32 || compressed !== uncompressed || offset === max32) throw bad();
+      if ((needs64 && !found64) || compressed !== uncompressed) throw bad();
       const local = (await zip.read(offset, 30)).view;
       if (local.getUint32(0, true) !== 0x04034b50 || local.getUint16(6, true) !== c.getUint16(8, true) || local.getUint16(8, true)) throw bad();
       const localName = await zip.read(offset + 30, local.getUint16(26, true));

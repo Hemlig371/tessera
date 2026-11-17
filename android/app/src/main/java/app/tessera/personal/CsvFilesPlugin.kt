@@ -25,7 +25,7 @@ class CsvFilesPlugin : Plugin() {
         picking = true
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/csv"
+            type = call.getString("mime") ?: "text/csv"
             putExtra(Intent.EXTRA_TITLE, call.getString("name") ?: "Tessera.csv")
         }
         try { startActivityForResult(call, intent, "selected") }
@@ -46,6 +46,14 @@ class CsvFilesPlugin : Plugin() {
         try {
             val text = call.getString("text") ?: throw IllegalArgumentException()
             (staged ?: throw IllegalStateException()).write(text)
+            call.resolve()
+        } catch (_: Exception) { call.reject("fileError") }
+    }
+    @PluginMethod fun writeBytes(call: PluginCall) {
+        try {
+            val data = call.getString("data") ?: throw IllegalArgumentException()
+            require(data.length <= (256 * 1024 + 2) / 3 * 4)
+            (staged ?: throw IllegalStateException()).writeBytes(android.util.Base64.decode(data, android.util.Base64.NO_WRAP))
             call.resolve()
         } catch (_: Exception) { call.reject("fileError") }
     }

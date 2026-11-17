@@ -1,9 +1,11 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import type { ArchiveWriter } from '../core/archive-zip';
 import type { CsvWriter } from '../core/csv';
 import { AppError } from '../core/errors';
 interface NativeCsv {
-  begin(options: { name: string; title: string }): Promise<{ cancelled?: boolean }>;
+  begin(options: { name: string; title: string; mime?: string }): Promise<{ cancelled?: boolean }>;
   write(options: { text: string }): Promise<void>;
+  writeBytes(options: { data: string }): Promise<void>;
   finish(): Promise<void>;
   abort(): Promise<void>;
 }
@@ -35,4 +37,27 @@ export async function chooseCsvWriter(name: string, title: string): Promise<CsvW
     finish: () => send('finish'),
     abort: () => send('abort'),
   };
+}
+
+/** Reuse the same private staging and native document picker for the single DB archive export. */
+export async function chooseDatabaseArchiveWriter(title: string): Promise<ArchiveWriter | null> {
+  const name = 'Tessera-' + new Date().toISOString().slice(0, 10) + '.zip';
+  if (Capacitor.getPlatform() === 'android') {
+    if ((await android.begin({ name, title, mime: 'application/zip' })).cancelled) return null;
+    return {
+      async write(bytes) {
+        let text = ''; for (let at = 0; at < bytes.length; at += 8192) text += String.fromCharCode(...bytes.subarray(at, at + 8192));
+        await android.writeBytes({ data: btoa(text) });
+      },
+      finish: () => android.finish(), abort: () => android.abort(),
+    };
+  }
+  if ('__TAURI_INTERNALS__' in window) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const path = await save({ title, defaultPath: name, filters: [{ name: 'Tessera ZIP', extensions: ['zip'] }] });
+    if (!path) return null;
+    const { invoke } = await import('@tauri-apps/api/core'); await invoke('csv_open', { path });
+    return { write: bytes => invoke('csv_write_bytes', { bytes: [...bytes] }), finish: () => invoke('csv_finish'), abort: () => invoke('csv_abort') };
+  }
+  throw new AppError('nativeRequired');
 }

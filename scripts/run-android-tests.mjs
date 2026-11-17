@@ -37,6 +37,7 @@ if (code !== 0) {
     for (const [testClass, phase] of [
       ['SqliteBridgeTest', 'preparePersistentDraft'], ['SqliteBridgeTest', 'verifyPersistentDraft'],
       ['CsvStagingTest', 'prepareInterruptedCsv'], ['CsvStagingTest', 'verifyInterruptedCsv'],
+      ['ReplacementStoreTest', 'prepareInterruptedReplacement'], ['ReplacementStoreTest', 'verifyInterruptedReplacement'],
       ['BinaryStoreTest', 'prepareInterruptedBinary'], ['BinaryStoreTest', 'verifyInterruptedBinary'],
     ]) {
       adb(['shell', 'am', 'force-stop', target]);

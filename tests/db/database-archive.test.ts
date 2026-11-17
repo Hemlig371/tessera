@@ -36,17 +36,28 @@ describe.each(adapters)('%s portable database archive (logical WAL snapshot)', k
     const target = await open(false); await importDatabaseArchive(bytes(output.state.bytes), target.db, target.files);
     expect((await Repository.open(target.db, target.files)).datasetId).toBe(f.api!.datasetId);
   });
-  it.each(['unknown-entity', 'wrong-model', 'binary-with-valid-crc'])('rejects %s even when ZIP CRCs have been recomputed', async mode => {
-    const { f } = await seed(), original = writer(); await exportDatabaseArchive(f.db, f.files, original.port);
+  it.each(['unknown-entity', 'wrong-model', 'binary-with-valid-crc', 'foreign-file-owner', 'version-provenance', 'hlc-provenance'])('rejects %s even when ZIP CRCs and data hashes have been recomputed', async mode => {
+    const { f, api, collection } = await seed();
+    const other = mode === 'foreign-file-owner' ? await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Другой владелец' }) : null;
+    const original = writer(); await exportDatabaseArchive(f.db, f.files, original.port);
     const zip = await ZipReader.open(bytes(original.state.bytes)), output = writer(), changed = new ZipWriter(output.port);
-    for (const name of zip.entries.keys()) {
-      let data = await zip.bytes(name);
-      if (mode === 'wrong-model' && name === 'manifest.json') {
-        const manifest = JSON.parse(new TextDecoder().decode(data)) as { model_version: number }; manifest.model_version = 99;
-        data = new TextEncoder().encode(JSON.stringify(manifest));
+    const parts = new Map<string, Uint8Array>(); for (const name of zip.entries.keys()) parts.set(name, await zip.bytes(name));
+    const manifest = JSON.parse(new TextDecoder().decode(parts.get('manifest.json'))) as { model_version: number; data: { path: string; size: number; sha256: string }[] };
+    if (mode === 'wrong-model') manifest.model_version = 99;
+    for (const part of manifest.data) {
+      const lines = new TextDecoder().decode(parts.get(part.path)).trimEnd().split('\n').map(line => JSON.parse(line) as { kind: string; value: Record<string, unknown> });
+      for (const entity of lines) {
+        if (mode === 'unknown-entity' && entity.kind === 'library') entity.kind = 'local_settings';
+        if (mode === 'foreign-file-owner' && entity.kind === 'attachment') entity.value.record_id = other!.id;
+        if (mode === 'version-provenance' && entity.kind === 'version') (entity.value.snapshot as Record<string, unknown>).id = crypto.randomUUID();
+        if (mode === 'hlc-provenance' && entity.kind === 'library') entity.value.device_id = crypto.randomUUID();
       }
-      if (mode === 'unknown-entity' && name.startsWith('data/')) data = new TextEncoder().encode(new TextDecoder().decode(data).replace('"kind":"library"', '"kind":"local_settings"'));
-      if (mode === 'binary-with-valid-crc' && name.startsWith('attachments/')) { data[0] = data[0]! ^ 7; }
+      const data = new TextEncoder().encode(lines.map(value => JSON.stringify(value)).join('\n') + '\n');
+      part.size = data.length; part.sha256 = Buffer.from(await crypto.subtle.digest('SHA-256', data)).toString('hex'); parts.set(part.path, data);
+    }
+    parts.set('manifest.json', new TextEncoder().encode(JSON.stringify(manifest)));
+    for (const [name, data] of parts) {
+      if (mode === 'binary-with-valid-crc' && name.startsWith('attachments/')) data[0] = data[0]! ^ 7;
       await changed.bytes(name, data);
     }
     await changed.finish(); const target = await open(false);

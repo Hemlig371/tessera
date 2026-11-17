@@ -1,5 +1,6 @@
 //! Recoverable filesystem activation only. Archive/schema/data rules remain in TypeScript.
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{fs::{self, File}, io::Write, path::{Path, PathBuf}};
 type Result<T> = std::result::Result<T, String>;
 
@@ -11,8 +12,8 @@ impl ReplacementStore {
     fn plans(&self) -> Vec<(PathBuf, PathBuf, PathBuf)> {
         let work = self.root.join("operational/db-import");
         let mut paths = vec![(self.database.clone(), "database.sqlite".to_string()),
-            (PathBuf::from(format!("{}-wal", self.database.display())), "database.sqlite-wal".into()),
-            (PathBuf::from(format!("{}-shm", self.database.display())), "database.sqlite-shm".into())];
+            ({ let mut p = self.database.as_os_str().to_os_string(); p.push("-wal"); PathBuf::from(p) }, "database.sqlite-wal".into()),
+            ({ let mut p = self.database.as_os_str().to_os_string(); p.push("-shm"); PathBuf::from(p) }, "database.sqlite-shm".into())];
         for (active, name) in [("attachments", "attachments"), ("operational/drafts", "drafts"),
             ("operational/inbox", "inbox"), ("operational/outbox", "outbox"), ("cache/thumbnails", "thumbnails"), ("operational/file-staging", "file-staging")] {
             paths.push((self.root.join(active), name.into()));
@@ -22,8 +23,8 @@ impl ReplacementStore {
     pub fn prepare(&self, required: u64) -> Result<()> {
         self.recover()?;
         fs::create_dir_all(self.root.join("operational")).map_err(|_| "fileError")?;
-        if free_space(&self.root)? < required { return Err("notEnoughSpace".into()); }
         remove(&self.root.join("operational/db-import"))?;
+        if free_space(&self.root)? < required { return Err("notEnoughSpace".into()); }
         for name in ["attachments", "drafts", "inbox", "outbox", "thumbnails", "file-staging", "operational/file-staging"] {
             fs::create_dir_all(self.stage().join(name)).map_err(|_| "fileError")?;
         }
@@ -36,7 +37,9 @@ impl ReplacementStore {
     fn write_journal(&self, value: &Value) -> Result<()> {
         let temporary = self.journal().with_extension("new");
         let mut file = File::create(&temporary).map_err(|_| "fileError")?;
-        file.write_all(value.to_string().as_bytes()).and_then(|_| file.sync_all()).map_err(|_| "fileError")?;
+        let payload = value.to_string();
+        let envelope = json!({"payload":payload,"sha256":format!("{:x}", Sha256::digest(payload.as_bytes()))});
+        file.write_all(envelope.to_string().as_bytes()).and_then(|_| file.sync_all()).map_err(|_| "fileError")?;
         drop(file); fs::rename(temporary, self.journal()).map_err(|_| "fileError")?;
         sync_dir(self.journal().parent().ok_or("fileError")?)
     }
@@ -65,7 +68,11 @@ impl ReplacementStore {
     }
     pub fn recover(&self) -> Result<()> {
         let bytes = match fs::read(self.journal()) { Ok(v) => v, Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()), Err(_) => return Err("fileError".into()) };
-        let value: Value = serde_json::from_slice(&bytes).map_err(|_| "importRecoveryFailed")?;
+        if bytes.len() > 8192 { return Err("importRecoveryFailed".into()); }
+        let envelope: Value = serde_json::from_slice(&bytes).map_err(|_| "importRecoveryFailed")?;
+        let payload = envelope["payload"].as_str().ok_or("importRecoveryFailed")?;
+        if envelope["sha256"].as_str() != Some(format!("{:x}", Sha256::digest(payload.as_bytes())).as_str()) { return Err("importRecoveryFailed".into()); }
+        let value: Value = serde_json::from_str(payload).map_err(|_| "importRecoveryFailed")?;
         let committed = value["committed"].as_bool().ok_or("importRecoveryFailed")?;
         let existed = value["existed"].as_array().ok_or("importRecoveryFailed")?;
         let plans = self.plans();
@@ -126,6 +133,19 @@ mod tests {
         let phase = std::env::var("TESSERA_REPLACE_CHILD_PHASE").unwrap();
         store(Path::new(&root)).activate(|at| { if at == phase { std::process::exit(77); } }).unwrap();
         panic!("kill phase was not reached");
+    }
+    #[test]
+    fn corrupt_journal_preserves_both_copies_and_refuses_to_guess() {
+        let dir = tempfile::tempdir().unwrap(); let root = dir.path(); let store = store(root);
+        database(&root.join("databases/app.sqlite"), "old"); store.prepare(1).unwrap(); database(&store.stage().join("database.sqlite"), "new");
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| store.activate(|at| { if at == "new-0" { panic!("injected interruption"); } })));
+        assert!(result.is_err());
+        let mut envelope: Value = serde_json::from_slice(&fs::read(store.journal()).unwrap()).unwrap();
+        envelope["payload"] = json!(envelope["payload"].as_str().unwrap().replace("false", "true"));
+        fs::write(store.journal(), envelope.to_string()).unwrap();
+        assert_eq!(store.recover().unwrap_err(), "importRecoveryFailed");
+        assert!(root.join("databases/app.sqlite").is_file());
+        assert!(root.join("operational/db-import/old/database.sqlite").is_file());
     }
     #[test]
     fn abrupt_death_at_every_rename_restores_one_complete_dataset() {

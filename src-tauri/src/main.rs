@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod binary_store;
+mod replacement_store;
+mod import_files;
 mod binary_files;
 mod csv_files;
 mod local_files;
@@ -10,10 +12,23 @@ use std::{path::PathBuf, sync::Mutex};
 use tauri::{Manager, State};
 use tessera_sqlite::Database;
 
-struct Storage { db: Mutex<Option<Database>>, backups: PathBuf }
+struct Storage { db: Mutex<Option<Database>>, backups: PathBuf, error: Option<String> }
 fn with_db<T>(state: State<'_, Storage>, work: impl FnOnce(&Database) -> Result<T, String>) -> Result<T, String> {
     let guard = state.db.lock().map_err(|_| "databaseUnavailable".to_string())?;
-    work(guard.as_ref().ok_or("databaseUnavailable")?)
+    work(guard.as_ref().ok_or_else(|| state.error.clone().unwrap_or("databaseUnavailable".into()))?)
+}
+#[tauri::command]
+async fn db_open(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Storage>();
+        let mut guard = state.db.lock().map_err(|_| "databaseUnavailable")?;
+        // Renderer reloads keep Tauri alive: abandon its old stage and reopen after import.
+        guard.take();
+        app.state::<import_files::ImportFiles>().recover()?;
+        let root = app.path().app_data_dir().map_err(|_| "databaseUnavailable")?;
+        *guard = Some(Database::open(&root.join("databases/app.sqlite"))?);
+        Ok(())
+    }).await.map_err(|_| "databaseUnavailable")?
 }
 #[tauri::command]
 async fn db_query(app: tauri::AppHandle, sql: String, params: Vec<Value>) -> Result<Vec<Value>, String> {
@@ -52,12 +67,16 @@ fn main() {
             for sub in ["databases", "attachments", "cache/thumbnails", "operational/outbox", "operational/inbox", "operational/drafts", "operational/logs", "operational/backups"] {
                 std::fs::create_dir_all(root.join(sub))?;
             }
-            let db = Database::open(&root.join("databases/app.sqlite"))?;
+            let replacement = replacement_store::ReplacementStore::new(root.clone(), root.join("databases/app.sqlite"));
+            let recovery = replacement.recover().and_then(|_| replacement.discard());
+            app.manage(import_files::ImportFiles::new(root.clone()));
+            let opened = recovery.and_then(|_| Database::open(&root.join("databases/app.sqlite")));
+            let (db, error) = match opened { Ok(db) => (Some(db), None), Err(error) => (None, Some(error)) };
             app.manage(local_files::LocalFiles(root.join("operational")));
             app.manage(binary_store::BinaryStore::new(root.clone()));
-            app.manage(Storage { db: Mutex::new(Some(db)), backups: root.join("operational/backups") });
+            app.manage(Storage { db: Mutex::new(db), backups: root.join("operational/backups"), error });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, csv_files::csv_open, csv_files::csv_write, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url, binary_files::binary_begin, binary_files::binary_write, binary_files::binary_finish, binary_files::binary_inspect, binary_files::binary_stat, binary_files::binary_read, binary_files::binary_remove, binary_files::binary_export])
+        .invoke_handler(tauri::generate_handler![db_open, db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, import_files::import_stage, csv_files::csv_open, csv_files::csv_write, csv_files::csv_write_bytes, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url, binary_files::binary_begin, binary_files::binary_write, binary_files::binary_finish, binary_files::binary_inspect, binary_files::binary_stat, binary_files::binary_read, binary_files::binary_remove, binary_files::binary_export])
         .run(tauri::generate_context!()).expect("Tessera startup failed");
 }

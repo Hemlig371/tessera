@@ -1,3 +1,6 @@
+import type { DatabaseAdapter } from '../../src/core/ports';
+import { nativeArchiveScenario } from './native-archive-scenario';
+import { recoverDatabaseImport } from '../../src/platform/database-import';
 import { attachmentScenario, attachmentFixture } from './attachments-scenario';
 import { openBinaryFiles } from '../../src/platform/binary-files';
 import { trashScenario } from './trash-scenario';
@@ -28,16 +31,23 @@ import { profilesScenario } from './profiles-scenario';
 import { draftFixture } from './draft-fixture';
 
 async function run() {
-  const first = await openAndroidDatabase();
+  await recoverDatabaseImport();
+  let first: DatabaseAdapter = await openAndroidDatabase();
   document.documentElement.dataset.acceptanceStage = 'sqlite-contract';
   await sqliteContract(first);
   document.documentElement.dataset.acceptanceStage = 'migration';
   await migrate(first);
-  const api = await Repository.open(first, openBinaryFiles());
+  let api = await Repository.open(first, openBinaryFiles());
   const library = (await api.listLibraries()).find(l => l.name === 'Контракт') ?? await api.createLibrary('Контракт');
   const collection = (await api.listCollections(library.id))[0] ?? await api.createCollection(library.id, 'Записи', 'Название');
   const old = (await api.listEntries(collection.id)).items[0];
   const record = old ?? await api.saveEntry(collection.id, { [collection.primary_field_id]: 'Bridge roundtrip' });
+  const [archive] = await first.read(s => s.query("SELECT value FROM local_settings WHERE key='acceptance.archive'"));
+  if (!archive) {
+    document.documentElement.dataset.acceptanceStage = 'database-archive';
+    api = await nativeArchiveScenario(api, openBinaryFiles(), openAndroidDatabase); first = api.db;
+    await first.transaction(s => s.execute("INSERT INTO local_settings VALUES('acceptance.archive','passed')"));
+  }
   const [complete] = await first.read(s => s.query("SELECT value FROM local_settings WHERE key='acceptance.stage3'"));
   if (!complete) {
     document.documentElement.dataset.acceptanceStage = 'stage2';

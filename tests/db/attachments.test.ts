@@ -55,6 +55,16 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     expect((await api.getHistory(owner)).versions).toHaveLength(2);
     expect(entry.data[unknown]).toEqual({ nested: [staged.id] });
   });
+  it('does not relink a bound attachment through UUID text or nested JSON after its media reference is removed', async () => {
+    const { api, collection, file, owner } = await setup();
+    const text = await api.createField(collection.id, 'Literal ID', 'text'), unknown = crypto.randomUUID();
+    const staged = await api.stageAttachment(collection.id, owner, source());
+    let entry = await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'Linked', [file.id]: [staged.id] }, owner);
+    entry = await api.saveEntry(collection.id, { [file.id]: [], [text.id]: staged.id, [unknown]: { nested: [staged.id] } }, owner, entry.hlc);
+    expect(await f.db.read(s => s.query('SELECT deleted_at FROM attachments WHERE id=?', [staged.id]))).toEqual([{ deleted_at: entry.updated_at }]);
+    expect(await api.unmappedAttachments(entry)).toEqual([]);
+    expect(await f.files.stat(staged.id)).toBe(staged.size); // Historical bytes remain, never auto-delete the sole copy.
+  });
   it('retains history bytes after unlink/clear, restores an old reference, and never creates versions for local-copy actions', async () => {
     const { api, collection, file, owner } = await setup(), bytes = new Uint8Array([1,2,3,4]);
     const staged = await api.stageAttachment(collection.id, owner, source(bytes));

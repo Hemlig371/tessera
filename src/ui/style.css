@@ -252,7 +252,7 @@ main {
   border-bottom: 1px solid var(--border);
 }
 .topbar-navigation, .topbar-tools { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
-.topbar-tools { margin-left: auto; }
+.topbar-tools { margin-left: auto; flex-wrap: wrap; }
 .ui-icon { display: block; width: 1.45rem; height: 1.45rem; flex-shrink: 0; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; padding: 8px; width: 44px; height: 44px; flex-shrink: 0; border-color: transparent; background: transparent; }
 .icon-button .ui-icon { width: 24px; height: 24px; }

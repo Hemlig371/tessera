@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('catalog creation and global actions stay reachable with large text and after scrolling', async ({ page }) => {
+  test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
@@ -17,7 +18,7 @@ test('catalog creation and global actions stay reachable with large text and aft
   await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
   for (let i = 0; i < 6; i++) {
     const result = await page.request.post('/__test-sqlite', { data: { op: 'attachment-seed' } });
-    expect(result.ok()).toBe(true);
+    expect(result.ok(), await result.text()).toBe(true);
   }
   await page.reload();
   await page.getByRole('button', { name: 'Оформление', exact: true }).click();

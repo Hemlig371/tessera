@@ -1,3 +1,4 @@
+import { HttpSqliteSession } from './http-sqlite-session';
 import { createNutritionFixture } from '../fixtures/nutrition';
 import { migrate } from '../../src/core/migrate';
 import { attachmentFixture } from './attachments-scenario';
@@ -25,10 +26,12 @@ import type { SqlValue } from '../../src/core/ports';
 /** Explicit test-only HTTP harness with real SQLite; absent from production config. */
 export function e2ePlugin(): Plugin {
   let db: Awaited<ReturnType<typeof openNodeDatabase>>;
+  const remote = new HttpSqliteSession(() => db);
   let directory: string;
   let cleaning: Promise<void> | undefined;
   const cleanup = () =>
     (cleaning ??= (async () => {
+      await remote.closeAll();
       if (db) await db.close();
       if (directory) await rm(directory, { recursive: true, force: true });
     })());
@@ -118,10 +121,11 @@ export function e2ePlugin(): Plugin {
             op,
             sql,
             params = [],
+            client_id,
             path,
             bytes,
             file,
-          } = JSON.parse(body) as { op: string; sql: string; params?: SqlValue[]; path?: string; bytes?: number[]; file?: { id: string; offset: number; data: string; size: number; sha256?: string; length: number; staged: boolean; name: string; mime: string } };
+          } = JSON.parse(body) as { op: string; sql: string; params?: SqlValue[]; client_id?: string; path?: string; bytes?: number[]; file?: { id: string; offset: number; data: string; size: number; sha256?: string; length: number; staged: boolean; name: string; mime: string } };
           if (op.startsWith('binary-')) {
             if (!file) throw new Error('fileError');
             let value: unknown;
@@ -136,6 +140,10 @@ export function e2ePlugin(): Plugin {
               case 'binary-export': value = await files.export(file.id, file.name, file.mime, { size: file.size, sha256: file.sha256! }); exports.set(file.id, file.name); break;
               default: throw new Error('fileError');
             }
+            res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value: value ?? null })); return;
+          }
+          if (client_id) {
+            const value = await remote.request(client_id, op, sql, params);
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value: value ?? null })); return;
           }
           if (op.startsWith('local-')) {

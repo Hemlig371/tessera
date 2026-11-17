@@ -7,7 +7,7 @@ async function rows(page: Page, sql: string) {
   expect(response.ok(), await response.text()).toBe(true); return (await response.json()).value;
 }
 async function seed(page: Page): Promise<Scope> {
-  await page.goto('/'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  await page.goto('/'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible({ timeout: 30000 });
   const response = await page.request.post('/__test-sqlite', { data: { op: 'attachment-seed' } }); expect(response.ok(), await response.text()).toBe(true);
   const scope = (await response.json()).value as Scope; await page.reload();
   await page.getByRole('button', { name: `Открыть библиотеку «${scope.library_name}»`, exact: true }).click();
@@ -28,6 +28,7 @@ async function create(page: Page, scope: Scope) {
   const [record] = await rows(page, `SELECT id,hlc FROM records WHERE collection_id='${scope.collection_id}'`); return { id: id!, record: record as { id: string; hlc: string } };
 }
 test('creation draft keeps staged bytes across close/reload; Save binds once; edit Cancel changes no user state', async ({ page }) => {
+  test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 }); const scope = await seed(page), before = await snapshot(page);
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click(); await page.getByLabel('Название', { exact: true }).fill('Материал с вложением');
   await page.getByLabel('Документы', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: bytes });

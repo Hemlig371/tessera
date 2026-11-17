@@ -4,6 +4,9 @@ import { openConstructor, showList } from '../support/ui-actions';
 test('visual rows preserve cells while resizing/reordering; forms adapt and reveal collapsed required inputs', async ({ page }) => {
   test.setTimeout(90000);
   await page.goto('/'); await expect(page.locator('aside')).toBeVisible();
+  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
+  await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
   const seeded = await page.request.post('/__test-sqlite', { data: { op: 'layout-seed' } });
   expect(seeded.ok(), await seeded.text()).toBe(true);
   const scope = (await seeded.json()).value as { collection_id: string; primary: string; count: string; flag: string; body: string; date: string };
@@ -13,6 +16,20 @@ test('visual rows preserve cells while resizing/reordering; forms adapt and reve
   await page.reload();
   await page.getByRole('button', { name: 'Заметки: строки (dev/CI)', exact: true }).click();
   await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+  await page.locator('.entry').filter({ hasText: 'Компоновка исходная' }).click();
+  await page.locator('.detail').getByRole('button', { name: 'Редактировать', exact: true }).click();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).focus();
+  await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Shift+Tab');
+  const markdownPreview = page.getByRole('button', { name: 'Предпросмотр Markdown', exact: true });
+  await expect(markdownPreview).toBeFocused();
+  await expect.poll(() => markdownPreview.evaluate(element => {
+    const control = element.getBoundingClientRect(), heading = document.querySelector('.editor-heading')!.getBoundingClientRect();
+    return control.top >= heading.bottom && control.bottom <= innerHeight;
+  })).toBe(true);
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await expect(page.locator('[data-editor]')).toHaveCount(0); await page.getByRole('button', { name: 'К списку', exact: true }).click();
+  await page.setViewportSize({ width: 1280, height: 900 });
   await openConstructor(page); await page.getByRole('button', { name: 'Форма', exact: true }).click();
   const rows = page.locator('.row-designer'), first = rows.first();
   await expect(rows).toHaveCount(3);
@@ -44,6 +61,9 @@ test('visual rows preserve cells while resizing/reordering; forms adapt and reve
   await expect(dialog.getByRole('combobox', { name: 'Избранное', exact: true })).toHaveValue('false');
   await dialog.locator('summary').filter({ hasText: /^Текст$/ }).click();
   await dialog.getByRole('textbox', { name: 'Текст', exact: true }).fill('**Тело**\nбез потери 🦔');
+  await page.setViewportSize({ width: 1060, height: 900 });
+  await expect.poll(() => dialog.locator('.layout-row').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
+  await expect(title).toHaveValue('Колонки сохранены');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => dialog.locator('.layout-row').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
   await expect(title).toHaveValue('Колонки сохранены');

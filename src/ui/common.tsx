@@ -19,11 +19,19 @@ export function ErrorMessage({ code }: { code: string }) {
 export function EditorPage({ title, children, close, busy }: {
   title: string; children: ReactNode; close: () => void; busy: boolean;
 }) {
-  const { t } = useTranslation(), heading = useRef<HTMLHeadingElement>(null), page = useRef<HTMLElement>(null);
+  const { t } = useTranslation(), heading = useRef<HTMLHeadingElement>(null), page = useRef<HTMLElement>(null), bar = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
     heading.current?.focus({ preventScroll: true });
   }, [title]);
+  useLayoutEffect(() => {
+    const root = page.current, header = bar.current;
+    if (!root || !header) return;
+    const measure = () => root.style.setProperty('--editor-heading-height', `${Math.ceil(header.getBoundingClientRect().height)}px`);
+    measure();
+    const observer = new ResizeObserver(measure); observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     const back = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !busy && !event.defaultPrevented &&
@@ -35,7 +43,7 @@ export function EditorPage({ title, children, close, busy }: {
     return () => window.removeEventListener('keydown', back);
   }, [busy, close]);
   return <section ref={page} tabIndex={-1} className="editor-page" data-editor="" role="region" aria-labelledby="editor-title">
-    <div className="editor-heading">
+    <div className="editor-heading" ref={bar}>
       <button className="icon-button" title={t('backScreen')} aria-label={t('backScreen')} disabled={busy} onClick={close}><Icon name="back" /><span className="visually-hidden">{t('backScreen')}</span></button>
       <h1 id="editor-title" ref={heading} tabIndex={-1}>{title}</h1>
     </div>

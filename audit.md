@@ -40,7 +40,7 @@
 
 ### Известные проблемы / ручные проверки
 
-- **Открыт Windows native fsync:** read-only `File::open(...).sync_all()` отклоняется FlushFileBuffers до `prepared`. Это дефект кода хранения, карантин запрещён. Патч уже написан, Windows ещё не проверен.
+- **Открыта Windows-приёмка fsync:** read-only `File::open(...).sync_all()` отклоняется FlushFileBuffers до `prepared`. Исправление использует Windows write handle без create/truncate; Linux-путь прежний. Это дефект хранения, карантин запрещён; Windows ещё не проверен.
 - **Карантинных тестов нет.** Прежний Windows presets pending-COMMIT таймаут закрыт увеличением ожидания до 15 с и успешным сценарием в обоих M1 CI; не отлаживать заново без нового дефекта.
 - Android DocumentsProvider не гарантирует атомарность внешнего файла при force-stop финального копирования. Успех только после записи/закрытия; неполный ZIP при импорте отклоняется, исходная база экспортом не меняется.
 - Физический телефон/OEM, реальные SAF-провайдеры, launcher pin, календарные приложения/почта/подписи — ручная приёмка по §14.4, не заменяется Node/эмулятором. Нет SDK/GTK в текущем Cloud; native запусков здесь не заявлять.
@@ -48,10 +48,10 @@
 ## Точка продолжения / сохранённая работа
 
 1. После уборки сначала проверить `git status`, прочитать diff, **завершить M1**, не начинать M2/M4 и не повторять начальную сверку. Кодовый baseline выше; документационные коммиты не меняют его результаты.
-2. Незакоммичен `src-tauri/src/replacement_store.rs`: write handle без truncate только для Windows, Unix-путь прежний; улучшены сообщения crash-тестов. Linux: три Rust replacement-теста прошли.
-3. Незакоммичен **предложенный, не принятый и не запусканный** профиль native_resume: `.github/workflows/ci.yml`, `scripts/ci-scope.mjs`, `tests/unit/ci-scope.test.mjs`. Черновик проверяет completed run/main/тот же workflow, успешные быстрые jobs, ancestor SHA и неизменность TS Core/UI/зависимостей; затем запускает native. Сначала проверить YAML/guards и соответствие пользовательскому бюджету; наличие кода не означает новый согласованный регламент CI. Два полных профиля M1 уже использованы, не отлаживать native повторением зелёного полного UI.
-4. Для последнего WIP прошли typecheck/lint, 35 scope/archive unit+DB и три Rust replacement-теста: `work/m1-native-resume-checks.log`, `work/m1-windows-fix-linux.log`. Git-коммиты M1: `350c359`, `409fad2`, `fb16028`, `b844c3b`, `9a60212`; исходники/формат заново не писать.
-5. M4 отложен: `src/core/attachment-catalog.ts` (untracked), `work/m4-catalog-repository.patch`. При возвращении сохранить mediaReferences; не восстанавливать поиск ссылок по любому UUID. Дополнительная локальная копия WIP — `work/tessera-continuation-wip.zip`.
+2. В новом Cloud `/workspace` исходного checkout/WIP нет. Получен чистый `main=4aa8ec2`, fetch подтвердил отсутствие новых коммитов. Указанные ранее `attachment-catalog.ts`, patch, ZIP и старые work-логи здесь отсутствуют; это не удаление прежних файлов, их исходное окружение недоступно.
+3. По фактическому коду восстановлено минимальное Windows-исправление `replacement_store.rs`: write handle без create/truncate, Linux-путь прежний, crash-тесты показывают stdout/stderr дочернего процесса. Linux: три replacement-теста прошли (`work/m1-replacement-linux.log`). Архив/Core/UI не переписаны.
+4. Для адресного продолжения подготовлен и проверен native_resume: completed push/main того же workflow/репозитория, успешные fast jobs Linux/Windows + sync, строгий предок, узкий allowlist diff. Fail-closed до outputs; все native jobs запускаются заново, обычные CI-режимы сохраняются. Actionlint 1.7.7, typecheck/lint, 67 scope/ZIP/archive unit+DB прошли (`work/m1-targeted-tests.log`). Это ещё не native-приёмка и не новый полный зелёный HEAD. Два полных профиля M1 уже использованы.
+5. M4 отложен; прежняя заготовка отсутствует в этом Cloud. При возвращении сохранить mediaReferences; не восстанавливать поиск ссылок по любому UUID. Git-коммиты M1: `350c359`, `409fad2`, `fb16028`, `b844c3b`, `9a60212`.
 6. После реальной native-приёмки M1: отчёт ≤15 строк с шагами телефона, красными/карантинными тестами и ссылкой APK; затем M2 без ожидания ответа.
 
 ## Что не повторять / где история

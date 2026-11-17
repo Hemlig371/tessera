@@ -13,21 +13,32 @@ on:
         type: choice
         options: [all, android]
         default: all
+      native_resume:
+        description: Resume unfinished native jobs using verified ancestor fast checks (partial acceptance)
+        type: boolean
+        default: false
+      baseline_run:
+        description: Completed main push run with successful Linux/Windows checks and sync (required for resume)
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: tessera-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.full_native }}-${{ inputs.native_target }}
+  group: tessera-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.full_native }}-${{ inputs.native_target }}-${{ inputs.native_resume }}
   cancel-in-progress: true
 
 jobs:
   scope:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
     outputs:
       native: ${{ steps.scope.outputs.native }}
       bridge: ${{ steps.scope.outputs.bridge }}
       desktop: ${{ steps.scope.outputs.desktop }}
+      resume: ${{ steps.scope.outputs.resume }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -35,8 +46,12 @@ jobs:
         with: { node-version: '24' }
       - id: scope
         run: node scripts/ci-scope.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   checks:
+    needs: scope
+    if: needs.scope.outputs.resume != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +92,10 @@ jobs:
 
   native-checks:
     needs: [scope, checks, sync-foundation]
-    if: needs.scope.outputs.bridge == 'true'
+    if: >-
+      ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.bridge == 'true' &&
+          ((needs.checks.result == 'success' && needs['sync-foundation'].result == 'success') ||
+           (needs.scope.outputs.resume == 'true' && needs.checks.result == 'skipped' && needs['sync-foundation'].result == 'skipped')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -100,6 +118,8 @@ jobs:
           if-no-files-found: error
 
   sync-foundation:
+    needs: scope
+    if: needs.scope.outputs.resume != 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +131,11 @@ jobs:
 
   desktop:
     needs: [scope, checks, sync-foundation, native-checks]
-    if: needs.scope.outputs.desktop == 'true'
+    if: >-
+      ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.desktop == 'true' &&
+          needs['native-checks'].result == 'success' &&
+          ((needs.checks.result == 'success' && needs['sync-foundation'].result == 'success') ||
+           (needs.scope.outputs.resume == 'true' && needs.checks.result == 'skipped' && needs['sync-foundation'].result == 'skipped')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -168,8 +192,9 @@ jobs:
   android-apk:
     needs: [scope, checks, sync-foundation, native-checks]
     if: >-
-      ${{ !cancelled() && needs.scope.outputs.native == 'true' &&
-          needs.checks.result == 'success' && needs['sync-foundation'].result == 'success' &&
+      ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.native == 'true' &&
+          ((needs.checks.result == 'success' && needs['sync-foundation'].result == 'success') ||
+           (needs.scope.outputs.resume == 'true' && needs.checks.result == 'skipped' && needs['sync-foundation'].result == 'skipped')) &&
           (needs['native-checks'].result == 'success' ||
            (needs.scope.outputs.bridge == 'false' && needs['native-checks'].result == 'skipped')) }}
     runs-on: ubuntu-24.04
@@ -201,8 +226,9 @@ jobs:
   android-emulator:
     needs: [scope, checks, sync-foundation, native-checks]
     if: >-
-      ${{ !cancelled() && needs.scope.outputs.native == 'true' &&
-          needs.checks.result == 'success' && needs['sync-foundation'].result == 'success' &&
+      ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.native == 'true' &&
+          ((needs.checks.result == 'success' && needs['sync-foundation'].result == 'success') ||
+           (needs.scope.outputs.resume == 'true' && needs.checks.result == 'skipped' && needs['sync-foundation'].result == 'skipped')) &&
           (needs['native-checks'].result == 'success' ||
            (needs.scope.outputs.bridge == 'false' && needs['native-checks'].result == 'skipped')) }}
     runs-on: ubuntu-24.04

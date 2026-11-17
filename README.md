@@ -59,7 +59,8 @@ Android: JDK **21**, SDK platform/build-tools **36**, Gradle wrapper. `npm run a
 - Полный ручной: `gh workflow run ci.yml --ref main -f full_native=true`.
 - Только быстрые: тот же вызов с `full_native=false`.
 - Android при доказанно неизменённых остальных исходниках: `full_native=true -f native_target=android`; это частичная приёмка.
-- Дополнительные профили смотреть в workflow; черновики из рабочего дерева не считать принятой политикой. Нельзя ослаблять проверки или обходить красные тесты данных.
+- Продолжить незавершённую native-приёмку: `gh workflow run ci.yml --ref main -f full_native=true -f native_resume=true -f baseline_run=44017728014`. Guard требует completed push/main того же workflow, успешные быстрые Linux/Windows + sync jobs, строгого предка HEAD и неизменность всех исходников/зависимостей/фикстур кроме `replacement_store.rs`, gate/его тестов и корневых рабочих документов. Все native jobs выполняются заново; это частичная приёмка с явно указанным baseline, не полный зелёный CI нового HEAD.
+- Дополнительные профили смотреть в workflow. Нельзя ослаблять проверки или обходить красные тесты данных; при недопустимом diff resume завершается ошибкой.
 
 `src/core/` — модель/правила/DDL/архив; `src/platform/` — адаптеры; `src/ui/` — UI; `src-tauri/` и `android/` — OS/SQLite; `tests/fixtures/` и `tests/support/` — только dev/CI. `work/`, node_modules, target, dist, test-results и Android build-каталоги игнорируются; не читать их рекурсивно и не коммитить результаты тестов/секреты. Toolchains и актуальные WIP/логи M1 сохранены; старые UI-материалы — work/retired-ui-0.18.zip.
 

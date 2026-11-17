@@ -49,7 +49,7 @@ impl ReplacementStore {
         // an interrupted prior checkpoint cannot be confused with the new database.
         let plans = self.plans(); let existed: Vec<bool> = plans.iter().map(|(p, _, _)| p.exists()).collect();
         fs::create_dir_all(self.root.join("operational/db-import/old")).map_err(|_| "fileError")?;
-        for (_, staged, _) in &plans { if staged.is_file() { File::open(staged).and_then(|f| f.sync_all()).map_err(|_| "fileError")?; } }
+        for (_, staged, _) in &plans { if staged.is_file() { sync_file(staged)?; } }
         sync_dir(&self.stage())?;
         self.write_journal(&json!({"committed":false,"existed":existed}))?; hook("prepared");
         for (index, (active, staged, old)) in plans.iter().enumerate() {
@@ -101,6 +101,13 @@ fn sync_dir(path: &Path) -> Result<()> {
     #[cfg(not(unix))] { let _ = path; }
     Ok(())
 }
+fn sync_file(path: &Path) -> Result<()> {
+    // Windows FlushFileBuffers requires write access. Opening an existing staged
+    // database must neither truncate it nor create a missing file.
+    #[cfg(windows)] let file = fs::OpenOptions::new().read(true).write(true).open(path);
+    #[cfg(not(windows))] let file = File::open(path);
+    file.and_then(|f| f.sync_all()).map_err(|_| "fileError".into())
+}
 fn free_space(path: &Path) -> Result<u64> {
     #[cfg(unix)] {
         // POSIX df is provided by all supported desktop systems. No shell interpolation.
@@ -139,7 +146,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap(); let root = dir.path(); let store = store(root);
         database(&root.join("databases/app.sqlite"), "old"); store.prepare(1).unwrap(); database(&store.stage().join("database.sqlite"), "new");
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| store.activate(|at| { if at == "new-0" { panic!("injected interruption"); } })));
-        assert!(result.is_err());
+        assert!(result.is_err(), "activation returned before the interruption: {result:?}");
         let mut envelope: Value = serde_json::from_slice(&fs::read(store.journal()).unwrap()).unwrap();
         envelope["payload"] = json!(envelope["payload"].as_str().unwrap().replace("false", "true"));
         fs::write(store.journal(), envelope.to_string()).unwrap();
@@ -160,9 +167,9 @@ mod tests {
             fs::write(store.stage().join("attachments/imported"), "new bytes").unwrap();
             let result = std::process::Command::new(std::env::current_exe().unwrap()).args(["--exact", &format!("{}::killed_child", module_path!().split_once("::").unwrap().1)])
                 .env("TESSERA_REPLACE_CHILD_ROOT", root).env("TESSERA_REPLACE_CHILD_PHASE", &phase)
-                .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().unwrap();
+                .output().unwrap();
             // The same source also compiles in the Tauri binary with a different module name.
-            if result.code() != Some(77) { panic!("child did not reach phase {phase}: {result}"); }
+            if result.status.code() != Some(77) { panic!("child did not reach phase {phase}: {}\nstdout: {}\nstderr: {}", result.status, String::from_utf8_lossy(&result.stdout), String::from_utf8_lossy(&result.stderr)); }
             store.recover().unwrap(); store.recover().unwrap();
             let db = Database::open(&root.join("databases/app.sqlite")).unwrap();
             let expected = if phase == "committed" { "new" } else { "old" };

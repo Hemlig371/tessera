@@ -86,7 +86,7 @@ export async function detachJournal(s: SqlSession): Promise<string> {
   const datasetId = crypto.randomUUID();
   await set(s, modeKey, 'detached');
   await compactInactiveChanges(s);
-  await s.execute("DELETE FROM local_settings WHERE key LIKE 'sync_peer:%'");
+  await s.execute("DELETE FROM local_settings WHERE key LIKE 'sync_peer:%' OR key LIKE 'sync_rx:%'");
   await s.execute("UPDATE app_meta SET value=? WHERE key='dataset_id'", [datasetId]);
   return datasetId;
 }

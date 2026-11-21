@@ -28,6 +28,8 @@ import { activeCollection, activeRecords, decodeEntry, type StoredEntry } from '
 import { queryEntries } from './queries';
 import { AppError } from './errors';
 import { safeDiagnosticReport } from './diagnostics';
+import { applySyncEvent } from './sync-apply';
+import { buildLocalPacket, parseLocalPacket, parseLocalReceipt, type LocalSyncPacket, type SyncReceipt } from './sync-protocol';
 import { assertHlc, nextHlc } from './hlc';
 import { canonical, localTimestamp } from './model';
 import type {
@@ -512,6 +514,54 @@ export class Repository {
     return this.db.transaction(s => acknowledgeChanges(s, peerId, checkpoint));
   }
   compactLocalChanges(): Promise<void> { return this.db.transaction(s => compactChanges(s)); }
+  /** Emit a typed, bounded local page. Sending is not delivery. */
+  async exportLocalSyncPacket(after: JournalCheckpoint, limit = 100): Promise<LocalSyncPacket | null> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
+    if (await this.getSyncMode() !== 'active') throw new AppError('invalidSyncState');
+    const changes = await this.readLocalChanges(after, limit);
+    return changes.length ? buildLocalPacket(this.datasetId, this.deviceId, after, changes) : null;
+  }
+  /** Apply a contiguous page atomically; an event failure leaves the cursor untouched. */
+  async applyLocalSyncPacket(input: unknown): Promise<SyncReceipt> {
+    const packet = parseLocalPacket(input);
+    if (packet.dataset_id !== this.datasetId) throw new AppError('datasetMismatch');
+    if (packet.sender_id === this.deviceId) throw new AppError('invalidSyncPacket');
+    return this.db.transaction(async s => {
+      if (await syncMode(s) !== 'active') throw new AppError('invalidSyncState');
+      const key = 'sync_rx:' + packet.sender_id;
+      const [row] = await s.query<{ value: string }>('SELECT value FROM local_settings WHERE key=?', [key]);
+      const last = Number(row?.value ?? 0);
+      if (!Number.isSafeInteger(last) || last < 0) throw new AppError('invalidSyncState');
+      if (packet.through_seq > last) {
+        if (packet.after_seq !== last) throw new AppError('journalGap');
+        for (const event of packet.events) {
+          await applySyncEvent(s,event,
+            incoming => this.mergeEntryInSession(s,incoming),
+            change => this.log(s,change.entity_type,{ id: change.entity_id, hlc: change.hlc, device_id: change.device_id },change.payload));
+        }
+        await s.execute('INSERT INTO local_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+          [key,String(packet.through_seq)]);
+      }
+      return { format: 'tessera-local-receipt', version: 1, dataset_id: this.datasetId,
+        sender_id: packet.sender_id, receiver_id: this.deviceId, through_seq: Math.max(last,packet.through_seq) };
+    });
+  }
+  /** Only a receipt from the applying peer can advance the sender's ACK. */
+  acceptLocalSyncReceipt(input: unknown): Promise<void> {
+    const receipt = parseLocalReceipt(input);
+    if (receipt.dataset_id !== this.datasetId) throw new AppError('datasetMismatch');
+    if (receipt.sender_id !== this.deviceId) throw new AppError('invalidSyncPacket');
+    return this.acknowledgeLocalChanges(receipt.receiver_id, { dataset_id: receipt.dataset_id, seq: receipt.through_seq });
+  }
+  async localSyncReceiveCursor(peerId: string): Promise<number> {
+    requireId(peerId);
+    return this.db.read(async s => {
+      const [row] = await s.query<{ value: string }>('SELECT value FROM local_settings WHERE key=?', ['sync_rx:' + peerId]);
+      const seq = Number(row?.value ?? 0);
+      if (!Number.isSafeInteger(seq) || seq < 0) throw new AppError('invalidSyncState');
+      return seq;
+    });
+  }
   private async update<T extends Stamp>(
     s: SqlSession,
     table: Table,
@@ -1069,7 +1119,9 @@ export class Repository {
         [incoming.created_at, incoming.updated_at].some(value => !isUtcTimestamp(value)) ||
         (incoming.deleted_at !== null && !isUtcTimestamp(incoming.deleted_at)) ||
         typeof incoming.created_local !== 'string' || typeof incoming.updated_local !== 'string') throw new AppError('invalidRecordState');
-    return this.db.transaction(async s => {
+    return this.db.transaction(s => this.mergeEntryInSession(s, incoming));
+  }
+  private async mergeEntryInSession(s: SqlSession, incoming: Entry): Promise<boolean> {
       const [old] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [incoming.id]);
       // Observe accepted remote clocks without generating a local edit/version.
       await s.execute("INSERT INTO local_settings VALUES('hlc',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<excluded.value", [incoming.hlc]);
@@ -1097,7 +1149,6 @@ export class Repository {
       await this.refreshRecords(s, [stored]);
       await this.log(s, 'record', row, row);
       return true;
-    });
   }
   async saveEntry(collectionId: string, data: RecordData): Promise<Entry>;
   async saveEntry(collectionId: string, data: RecordData, id: string, expectedHlc: string): Promise<Entry>;

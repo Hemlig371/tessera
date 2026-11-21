@@ -107,9 +107,15 @@ async function fetchMail(after:number):Promise<Fetched>{
   try{
     expect(await c.line()).toMatch(/^\* OK/i);
     c.write('a1 AUTHENTICATE PLAIN\r\n');
-    expect(await c.line()).toMatch(/^\+/);
-    c.write(Buffer.from('\0'+USER+'\0'+PASSWORD).toString('base64')+'\r\n');
-    expect(await c.line()).toMatch(/^a1 OK/i);
+    const challenge=await c.line();
+    if(challenge.startsWith('+')){
+      c.write(Buffer.from('\0'+USER+'\0'+PASSWORD).toString('base64')+'\r\n');
+      expect(await c.line()).toMatch(/^a1 OK/i);
+    }else{
+      expect(challenge).toMatch(/^a1 NO .*Unsupported authentication mechanism/i);
+      c.write('a1b LOGIN "'+USER+'" "'+PASSWORD+'"\r\n');
+      expect(await c.line()).toMatch(/^a1b OK/i);
+    }
     c.write('a2 SELECT INBOX\r\n');
     for(let i=0;i<80;i++){
       const line=await c.line();

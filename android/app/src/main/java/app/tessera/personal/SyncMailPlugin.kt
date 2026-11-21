@@ -91,6 +91,10 @@ class SyncMailPlugin : Plugin() {
         }
         return text.toString()
     }
+    private fun imapQuote(value:String):String {
+        if(value.any { it.code<32 || it.code==127 }) throw IllegalArgumentException()
+        return "\\"" + value.replace("\\","\\\\").replace("\\"","\\\\\"") + "\\""
+    }
     private fun imap(channel:Channel,tag:String,cmd:String,consumer:(String,Channel)->Unit={_,_->}) {
         channel.send("$tag $cmd\r\n")
         repeat(4096) {
@@ -157,19 +161,25 @@ class SyncMailPlugin : Plugin() {
             var lastFetchedUid=after.toLong()
             connect(a).use { ch ->
                 if(!ch.line().startsWith("* OK",ignoreCase=true)) throw IllegalStateException()
-                // AUTHENTICATE PLAIN avoids exposing account credentials in IMAP command lines.
+                // AUTHENTICATE PLAIN preferred. Some IMAP providers (including GreenMail)
+                // do not implement SASL PLAIN: LOGIN fallback is allowed ONLY over verified TLS.
                 ch.send("a01 AUTHENTICATE PLAIN\r\n")
-                if(!ch.line().startsWith("+")) throw IllegalStateException()
-                ch.send(Base64.encodeToString(("\u0000"+a.user+"\u0000"+a.password).toByteArray(Charsets.UTF_8),Base64.NO_WRAP)+"\r\n")
-                var ok=false
-                for(i in 0 until 64) {
-                    val response=ch.line()
-                    if(response.startsWith("a01 ")) {
-                        ok=response.startsWith("a01 OK",true)
-                        break
+                val challenge=ch.line()
+                if(challenge.startsWith("+")) {
+                    ch.send(Base64.encodeToString(("\u0000"+a.user+"\u0000"+a.password).toByteArray(Charsets.UTF_8),Base64.NO_WRAP)+"\r\n")
+                    var ok=false
+                    for(i in 0 until 64) {
+                        val response=ch.line()
+                        if(response.startsWith("a01 ")) {
+                            ok=response.startsWith("a01 OK",true)
+                            break
+                        }
                     }
-                }
-                if(!ok) throw IllegalStateException("mailRejected")
+                    if(!ok) throw IllegalStateException("mailRejected")
+                } else if(challenge.startsWith("a01 NO",true) &&
+                    challenge.contains("Unsupported authentication mechanism",true)) {
+                    imap(ch,"a01b","LOGIN "+imapQuote(a.user)+" "+imapQuote(a.password))
+                } else throw IllegalStateException("mailRejected")
                 imap(ch,"a02","SELECT INBOX") { line,_ ->
                     val match=Regex("UIDVALIDITY (\\d+)",RegexOption.IGNORE_CASE).find(line)
                     if(match!=null) validity=match.groupValues[1].toLong()

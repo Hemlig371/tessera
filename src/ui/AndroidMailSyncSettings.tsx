@@ -62,11 +62,15 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
   const update=(key:keyof MailSyncConfig,value:string|number)=>{
     setConfig(old=>({...old,[key]:value}));
   };
+  const modeLabel = mode ? t(({ never_configured: 'mailSyncModeNever', active: 'mailSyncModeActive',
+    paused: 'mailSyncModePaused', detached: 'mailSyncModeDetached' } as const)[mode.mode]) : t('mailSyncNotConfigured');
+  const reasonLabel = mode?.reason === 'stale' ? t('mailSyncReasonStale') :
+    mode?.reason === 'missingPackets' ? t('mailSyncReasonMissingPackets') : null;
   return <div className="settings-form mail-sync-settings" aria-busy={working || loading}>
     <p className="screen-hint">{t('mailSyncHint')}</p>
     <section className="mail-sync-panel" aria-label={t('mailSyncStatus')}>
       <dl className="mail-sync-facts">
-        <div><dt>{t('mailSyncStatus')}</dt><dd>{loading ? '…' : (mode?.mode ?? t('mailSyncNotConfigured'))}{mode?.reason ? ` · ${mode.reason}` : ''}</dd></div>
+        <div><dt>{t('mailSyncStatus')}</dt><dd>{loading ? t('loadingSettings') : modeLabel}{reasonLabel && <p className="mail-sync-reason">{reasonLabel}</p>}</dd></div>
         <div><dt>{t('mailSyncLastSuccess')}</dt><dd>{mode?.last_success_at ?? '—'}</dd></div>
         <div><dt>{t('mailSyncDeviceId')}</dt><dd><code>{api.deviceId}</code></dd></div>
         <div><dt>{t('mailSyncDatasetId')}</dt><dd><code>{api.datasetId}</code></dd></div>

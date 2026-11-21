@@ -11,7 +11,7 @@ export interface MailCursor { uidValidity:string|null; lastUid:number }
 interface MailItem {uid:number;kind:'packet'|'receipt'|'chunk';source:string;id:string;offset:number;payload:string}
 const native=registerPlugin<{
   send(args:MailConnection&{kind:string;source:string;id:string;offset:number;payload:string}):Promise<void>;
-  fetch(args:MailConnection&{afterUid:number;limit:number}):Promise<{uidValidity:string;messages:MailItem[]}>;
+  fetch(args:MailConnection&{afterUid:number;limit:number}):Promise<{uidValidity:string;maxUid:string;messages:MailItem[]}>;
 }>('SyncMail');
 const from64=(s:string):Uint8Array=>{
   const raw=atob(s);return Uint8Array.from(raw,c=>c.charCodeAt(0));
@@ -33,12 +33,12 @@ export function androidEmailTransport(
     if(cursor.uidValidity!==null && cursor.uidValidity!==response.uidValidity){
       const fresh=await native.fetch({...connection,afterUid:0,limit:128});
       batch=fresh.messages;
-      pending={uidValidity:fresh.uidValidity,lastUid:Math.max(0,...batch.map(m=>m.uid))};
+      pending={uidValidity:fresh.uidValidity,lastUid:batch.length < 128 ? Number(fresh.maxUid) : Math.max(0,...batch.map(m=>m.uid))};
     } else {
       batch=response.messages;
-      pending={uidValidity:response.uidValidity,lastUid:Math.max(cursor.lastUid,...batch.map(m=>m.uid))};
+      pending={uidValidity:response.uidValidity,lastUid:batch.length < 128 ? Number(response.maxUid) : Math.max(cursor.lastUid,...batch.map(m=>m.uid))};
     }
-    if(batch.length>128)throw new AppError('mailTransportFailed');
+    if(batch.length>128 || !Number.isSafeInteger(pending.lastUid) || pending.lastUid<0 || pending.lastUid>2147483647)throw new AppError('mailTransportFailed');
     return batch;
   };
   const send=async(kind:'packet'|'receipt'|'chunk',source:string,id:string,offset:number,wire:Uint8Array)=>{

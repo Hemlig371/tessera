@@ -150,6 +150,7 @@ class SyncMailPlugin : Plugin() {
             if(after<0 || limit !in 1..256) throw IllegalArgumentException()
             var validity=0L
             val messages=JSArray()
+            var highestUid=after.toLong()
             connect(a).use { ch ->
                 if(!ch.line().startsWith("* OK",ignoreCase=true)) throw IllegalStateException()
                 // AUTHENTICATE PLAIN avoids exposing account credentials in IMAP command lines.
@@ -157,8 +158,12 @@ class SyncMailPlugin : Plugin() {
                 if(!ch.line().startsWith("+")) throw IllegalStateException()
                 ch.send(Base64.encodeToString(("\u0000"+a.user+"\u0000"+a.password).toByteArray(Charsets.UTF_8),Base64.NO_WRAP)+"\r\n")
                 var ok=false
-                repeat(64) { val response=ch.line()
-                    if(response.startsWith("a01 ")) { ok=response.startsWith("a01 OK",true);return@repeat }
+                for(i in 0 until 64) {
+                    val response=ch.line()
+                    if(response.startsWith("a01 ")) {
+                        ok=response.startsWith("a01 OK",true)
+                        break
+                    }
                 }
                 if(!ok) throw IllegalStateException("mailRejected")
                 imap(ch,"a02","SELECT INBOX") { line,_ ->
@@ -171,7 +176,7 @@ class SyncMailPlugin : Plugin() {
                 imap(ch,"a03","UID SEARCH UID $start:*") { line,_ ->
                     if(line.startsWith("* SEARCH",true)) {
                         for(s in line.removePrefix("* SEARCH").trim().split(" "))
-                            s.toLongOrNull()?.let { if(it>after) found.add(it) }
+                            s.toLongOrNull()?.let { if(it>after) { found.add(it);highestUid=maxOf(highestUid,it) } }
                     }
                 }
                 for(uid in found.sorted().take(limit)) {
@@ -204,7 +209,7 @@ class SyncMailPlugin : Plugin() {
                 }
                 ch.send("a05 LOGOUT\r\n")
             }
-            JSObject().put("uidValidity",validity.toString()).put("messages",messages)
+            JSObject().put("uidValidity",validity.toString()).put("maxUid",highestUid.toString()).put("messages",messages)
         }
     }
 }

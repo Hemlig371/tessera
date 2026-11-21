@@ -1,7 +1,7 @@
 import { projectCollection, type CollectionProjection } from './collection-projection';
 import type { ModeOptions } from './mode-options';
-import { QuerySummary, type SummaryMeasure, type SummaryResult } from './query-summary';
-import { freezeQueryDates } from './queries';
+import { summarizeEntries } from './query-insights';
+import type { SummaryMeasure, SummaryResult } from './query-summary';
 import { attachmentLimit, attachmentRow, bindAttachments, mediaReferences, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
 import { calculatedDynamics, ensureCalculated, invalidateCalculated, isCalculated, previewCalculated, resetCalculatedMetadata, validateCalculatedField } from './calculated-fields';
 import { quickValue, type QuickMutation } from './quick-actions';
@@ -1122,24 +1122,10 @@ export class Repository {
   projectCollection(query: EntryQuery, options: ModeOptions, month?: string, signal?: AbortSignal, previewFields: readonly string[] = []): Promise<CollectionProjection> {
     return this.db.transaction(s => projectCollection(s, query, options, month, signal, previewFields));
   }
-  /** Exact totals over one frozen query and one SQLite snapshot; never a page subtotal. */
+  /** Exact totals for every matching SQL page in one transaction. */
   queryTotals(query: EntryQuery, measures: readonly SummaryMeasure[], signal?: AbortSignal): Promise<SummaryResult[]> {
     if (measures.length > 32) return Promise.reject(new AppError('invalidUiConfig'));
-    return this.db.transaction(async s => {
-      const frozen = await freezeQueryDates(s, query);
-      if (!frozen.collection_id) throw new AppError('invalidFilter');
-      const fields = await s.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [frozen.collection_id]);
-      const accumulators = measures.map(measure => new QuerySummary(measure, fields));
-      let cursor: EntryQuery['cursor'] = null;
-      do {
-        signal?.throwIfAborted();
-        const page = await queryEntries(s, { ...frozen, cursor, limit: 200 });
-        for (const entry of page.items) for (const accumulator of accumulators) accumulator.add(entry);
-        cursor = page.next;
-      } while (cursor);
-      signal?.throwIfAborted();
-      return accumulators.map(accumulator => accumulator.result());
-    });
+    return this.db.transaction(s => summarizeEntries(s, query, measures, signal));
   }
   /** One-step edits update current state/journal/derived keys atomically, without a user version. */
   quickAction(recordId: string, fieldId: string, mutation: QuickMutation, expectedHlc: string): Promise<Entry> {

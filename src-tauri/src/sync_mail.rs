@@ -172,5 +172,9 @@ mod tests{
         assert!(sent.contains("X-Tessera-Wire: 1"));
         assert!(!sent.contains("private plaintext"));
         assert!(message(1,&sent).is_some());
+        let mut forged=payload.clone();
+        forged["source"]=json!("bad\\r\\nX-Tessera-Wire: 1");
+        assert!(mime(&forged).is_err());
+        assert!(message(1,"X-Tessera-Wire: 1\\r\\nX-Tessera-Kind: packet\\r\\n\\r\\nYWJj").is_none());
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Collection, DisplayProfile, EntryFilter, Field } from '../core/model';
 import type { LibrarySummaryDefinition, SummaryWidget } from '../core/library-summary';
@@ -48,6 +48,7 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
     }).catch(e => { if (active) setError(errorKey(e)); });
     return () => { active = false; };
   }, [api, libraryId]);
+  const allFields = useMemo(() => Object.values(fields).flat(), [fields]);
   const replace = (widget: SummaryWidget) => setWidgets(old => old?.map(item => item.id === widget.id ? widget : item) ?? []);
   if (!widgets) return <div role="status">{error ? t('errors.' + error, { defaultValue: t('errors.unexpected') }) : t('loadingSettings')}</div>;
   const available = collections[0];
@@ -89,9 +90,9 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
                 const op = e.target.value as EntryFilter['op'];
                 changeFilter({ field_id: field.id, op, ...(!['empty', 'filled'].includes(op) ? { value: null } : {}) });
               }}>
-                {(['file','image'].includes(field.type) ? ['empty','filled'] : ['relation','backlink'].includes(field.type) ? ['empty','filled','eq','ne'] : ['empty','filled','eq','ne','gt','lt']).map(op => <option key={op} value={op}>{t('operators.' + op)}</option>)}
+                {(['file','image','backlink'].includes(field.type) ? ['empty','filled'] : field.type === 'relation' ? ['empty','filled','eq','ne'] : ['empty','filled','eq','ne','gt','lt']).map(op => <option key={op} value={op}>{t('operators.' + op)}</option>)}
               </select></label>
-              {!['empty','filled'].includes(filter.op) && (['relation','backlink'].includes(field.type) ? <RelationInput api={api} field={field} value={filter.value} change={value => changeFilter({ ...filter, value })} disabled={busy} /> :
+              {!['empty','filled'].includes(filter.op) && (field.type === 'relation' ? <RelationInput api={api} field={{ ...field, config: JSON.stringify({ ...fieldConfig(field), multiple: false }) }} value={filter.value} change={value => changeFilter({ ...filter, value })} disabled={busy} /> :
                 <FieldInput field={['formula','aggregate'].includes(field.type) ? { ...field, type: fieldConfig(field).result_type ?? 'decimal' } : field} label={field.name} value={filter.value} change={value => changeFilter({ ...filter, value })} />)}
               <button type="button" onClick={() => replace({ ...widget, filters: (widget.filters ?? []).filter((_, i) => i !== filterIndex) })}>{t('remove')}</button>
             </div>;
@@ -102,7 +103,7 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
           }}>{t('addFilter')}</button>
         </fieldset>}
         {(widget.kind === 'metric' || widget.kind === 'progress') && <>
-          <SummaryFormulaInput key={widget.id + ':' + widget.collection_id} fields={Object.values(fields).flat()} collectionId={widget.collection_id}
+          <SummaryFormulaInput key={widget.id + ':' + widget.collection_id} fields={allFields} collectionId={widget.collection_id}
             value={widget.formula} change={value => replace({ ...widget, formula: value })}
             preview={value => api.previewSummaryFormula(libraryId, widget.collection_id, value, widget.profile_id)} busy={busy} />
           {widget.kind === 'progress' && <label>{t('summaryGoalLabel')}<input required value={widget.goal} onChange={e => replace({ ...widget, goal: e.target.value })} /></label>}

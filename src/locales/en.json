@@ -707,5 +707,15 @@
   "reminderCreate": "Create reminder",
   "calendarExported": "Calendar file saved",
   "reminderFallback": "No reminder app is available. Try Add to calendar.",
-  "calendarUnavailable": "Could not open the external app; Tessera data is unchanged."
+  "calendarUnavailable": "Could not open the external app; Tessera data is unchanged.",
+  "diagnosticsTitle": "Diagnostics",
+  "diagnosticsPrivacy": "Only SQLite status and integrity are included; no records, secrets, paths, files or credentials.",
+  "diagnosticsUnavailable": "Diagnostics unavailable",
+  "diagnosticsSchema": "Schema",
+  "diagnosticsIntegrity": "Integrity",
+  "diagnosticsOk": "No errors",
+  "diagnosticsCorrupt": "Corruption detected",
+  "diagnosticsPageCount": "Database pages",
+  "diagnosticsExport": "Export JSON report",
+  "diagnosticsSaved": "Report saved"
 }

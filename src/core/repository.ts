@@ -349,6 +349,21 @@ export class Repository {
     }
     return { mime: view.mime, bytes };
   }
+  /** Bounded bytes for local derived thumbnails. No media data enters history, sync or SQLite. */
+  async readAttachmentThumbnailSource(id: string, ownerId: string): Promise<{ mime: string; bytes: Uint8Array }> {
+    const view = await this.getAttachmentView(id, ownerId, true);
+    if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+    if (!['image/png','image/jpeg','image/webp','image/gif','image/avif','image/bmp'].includes(view.mime) ||
+        view.size > 24 * 1024 * 1024) throw new AppError('previewUnavailable');
+    const files = this.filePort(), bytes = new Uint8Array(view.size);
+    for (let offset = 0; offset < view.size;) {
+      const length = Math.min(fileChunkSize, view.size - offset);
+      const chunk = await files.read(id, offset, length);
+      if (chunk.length !== length) throw new AppError('fileCorrupt');
+      bytes.set(chunk, offset); offset += length;
+    }
+    return { mime: view.mime, bytes };
+  }
   async removeAttachmentCopy(id: string, ownerId: string, confirmLastCopy = false): Promise<void> {
     requireId(id); requireId(ownerId); this.filePort();
     await this.db.transaction(async s => {

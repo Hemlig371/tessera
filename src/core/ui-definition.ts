@@ -1,4 +1,5 @@
 import { validateModeOptions } from './mode-options';
+import { validateSummaryMeasure } from './query-summary';
 import { validateDateSelection } from './date-selection';
 import { AppError } from './errors';
 import type { Field, LayoutItem, LayoutRow, UiDefinition, UiKind } from './model';
@@ -98,6 +99,10 @@ export function validateUiDefinition(
         }
       }
     }
+  }
+  if (definition.totals != null) {
+    if (kind !== 'list' || !Array.isArray(definition.totals) || definition.totals.length > 32) throw new AppError('invalidUiConfig');
+    for (const measure of definition.totals) validateSummaryMeasure(measure, fields);
   }
   if (definition.rows != null) {
     if (kind === 'list' || !Array.isArray(definition.rows) || definition.rows.length > fields.length) throw new AppError('invalidUiConfig');

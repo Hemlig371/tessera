@@ -187,7 +187,7 @@ export function LayoutEditor({
             {t('listMode')}
             <select
               value={list.mode ?? 'rows'}
-              onChange={(e) => setList((old) => ({ ...old, mode: e.target.value as ListOptions['mode'], mode_field: undefined }))}
+              onChange={(e) => setList((old) => ({ ...old, mode: e.target.value as ListOptions['mode'], mode_field: '' }))}
             >
               {(['rows', 'cards', 'table', 'kanban', 'calendar', 'tree'] as const).map((mode) => (
                 <option key={mode} value={mode}>
@@ -196,7 +196,7 @@ export function LayoutEditor({
               ))}
             </select>
           </label>
-          {list.mode && ['kanban', 'calendar', 'tree'].includes(list.mode) && <label>{t('modeField')}<select value={list.mode_field ?? ''} onChange={event => setList(old => ({ ...old, mode_field: event.target.value || undefined }))}>
+          {list.mode && ['kanban', 'calendar', 'tree'].includes(list.mode) && <label>{t('modeField')}<select value={list.mode_field ?? ''} onChange={event => setList(old => ({ ...old, mode_field: event.target.value }))}>
             <option value="">{t('chooseField')}</option>
             {modeFields(list.mode, fields, fields[0]?.collection_id ?? '').map(field => <option value={field.id} key={field.id}>{field.name}</option>)}
           </select></label>}

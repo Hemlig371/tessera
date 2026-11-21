@@ -699,5 +699,13 @@
   },
   "summaryGoal": "Цель: {{goal}}",
   "summaryOpenSource": "Открыть коллекцию",
-  "summaryChartLimit": "Показано {{count}} из {{total}} групп"
+  "summaryChartLimit": "Показано {{count}} из {{total}} групп",
+  "calendarActions": "Внешний календарь и напоминания",
+  "calendarDateField": "Поле даты",
+  "calendarAdd": "Добавить в календарь",
+  "calendarExport": "Экспорт события (.ics)",
+  "reminderCreate": "Создать напоминание",
+  "calendarExported": "Файл календаря сохранён",
+  "reminderFallback": "Приложение напоминаний недоступно. Используйте «Добавить в календарь».",
+  "calendarUnavailable": "Системное приложение не открылось; данные Tessera не изменены."
 }

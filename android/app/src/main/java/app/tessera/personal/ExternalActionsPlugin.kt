@@ -8,6 +8,9 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.net.Uri
 import android.provider.CalendarContract
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
@@ -32,8 +35,69 @@ class ExternalActionsPlugin : Plugin() {
         intent.removeExtra(LIBRARY_ID)
         if (id != null && idPattern.matches(id)) notifyListeners("openLibrary", JSObject().put("id", id), true)
     }
-    override fun load() { activity.intent?.let { consumeLibraryIntent(it) } }
-    override fun handleOnNewIntent(intent: Intent) { consumeLibraryIntent(intent) }
+    private val sharePrefs by lazy { context.getSharedPreferences("incoming-shares", Context.MODE_PRIVATE) }
+    private val shareKey = "items"
+    private val shareIdKey = "tessera.share_id"
+
+    /** Stage explicit text share privately before JS starts; never signal success before the core commits. */
+    private fun captureShare(intent: Intent) {
+        if (intent.action != Intent.ACTION_SEND || intent.type != "text/plain") return
+        val id = intent.getStringExtra(shareIdKey) ?: UUID.randomUUID().toString().also { intent.putExtra(shareIdKey, it) }
+        val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        if (text.isNullOrEmpty() || text.length > 65536) {
+            sharePrefs.edit().putString("error", "invalidSharedText").apply()
+            notifyListeners("shareReceived", JSObject(), true)
+            return
+        }
+        val array = JSONArray(sharePrefs.getString(shareKey, "[]"))
+        for (i in 0 until array.length()) if (array.getJSONObject(i).optString("id") == id) return
+        if (array.length() >= 32) {
+            sharePrefs.edit().putString("error", "shareQueueFull").apply()
+            notifyListeners("shareReceived", JSObject(), true)
+            return
+        }
+        array.put(JSONObject().put("id", id).put("text", text))
+        check(sharePrefs.edit().putString(shareKey, array.toString()).commit())
+        notifyListeners("shareReceived", JSObject(), true)
+    }
+
+    override fun load() {
+        activity.intent?.let { consumeLibraryIntent(it); captureShare(it) }
+    }
+    override fun handleOnNewIntent(intent: Intent) {
+        activity.setIntent(intent)
+        consumeLibraryIntent(intent)
+        captureShare(intent)
+    }
+    @PluginMethod fun pendingSharedText(call: PluginCall) {
+        try {
+            val array = JSONArray(sharePrefs.getString(shareKey, "[]"))
+            val error = sharePrefs.getString("error", null)
+            val result = JSObject().put("items", array)
+            if (error != null) result.put("error", error)
+            call.resolve(result)
+        } catch (_: Exception) { call.reject("shareUnavailable") }
+    }
+    @PluginMethod fun ackSharedText(call: PluginCall) {
+        val id = call.getString("id") ?: return call.reject("invalidId")
+        try {
+            val pending = JSONArray(sharePrefs.getString(shareKey, "[]"))
+            val remaining = JSONArray()
+            for (i in 0 until pending.length()) {
+                val item = pending.getJSONObject(i)
+                if (item.getString("id") != id) remaining.put(item)
+            }
+            if (!sharePrefs.edit().putString(shareKey, remaining.toString()).remove("error").commit())
+                return call.reject("shareUnavailable")
+            if (activity.intent?.getStringExtra(shareIdKey) == id) {
+                activity.intent?.removeExtra(shareIdKey)
+            }
+            call.resolve()
+            // Return to the sending app only after the SQLite save has completed.
+            if (activity.intent?.action == Intent.ACTION_SEND && remaining.length() == 0)
+                activity.runOnUiThread { activity.finish() }
+        } catch (_: Exception) { call.reject("shareUnavailable") }
+    }
     @PluginMethod fun shortcutSupported(call: PluginCall) {
         val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             context.getSystemService(ShortcutManager::class.java)?.isRequestPinShortcutSupported == true

@@ -198,9 +198,23 @@ class Calculator {
     }
     return result;
   }
+  /** Resolve a query widget's relation path with the same rules, budgets and cache as field formulas. */
+  async readPath(id: string, collection: string, path: string[]): Promise<FormulaValue> {
+    return this.resolve(id, collection, path, new Set());
+  }
   async previewExpression(id: string, collection: string, expression: Expression, resultType: FieldConfig['result_type']): Promise<JsonValue> {
     return this.result(await evaluateFormula(expression, { resolve: path => this.resolve(id, collection, path, new Set()), now: this.now }), { result_type: resultType });
   }
+}
+
+/** Query widgets and calculated fields share relation and backlink traversal semantics. */
+export async function queryPathReader(s: SqlSession) {
+  const fields = await catalog(s);
+  const calculator = new Calculator(s, fields);
+  return {
+    field: (collection: string, path: string[]) => pathField(collection, path, fields),
+    value: (id: string, collection: string, path: string[]) => calculator.readPath(id, collection, path),
+  };
 }
 
 /** Static keys are ready for the entire collection before SQLite filters/pages.

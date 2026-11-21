@@ -67,6 +67,13 @@ describe.each(adapters)('%s portable database archive (logical WAL snapshot)', k
     const { f, api, collection, file, owner, staged } = await seed(), output = writer();
     const date = await api.createField(collection.id, 'Дата архива', 'date');
     const dateProfile = await api.createDisplayProfile(collection.id, 'Сегодня', { fields: [], list: { date_selection: { field_id: date.id, period: 'today' } } });
+    await api.saveUiConfig(collection.id, 'list', { fields: [], list: { mode: 'calendar', mode_field: date.id }, totals: [{ operation: 'count' }] });
+    const dashboard = { widgets: [
+      { id: crypto.randomUUID(), title: 'Всего', width: 1 as const, collection_id: collection.id, kind: 'metric' as const, formula: `COUNTA([${collection.primary_field_id}])` },
+      { id: crypto.randomUUID(), title: 'Календарь', width: 2 as const, collection_id: collection.id, kind: 'calendar' as const, calendar_field: date.id },
+    ] };
+    await api.saveLibrarySummary(library.id, dashboard);
+    await api.saveLibraryNavigation(library.id, { start: { kind: 'summary' }, collections_layout: 'cards' });
     const manifest = await exportDatabaseArchive(f.db, f.files, output.port);
     expect(output.state.finished).toBe(true); expect(output.state.aborted).toBe(false);
     expect(manifest.files).toEqual({ included: 1, large: 0, missing: 0 });
@@ -77,6 +84,9 @@ describe.each(adapters)('%s portable database archive (logical WAL snapshot)', k
     const restored = await Repository.open(target.db, target.files);
     expect(restored.datasetId).toBe(api.datasetId); expect(restored.deviceId).not.toBe(api.deviceId);
     expect((await restored.listDisplayProfiles(collection.id)).find(profile => profile.id === dateProfile.id)?.config).toBe(dateProfile.config);
+    expect(await restored.getLibrarySummary(library.id)).toEqual(dashboard);
+    expect(await restored.getLibraryNavigation(library.id)).toEqual({ start: { kind: 'summary' }, collections_layout: 'cards' });
+    expect(await restored.getUiConfig(collection.id, 'list')).toEqual(await api.getUiConfig(collection.id, 'list'));
     expect(await restored.getEntry(owner)).toEqual(await api.getEntry(owner));
     expect(await restored.getHistory(owner)).toEqual(await api.getHistory(owner));
     expect((await restored.listFields(collection.id)).map(f => ({ ...f, config: JSON.parse(f.config) as unknown }))).toEqual((await api.listFields(collection.id)).map(f => ({ ...f, config: JSON.parse(f.config) as unknown })));

@@ -60,17 +60,20 @@ export async function exportAttachmentGroup(api: Repository, selected: readonly 
   for (const item of selected) {
     const view = await api.getAttachmentView(item.id, item.record_id, true);
     if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+    // Bound UTF-8 path components, not just UTF-16 code units. Keep UUID collision suffixes.
+    const safeSegment = (value: string, max = 40): string =>
+      Array.from(exportFileName(value)).slice(0, max).join('') || 'untitled';
     const safeName = exportFileName(view.name);
     const dot = safeName.lastIndexOf('.');
     const suffix = '-' + item.id.slice(0, 8);
-    const name = dot > 0 ? safeName.slice(0, Math.min(dot, 120)) + suffix + safeName.slice(dot) :
-      safeName.slice(0, 120) + suffix;
+    const name = dot > 0 ? safeSegment(safeName.slice(0, dot)) + suffix + safeName.slice(dot) :
+      safeSegment(safeName) + suffix;
     files.push({
       id: item.id, size: view.size, sha256: view.sha256, mime: view.mime, name,
       folders: [
-        exportFileName(item.library_name).slice(0, 100),
-        exportFileName(item.collection_name).slice(0, 100),
-        exportFileName(item.record_title || 'record').slice(0, 80) + '-' + item.record_id.slice(0, 8),
+        safeSegment(item.library_name),
+        safeSegment(item.collection_name),
+        safeSegment(item.record_title || 'record', 30) + '-' + item.record_id.slice(0, 8),
       ],
     });
   }

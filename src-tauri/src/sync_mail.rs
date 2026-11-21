@@ -164,5 +164,13 @@ mod tests{
         assert_eq!(search_ids("* SEARCH 20 21 20 25\r\n",19,22),vec![20,21]);
         assert!(message(3,"Subject: private\r\n\r\nplaintext").is_none());
         assert!(!address("evil\r\nX-A: test@x.org"));
+        let payload=json!({"kind":"packet","source":"12345678-1234-4123-8123-123456789abc",
+            "id":"87654321-4321-4433-8433-123456789abc","offset":-1,
+            "address":"sync@example.org","payload":"Y2lwaGVydGV4dA=="});
+        let sent=mime(&payload).unwrap();
+        assert!(sent.contains("Subject: Sync data"));
+        assert!(sent.contains("X-Tessera-Wire: 1"));
+        assert!(!sent.contains("private plaintext"));
+        assert!(message(1,&sent).is_some());
     }
 }

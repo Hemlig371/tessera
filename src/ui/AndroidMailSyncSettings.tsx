@@ -131,7 +131,7 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
       <fieldset className="mail-sync-panel"><legend>{t('mailSyncConfirm')}</legend>
         <label>{t('mailSyncReceiver')}<input value={peerId} onChange={e=>setPeerId(e.target.value.trim())}/></label>
         <label>{t('mailSyncCheckpoint')}<input type="number" min={0} value={checkpoint} onChange={e=>setCheckpoint(e.target.value)}/></label>
-        <button disabled={working || !checkpoint} onClick={()=>{void act(async()=>{
+        <button disabled={working || !peerId.trim() || !checkpoint || Number(checkpoint)<0} onClick={()=>{void act(async()=>{
           await confirmImportedPeer(api,peerId,Number(checkpoint));
         });}}>{t('mailSyncConfirm')}</button>
       </fieldset>

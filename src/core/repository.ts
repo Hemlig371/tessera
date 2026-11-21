@@ -281,11 +281,12 @@ export class Repository {
       const threshold = await attachmentLimit(s);
       const rows = await s.query<{
         id: string; record_id: string; name: string; mime: string; size: number;
-        status: AttachmentView['status'] | null; library_name: string; collection_name: string; data: string; primary_field_id: string;
+        status: AttachmentView['status'] | null; library_name: string; collection_name: string; data: string; primary_field_id: string; primary_type: string;
       }>(`SELECT a.id,a.record_id,a.name,a.mime,a.size,al.state AS status,
-         l.name AS library_name,c.name AS collection_name,r.data,c.primary_field_id
+         l.name AS library_name,c.name AS collection_name,r.data,c.primary_field_id,pf.type AS primary_type
          FROM attachments a JOIN records r ON r.id=a.record_id AND r.purged=0
          JOIN collections c ON c.id=r.collection_id JOIN libraries l ON l.id=c.library_id
+         JOIN fields pf ON pf.id=c.primary_field_id
          LEFT JOIN attachment_local al ON al.id=a.id
          WHERE a.purged=0 AND a.size>? AND
          (? IS NULL OR a.size<? OR (a.size=? AND a.id>?))
@@ -297,7 +298,7 @@ export class Repository {
         return { id: row.id, record_id: row.record_id, name: row.name, mime: row.mime, size: row.size,
           status: row.status ?? 'missing' as AttachmentView['status'],
           library_name: row.library_name, collection_name: row.collection_name,
-          record_title: typeof primary === 'string' ? primary.slice(0, 200) : '' };
+          record_title: row.primary_type !== 'secret' && typeof primary === 'string' ? primary.slice(0, 200) : '' };
       });
       const tail = items.at(-1);
       return { items, next: rows.length > limit && tail ? { size: tail.size, id: tail.id } : null };

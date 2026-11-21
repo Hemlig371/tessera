@@ -100,3 +100,8 @@
 ### M4 fresh priority — correction #1
 
 - Run [44912682382](https://github.com/Hemlig371/tessera/actions/runs/44912682382) на `bbb050f`: scope/sync success, Windows typecheck остановился на незакрытом JSX в новом LargeAttachments.tsx; остальные jobs не считать успешными (skipped). JSX исправлен коммитом `fd417c9` [skip ci]; следующий **свежий полный priority** проверяет текущие исходники без baseline.
+
+### M4 fresh priority — финальный Share-валидатор
+
+- Run [44912881613](https://github.com/Hemlig371/tessera/actions/runs/44912881613) на `f5ce23b` прошёл Windows typecheck/check:platforms/lint/licenses/unit/DB/smoke и sync; не считать принятой полной матрицей после добавления последующего исправления file-only Share.
+- Для Android file-only пакета без EXTRA_TEXT исправлена TS-валидация, добавлен чистый core-валидатор и адресные unit-тесты text/URL/file-only/mixed + malicious names/oversize. Следующий `[priority ci]` запускает полный fresh без baseline на новом HEAD; все runtime/desktop jobs нужны на этом SHA.

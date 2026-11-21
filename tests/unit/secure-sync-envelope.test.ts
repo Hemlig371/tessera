@@ -69,4 +69,19 @@ describe('M6 AES-GCM authenticated transport',()=>{
     await expect(b.attachments!.readChunk({dataset_id:dataset,source_id:receiver,attachment_id:change.id,offset:0,length:512}))
       .rejects.toThrow('invalidSyncPacket');
   });
+  it('binds encrypted chunks to their dataset, sender and exact byte offset',async()=>{
+    const key=await importGroupKey(crypto.getRandomValues(new Uint8Array(32)));
+    const body=new Uint8Array([1,2,3]);
+    const original=await sealSyncBytes(key,{dataset_id:dataset,sender_id:sender,
+      kind:'chunk',message_id:change.id,offset:256*1024},body);
+    expect((await openSyncBytes(key,original,{dataset_id:dataset,kind:'chunk'})).bytes).toEqual(body);
+    await expect(openSyncBytes(key,original,{dataset_id:receiver,kind:'chunk'})).rejects.toThrow('invalidSyncPacket');
+    await expect(openSyncBytes(key,original,{dataset_id:dataset,kind:'packet'})).rejects.toThrow('invalidSyncPacket');
+    const edited=JSON.parse(new TextDecoder().decode(original));
+    edited.offset=0;
+    await expect(openSyncBytes(key,new TextEncoder().encode(JSON.stringify(edited)),{dataset_id:dataset}))
+      .rejects.toThrow('invalidSyncPacket');
+    await expect(sealSyncBytes(key,{dataset_id:dataset,sender_id:sender,kind:'chunk',
+      message_id:change.id,offset:-1},body)).rejects.toThrow('invalidSyncPacket');
+  });
 });

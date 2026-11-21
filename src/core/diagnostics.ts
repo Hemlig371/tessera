@@ -23,7 +23,7 @@ export async function safeDiagnosticReport(db: DatabaseAdapter, now: Date = new 
     const [foreign] = await session.query<{ foreign_keys: number }>('PRAGMA foreign_keys');
     const [pages] = await session.query<{ page_count: number }>('PRAGMA page_count');
     const [free] = await session.query<{ freelist_count: number }>('PRAGMA freelist_count');
-    const [schema] = await session.query<{ value: string }>("SELECT value FROM app_meta WHERE key='schema_version'");
+    const [schema] = await session.query<{ value: string }>("SELECT value FROM app_meta WHERE key='schema_id'");
     return { version: version?.value ?? '', mode: mode?.journal_mode ?? '',
       foreign: foreign?.foreign_keys === 1, pages: pages?.page_count, free: free?.freelist_count,
       schema: schema?.value ?? '' };

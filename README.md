@@ -82,7 +82,7 @@ gh run view RUN_ID --log-failed
 gh run download RUN_ID -n tessera-android-debug-apk -D work/downloaded-apk
 ```
 
-Политику частоты запусков/карантина задаёт [AGENTS.md](AGENTS.md); конкретные доказательства, использованный бюджет и run ID — [audit.md](audit.md). Markdown-only изменения не требуют dispatch. `[skip ci]` в промежуточном коммите подавляет автоматический push CI; ручной dispatch остаётся доступным.
+Политику частоты запусков/карантина задаёт [AGENTS.md](AGENTS.md); конкретные доказательства, использованный бюджет и run ID — [audit.md](audit.md). Markdown-only изменения не требуют dispatch. `[skip ci]` в промежуточном коммите подавляет автоматический push CI; ручной dispatch остаётся доступным. Для свежей приоритетной приёмки на `main` также разрешён **явный push-коммит с `[priority ci]`**: он запускает Windows fast/native, Windows/macOS desktop, Android APK/эмулятор без Linux application, без resume. На других ветках и в PR маркер не сокращает матрицу.
 
 ### Inputs и фактическая область проверки
 

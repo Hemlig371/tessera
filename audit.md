@@ -88,6 +88,12 @@
 - [Run 44907803820](https://github.com/Hemlig371/tessera/actions/runs/44907803820) на `0235de74`: scope и sync-foundation успешны; Linux fast упал на `typecheck` из-за **четырёх TS2304** в расширенном архивном DB-тесте — не была деструктурирована `library` из `seed()`. Исправлено в `6c63692`, без изменения пользовательской модели и данных; Windows status проверить отдельно по завершению.
 - После этого без локальных запусков дополнительно сокращены поля payload widget list/table до настроенных полей/quick-actions, исправлена стабильность зависимостей редактора и безопасный relation filter; это требует нового full fast CI на свежем SHA. Ни один старый зелёный прогон не покрывает новые файлы.
 
+## Fresh priority M3 checkpoint (21.11.2026)
+
+- Код M3: Kanban/календарь/дерево, totals всего SQL-запроса, библиотечные сводки с семью типами, собственными фильтрами и relation-labels, локализованным редактором формул и preview, общим Calculator для путей, атомарной конфигурацией, start.kind='summary'. Secret исключён из публичных виджетов и проекций; поля мини-превью ограничены заданными столбцами/действиями с сохранением расчётных результатов. Добавлены DB тесты >200 записей, связей/secret, архивного roundtrip.
+- Согласован один bump M3 до **0.21.0 / Android code 22** (npm, lock, Cargo, Tauri, Android); dev-схема не менялась. M2 APK 0.20.0/code21 не доказывает M3.
+- Fast CI [44907950078](https://github.com/Hemlig371/tessera/actions/runs/44907950078) на предшествующем SHA: Ubuntu все проверки успешны; Windows на момент отправки priority завершающий DB/build ещё не подтверждён. Вне этого SHA сделаны новые test-only и безопасные проекции; **обязательная fresh priority проводится новым run** с `[priority ci]`, без resume. Итог принимать только по jobs этого одного запуска; skipped не считать pass. Новая версия и вся интеграция ещё не приняты.
+
 ## Продолжение M3
 
 1. **Следующая задача — интегрировать M3**, не переписывать готовое. Новые модули `src/core/{relative-dates,date-selection,mode-options,tree-projection,kanban-projection,calendar-projection,collection-projection,query-summary,query-insights,query-formula,grouped-summary,library-summary,summary-data}.ts`, UI CalendarView/KanbanBoard/TreeView/LibrarySummaryView/QueryTotals/QueryTotalsEditor/SummaryFormulaInput + formula-references и collection-modes.css, 12 unit/DB файлов. Кроме завершённого ниже фильтра дат, эти режимы/сводки пока не подключены к App/Repository/модели/локалям. Сохранение этого кода не означает готовность режимов или сводок. Версию M3 ещё не повышали.

@@ -24,6 +24,7 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     const library = await api.createLibrary('Виджеты');
     const collection = await api.createCollection(library.id, 'Задачи', 'Название');
     const amount = await api.createField(collection.id, 'Стоимость', 'decimal');
+    const doubled = await api.createField(collection.id, 'Двойная', 'formula', { formula: `[${amount.id}]*2` });
     const optionId = crypto.randomUUID();
     const status = await api.createField(collection.id, 'Этап', 'select', { options: [{ id: optionId, label: 'План' }] });
     const secret = await api.createField(collection.id, 'Пароль', 'secret');
@@ -47,7 +48,7 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     expect(projection.columns.find(column => column.value === optionId)?.entries.length).toBe(20);
     expect(projection.columns.find(column => column.value === optionId)?.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
     const widget = { id: crypto.randomUUID(), title: ' Последние ', width: 1 as const,
-      collection_id: collection.id, kind: 'table' as const, field_ids: [amount.id], limit: 3 };
+      collection_id: collection.id, kind: 'table' as const, field_ids: [amount.id, doubled.id], limit: 3 };
     await api.saveLibrarySummary(library.id, { widgets: [widget] });
     const saved = await api.getLibrarySummary(library.id);
     expect(saved.widgets[0]?.title).toBe('Последние');
@@ -57,6 +58,7 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     expect(data.entries).toHaveLength(3);
     expect(data.entries.every(entry => entry.data[amount.id] === '0.1')).toBe(true);
     expect(data.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
+    expect(data.entries.every(entry => entry.computed?.[doubled.id]?.value === '0.2')).toBe(true);
   });
 
 });

@@ -24,10 +24,11 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     const library = await api.createLibrary('Виджеты');
     const collection = await api.createCollection(library.id, 'Задачи', 'Название');
     const amount = await api.createField(collection.id, 'Стоимость', 'decimal');
-    const status = await api.createField(collection.id, 'Этап', 'select', { options: [{ id: 'todo', label: 'План' }] });
+    const optionId = crypto.randomUUID();
+    const status = await api.createField(collection.id, 'Этап', 'select', { options: [{ id: optionId, label: 'План' }] });
     const secret = await api.createField(collection.id, 'Пароль', 'secret');
     await api.importEntries(collection.id, Array.from({ length: 211 }, (_, index) => ({
-      [collection.primary_field_id]: String(index), [amount.id]: '0.1', [status.id]: 'todo', [secret.id]: 'hidden',
+      [collection.primary_field_id]: String(index), [amount.id]: '0.1', [status.id]: optionId, [secret.id]: 'hidden',
     })));
     await api.saveUiConfig(collection.id, 'list', {
       fields: [], list: { mode: 'kanban', mode_field: status.id },
@@ -42,7 +43,7 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     const projection = await api.projectCollection({ collection_id: collection.id }, { mode: 'kanban', mode_field: status.id });
     expect(projection.mode).toBe('kanban');
     if (projection.mode !== 'kanban') throw new Error('wrong projection');
-    expect(projection.columns.find(column => column.value === 'todo')?.count).toBe(211);
+    expect(projection.columns.find(column => column.value === optionId)?.count).toBe(211);
     expect(projection.columns.find(column => column.value === 'todo')?.entries.length).toBe(20);
     expect(projection.columns.find(column => column.value === 'todo')?.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
     const widget = { id: crypto.randomUUID(), title: ' Последние ', width: 1 as const,

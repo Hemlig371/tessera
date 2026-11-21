@@ -1,6 +1,6 @@
 import { AppError } from './errors';
 import { assertHlc } from './hlc';
-import { canonical, UUID_RE, type Entry } from './model';
+import { UUID_RE, type Entry } from './model';
 import { mergeHistory, applyHistoryClear, type RecordVersion } from './history';
 import type { SqlSession, SqlValue } from './ports';
 import type { SyncEvent, SyncEntity } from './sync-protocol';
@@ -55,6 +55,8 @@ async function mergeMarker(s: SqlSession, event: SyncEvent): Promise<boolean> {
       const recordId = key.slice('history:clear:'.length);
       if (recordId !== 'all' && !UUID_RE.test(recordId)) throw invalid();
       if (value !== event.hlc) throw invalid();
+      const [old] = await s.query<{ value: string }>('SELECT value FROM app_meta WHERE key=?', [key]);
+      if (old && old.value >= value) return false;
       await applyHistoryClear(s, { record_id: recordId === 'all' ? null : recordId, hlc: value });
       return true;
     }
@@ -65,6 +67,11 @@ async function mergeMarker(s: SqlSession, event: SyncEvent): Promise<boolean> {
       try { order = JSON.parse(value) as { hlc: string; id: string }; assertHlc(order.hlc); }
       catch { throw invalid(); }
       if (!UUID_RE.test(order.id)) throw invalid();
+      const [old] = await s.query<{ value: string }>('SELECT value FROM app_meta WHERE key=?', [key]);
+      if (old) {
+        const prior = JSON.parse(old.value) as { hlc: string; id: string };
+        if (prior.hlc > order.hlc || (prior.hlc === order.hlc && prior.id >= order.id)) return false;
+      }
       await mergeHistory(s, { record_id: recordId, versions: [], trimmed_through: order, cleared_through: null });
       return true;
     }
@@ -95,7 +102,8 @@ export async function applySyncEvent(s: SqlSession, event: SyncEvent,
         !version.snapshot || version.snapshot.id !== version.record_id) throw invalid();
     const [old] = await s.query<{ id: string }>('SELECT id FROM record_versions WHERE id=?', [version.id]);
     await mergeHistory(s, { record_id: version.record_id, versions: [version], trimmed_through: null, cleared_through: null });
-    changed = !old;
+    const [now] = await s.query<{ id: string }>('SELECT id FROM record_versions WHERE id=?', [version.id]);
+    changed = !old && !!now;
   } else if (event.entity_type === 'history_marker' || event.entity_type === 'app_setting') changed = await mergeMarker(s,event);
   else changed = await mergeScalar(s,event);
   await s.execute("INSERT INTO local_settings(key,value) VALUES('hlc',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<excluded.value", [event.hlc]);

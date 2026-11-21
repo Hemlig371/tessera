@@ -1122,6 +1122,14 @@ export class Repository {
     return this.db.transaction(s => this.mergeEntryInSession(s, incoming));
   }
   private async mergeEntryInSession(s: SqlSession, incoming: Entry): Promise<boolean> {
+    requireId(incoming.id); requireId(incoming.collection_id); requireId(incoming.device_id);
+    assertHlc(incoming.hlc); validateData(incoming.data);
+    if (!incoming.hlc.endsWith('-' + incoming.device_id) || ![0,1].includes(incoming.purged) ||
+        (incoming.purged && !incoming.deleted_at) ||
+        [incoming.created_at,incoming.updated_at].some(value => !isUtcTimestamp(value)) ||
+        (incoming.deleted_at !== null && !isUtcTimestamp(incoming.deleted_at)) ||
+        typeof incoming.created_local !== 'string' || typeof incoming.updated_local !== 'string')
+      throw new AppError('invalidRecordState');
       const [old] = await s.query<StoredEntry>('SELECT * FROM records WHERE id=?', [incoming.id]);
       // Observe accepted remote clocks without generating a local edit/version.
       await s.execute("INSERT INTO local_settings VALUES('hlc',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE value<excluded.value", [incoming.hlc]);

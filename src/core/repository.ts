@@ -544,6 +544,18 @@ export class Repository {
     requireId(id);
     return this.db.read(async s => librarySummary(await navigationLibrary(s, id)));
   }
+  previewSummaryFormula(libraryId: string, collectionId: string, formula: string, profileId?: string): Promise<JsonValue> {
+    requireId(libraryId); requireId(collectionId);
+    return this.db.transaction(async s => {
+      const widget: SummaryWidget = {
+        id: crypto.randomUUID(), title: 'Preview', width: 1, collection_id: collectionId, kind: 'metric', formula,
+        ...(profileId ? { profile_id: profileId } : {}),
+      };
+      const data = await readSummaryWidget(s, libraryId, widget);
+      if (data.kind !== 'metric') throw new AppError('invalidUiConfig');
+      return data.value;
+    });
+  }
   readSummaryWidget(libraryId: string, widget: SummaryWidget, month?: string, signal?: AbortSignal): Promise<SummaryWidgetData> {
     requireId(libraryId);
     return this.db.transaction(s => readSummaryWidget(s, libraryId, widget, month, signal));

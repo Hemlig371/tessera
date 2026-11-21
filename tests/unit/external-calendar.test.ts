@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calendarIcs } from '../../src/core/external-calendar';
+import { recordCalendarDraft } from '../../src/core/record-calendar';
+import type { Entry, Field } from '../../src/core/model';
 
 describe('external calendar ICS', () => {
   const base = { id: 'record_123', title: 'Встреча, A; B\\C', start: '2026-11-21', end: '2026-11-22' };
@@ -31,5 +33,29 @@ describe('external calendar ICS', () => {
     expect(() => calendarIcs({ ...base, end: '2026-11-22T00:00:00Z' })).toThrow('invalidCalendarEvent');
     expect(() => calendarIcs({ ...base, id: 'x\r\nBEGIN:VTODO' })).toThrow('invalidCalendarEvent');
     expect(() => calendarIcs({ ...base, title: 'unsafe\u0000text' })).toThrow('invalidCalendarEvent');
+  });
+});
+
+describe('record calendar draft', () => {
+  const entry = { id: '12345678-1234-4123-8123-123456789abc', data: { day: '2026-03-29', range: { start: '2026-03-29', end: '2026-03-30' }, local: '2026-11-21T11:30' } } as unknown as Entry;
+  const field = (id: string, type: string) => ({ id, type }) as Field;
+  it('uses exclusive all-day boundaries across DST', () => {
+    const day = recordCalendarDraft(entry, field('day', 'date'), 'Task');
+    expect(day.event.start).toBe('2026-03-29');
+    expect(day.event.end).toBe('2026-03-30');
+    expect(day.allDay).toBe(true);
+    const range = recordCalendarDraft(entry, field('range', 'date_range'), 'Task');
+    expect(range.event.end).toBe('2026-03-31');
+    expect(range.endMillis).toBeGreaterThan(range.startMillis);
+  });
+  it('uses a one-hour default only for local datetime', () => {
+    const draft = recordCalendarDraft(entry, field('local', 'local_datetime'), 'Meeting');
+    expect(draft.allDay).toBe(false);
+    expect(draft.endMillis - draft.startMillis).toBe(3600000);
+    expect(calendarIcs(draft.event)).toContain('DTSTART:');
+  });
+  it('does not invent an event for invalid values', () => {
+    expect(() => recordCalendarDraft(entry, field('missing', 'date'), 'Task')).toThrow('invalidDate');
+    expect(() => recordCalendarDraft(entry, field('day', 'text'), 'Task')).toThrow('invalidDate');
   });
 });

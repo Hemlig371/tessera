@@ -172,7 +172,7 @@ class SyncMailPlugin : Plugin() {
                 imap(ch,"a02","SELECT INBOX") { line,_ ->
                     val match=Regex("UIDVALIDITY (\\d+)",RegexOption.IGNORE_CASE).find(line)
                     if(match!=null) validity=match.groupValues[1].toLong()
-                    val next=Regex("UIDNEXT (\\\\d+)",RegexOption.IGNORE_CASE).find(line)
+                    val next=Regex("UIDNEXT (\\d+)",RegexOption.IGNORE_CASE).find(line)
                     if(next!=null) uidNext=next.groupValues[1].toLong()
                 }
                 if(validity<=0 || uidNext<=0) throw IllegalStateException("mailRejected")

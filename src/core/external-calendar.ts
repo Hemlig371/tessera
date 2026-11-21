@@ -24,6 +24,7 @@ function timestamp(value: string): { value: string; epoch: number; allDay: boole
   return { value: new Date(epoch).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'), epoch, allDay: false };
 }
 function escapeText(value: string): string {
+  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) throw new AppError('invalidCalendarEvent');
   return value.replace(/\r\n?|\n/g, '\n').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
 }

@@ -602,7 +602,15 @@ export class Repository {
     const checkpoint = this.archiveSyncCheckpoint(verifiedManifest);
     await this.db.transaction(async s => {
       const mode = await syncMode(s);
-      if (mode === 'paused' || mode === 'detached') throw new AppError('invalidSyncState');
+      // Only a freshly imported, still-inactive dataset can consume an archive checkpoint.
+      if (mode !== 'never_configured') throw new AppError('invalidSyncState');
+      const [verified] = await s.query<{ value: string }>("SELECT value FROM app_meta WHERE key='archive:checkpoint'");
+      let imported: { dataset_id?: string; seq?: number; hlc?: string; exported_at?: string; sync_mode?: string };
+      try { imported = JSON.parse(verified?.value ?? '') as typeof imported; }
+      catch { throw new AppError('invalidArchive'); }
+      if (imported.dataset_id !== checkpoint.dataset_id || imported.seq !== checkpoint.seq ||
+          imported.hlc !== verifiedManifest.hlc || imported.exported_at !== verifiedManifest.exported_at ||
+          imported.sync_mode !== verifiedManifest.sync_mode) throw new AppError('invalidArchive');
       const key = 'sync_rx:' + sourcePeer;
       if ((await s.query('SELECT value FROM local_settings WHERE key=?',[key])).length)
         throw new AppError('invalidSyncState');

@@ -9,6 +9,8 @@ import type { Repository } from './repository';
 export interface LocalAttachmentMailbox {
   writeChunk(chunk: { dataset_id: string; source_id: string; attachment_id: string; offset: number; bytes: Uint8Array }): Promise<void>;
   readChunk(request: { dataset_id: string; source_id: string; attachment_id: string; offset: number; length: number }): Promise<Uint8Array>;
+  /** Optional availability hint: when no source has bytes, metadata remains a placeholder. */
+  hasFirstChunk?(request: { dataset_id: string; source_id: string; attachment_id: string }): Promise<boolean>;
 }
 export type AttachmentTransferResult = 'complete' | 'metadata-only' | 'already-present';
 
@@ -20,6 +22,8 @@ export async function publishLocalAttachment(
   const view = await source.getAttachmentView(attachmentId,ownerId,true);
   if (view.large) return 'metadata-only';
   if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+  if (view.size === 0) await mailbox.writeChunk({dataset_id:source.datasetId,source_id:source.deviceId,
+    attachment_id:attachmentId,offset:0,bytes:new Uint8Array(0)});
   for (let offset=0; offset<view.size;offset+=fileChunkSize) {
     const length = Math.min(fileChunkSize,view.size-offset);
     const bytes = await source.readLocalSyncAttachmentChunk(attachmentId,ownerId,offset,length);

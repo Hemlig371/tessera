@@ -1,6 +1,6 @@
 # Tessera — статус и точка продолжения
 
-Срез 21.11.2026: **0.22.0 / Android code 23**, схема `tessera-dev-bootstrap-2`. **M1/M2/M3/M4 закрыты по обязательной автоматике; M4 fresh priority на одном SHA `796325f`, run [44913204840](https://github.com/Hemlig371/tessera/actions/runs/44913204840), все 8 jobs success без baseline. Следующий блок — M5.** Физический телефон и широкая UI/UX-приёмка не проверены; это остаётся в M7.
+Срез 21.11.2026: **0.23.0 / Android code 24**, схема `tessera-dev-bootstrap-2`. **M1/M2/M3/M4 приняты. M5 локальный протокол реализован и готовится к fresh priority-приёмке, ещё НЕ закрыт.** Принятый M4: `796325f`, [44913204840](https://github.com/Hemlig371/tessera/actions/runs/44913204840), 8/8. Физический телефон и широкая UI/UX-приёмка не проверены; это остаётся в M7.
 
 Принятый M3 SHA: `83d268d79edd5b5a2cc0c87d4b0670ba372a2f0c`, GitHub Actions [44908239799](https://github.com/Hemlig371/tessera/actions/runs/44908239799). Проверка относится к функциональному SHA; следующая правка audit/README — только документация. Перед дальнейшей работой проверить main. Правила — [AGENTS.md](AGENTS.md), команды — [README.md](README.md).
 
@@ -138,3 +138,16 @@
 - Дополнительная защита: новосозданная коллекция и её primary field/default profile отправляются единым ограниченным пакетом даже при лимите страницы 1, чтобы отложенные SQLite FK не ломали промежуточный COMMIT. Адресный DB-контракт проверяет это на двух независимых SQLite.
 
 - **Первый полностью зелёный M5 checkpoint:** SHA `2ddebfd`, Actions [44916379195](https://github.com/Hemlig371/tessera/actions/runs/44916379195), 8/8 jobs success на одном SHA (Windows typecheck/lint/unit/DB/smoke, sync, Windows native, Android APK+emulator, Windows NSIS, macOS DMG). Доказывает атомарное применение, 3 SQLite peers/Top-20, файлы и safety guard. Это **не** окончательная M5-приёмка: следующий сгруппированный [skip ci] коммит `949aaed` добавляет файл-transport cycle и требует отдельной проверки.
+
+- Финальная защита файлового цикла: `registerLocalArchiveBaseline` сверяет переданный manifest с фактически проверенным `archive:checkpoint` импортированной базы и запрещает подключение уже активного набора; `runLocalSyncCycle` обновляет `last_success_at` только когда каждый peer ACK-нул текущий журнал и его входящие события применены. Дополнительный DB-контракт отбрасывает фальшивый checkpoint.
+
+- Local mailbox engine теперь (при наличии `attachments` адаптера) автоматически публикует в файловый канал chunks для локально доступных малых originals и восстанавливает их после атомарного применения metadata; отсутствующие у отправителя копии оставляет placeholders; крупные файлы не публикует. DB-цикл проверяет автоматическое восстановление файла 320 KiB между независимыми SQLite через файловую папку.
+
+- DB-проверка дополнена сквозной передачей `history:clear` и окончательного tombstone: две SQLite базы очищают историю и после purge не восстанавливают запись; ядро/данные не карантинируются.
+
+### M5 — финальная интеграционная версия, ожидание CI
+
+- Релизная согласованность подготовлена: **0.23.0 / Android versionCode 24** в npm/package-lock, Cargo.toml/Cargo.lock, Tauri config, Gradle и README. Схема `tessera-dev-bootstrap-2` сохранена, `target-specification-v4.0.md` не менялся, локальные тесты не запускались.
+- Локальный файловый транспорт: устойчивый архивный baseline с проверенным checkpoint, двухсторонний обмен и монотонный applied-ACK, повтор/переупорядочивание/gap; LWW по объектам, Top-20/clear/tombstones; малые originals восстанавливаются SHA-verified chunks ≤256KiB, большие только metadata+placeholder; 90-дневный предохранитель/стоп и независимый detach; DB tests на двух и трёх SQLite/внешних файловых папках.
+- Контур **M5 local only**, ещё без почтового SMTP/IMAP и без криптографической защиты — это **M6**, не обещать пользователям сетевую синхронизацию. Ручная OEM/SAF/реальная почта остаётся M7/M6.
+- **Финальный статус M5 не ставить до запуска нового fresh priority на функциональном SHA этого релиза, без baseline/resume.** Последние добавления к engine/chunks и новые tests не покрыты более ранним run 44916379195.

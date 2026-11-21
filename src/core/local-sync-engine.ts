@@ -2,6 +2,8 @@ import { AppError } from './errors';
 import { decodeLocalPacket, encodeLocalPacket, parseLocalReceipt, type SyncReceipt } from './sync-protocol';
 import { canonical, UUID_RE, type JsonValue } from './model';
 import type { Repository } from './repository';
+import { journalCheckpoint } from './change-journal';
+import { publishLocalAttachment, restoreLocalAttachment, type LocalAttachmentMailbox } from './local-sync-attachments';
 
 /** Unencrypted local-test mailbox: encryption/authentication of opaque transport bytes is M6. */
 export interface LocalSyncMailbox {
@@ -9,6 +11,8 @@ export interface LocalSyncMailbox {
   listReceipts(): Promise<readonly Uint8Array[]>;
   publishPacket(packet: Uint8Array): Promise<void>;
   publishReceipt(receipt: Uint8Array): Promise<void>;
+  /** Optional file-byte channel; core never transports originals beyond the shared limit. */
+  attachments?: LocalAttachmentMailbox;
 }
 export interface LocalSyncCycleResult {
   applied: number;
@@ -42,6 +46,19 @@ export async function runLocalSyncCycle(
     if (packet.through_seq > cursor && packet.after_seq !== cursor) { result.gaps++; continue; }
     const receipt = await api.applyLocalSyncPacket(packet);
     if (packet.through_seq <= cursor) result.duplicate++; else result.applied++;
+    if (mailbox.attachments) {
+      for (const event of packet.events) {
+        if (event.entity_type !== 'attachment' || event.payload.purged !== 0 ||
+            typeof event.payload.record_id !== 'string') continue;
+        const id = event.entity_id, ownerId = event.payload.record_id;
+        const view = await api.getAttachmentView(id,ownerId);
+        if (view.large || view.status !== 'missing') continue;
+        const offered = mailbox.attachments.hasFirstChunk
+          ? await mailbox.attachments.hasFirstChunk({ dataset_id:api.datasetId,source_id:packet.sender_id,attachment_id:id })
+          : true;
+        if (offered) await restoreLocalAttachment(api,ownerId,id,packet.sender_id,mailbox.attachments);
+      }
+    }
     await mailbox.publishReceipt(receiptBytes(receipt));
   }
   const receipts = await mailbox.listReceipts();
@@ -63,7 +80,28 @@ export async function runLocalSyncCycle(
     if (ack === null) await api.acknowledgeLocalChanges(peerId,{dataset_id:api.datasetId,seq:0});
     const after = { dataset_id:api.datasetId,seq:ack ?? 0 };
     const packet = await api.exportLocalSyncPacket(after,limit);
-    if (packet) { await mailbox.publishPacket(encodeLocalPacket(packet)); result.sent++; }
+    if (packet) {
+      if (mailbox.attachments) for (const event of packet.events) {
+        if (event.entity_type !== 'attachment' || event.payload.purged !== 0 ||
+            typeof event.payload.record_id !== 'string') continue;
+        const view = await api.getAttachmentView(event.entity_id,event.payload.record_id);
+        if (view.status === 'present' && !view.large) {
+          await publishLocalAttachment(api,event.payload.record_id,event.entity_id,mailbox.attachments);
+        }
+      }
+      await mailbox.publishPacket(encodeLocalPacket(packet));
+      result.sent++;
+    }
+  }
+  // An exchange is complete only when the entire current local journal has been
+  // applied and acknowledged by every peer, and each peer's inbound cursor moved.
+  if (result.sent === 0 && result.gaps === 0) {
+    const head = await api.db.read(s => journalCheckpoint(s));
+    const ready = await Promise.all(peers.map(async peer => {
+      const [ack,received] = await Promise.all([api.localSyncPeerAck(peer),api.localSyncReceiveCursor(peer)]);
+      return ack !== null && ack >= head.seq && received > 0;
+    }));
+    if (ready.every(Boolean)) for (const peer of peers) await api.completeLocalSyncExchange(peer);
   }
   return result;
 }

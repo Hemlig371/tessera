@@ -1,5 +1,5 @@
 import { AppError } from './errors';
-import { syncMode, pauseJournal, type SyncMode } from './change-journal';
+import { syncMode, pauseJournal, journalCheckpoint, type SyncMode } from './change-journal';
 import type { SqlSession } from './ports';
 import { requireId } from './validation';
 
@@ -55,7 +55,8 @@ export async function markLocalExchangeComplete(s: SqlSession, peerId: string, n
     throw new AppError('invalidSyncState');
   const [tx] = await s.query<{ value: string }>('SELECT value FROM local_settings WHERE key=?', ['sync_peer:' + peerId]);
   const [rx] = await s.query<{ value: string }>('SELECT value FROM local_settings WHERE key=?', ['sync_rx:' + peerId]);
-  if (!tx || !rx || !Number.isSafeInteger(Number(tx.value)) || Number(tx.value) < 1 ||
+  const checkpoint = await journalCheckpoint(s);
+  if (!tx || !rx || !Number.isSafeInteger(Number(tx.value)) || Number(tx.value) < checkpoint.seq ||
       !Number.isSafeInteger(Number(rx.value)) || Number(rx.value) < 1) throw new AppError('invalidSyncState');
   await set(s,'last_success_at',now.toISOString());
 }

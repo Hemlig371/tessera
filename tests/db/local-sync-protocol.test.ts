@@ -186,6 +186,22 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect((await b.listCollections(library.id)).some(value=>value.id===collection.id)).toBe(true);
     expect((await b.listFields(collection.id)).some(value=>value.id===collection.primary_field_id)).toBe(true);
   });
+  it('replicates explicit history clear and permanent tombstones without resurrecting a record', async () => {
+    const { a,b,left,entry } = await nodes();
+    let cursor = await deliver(a,b,zero(a),left.directory,5);
+    expect((await b.getHistory(entry.id)).versions).toHaveLength(1);
+    await a.clearHistory(entry.id);
+    cursor = await deliver(a,b,cursor,left.directory,5);
+    expect((await b.getHistory(entry.id)).versions).toHaveLength(0);
+    await a.setDeleted('record',entry.id,true,entry.hlc);
+    const item = (await a.queryTrash()).items.find(value=>value.id===entry.id);
+    expect(item).toBeTruthy();
+    await a.purgeEntry(entry.id,item!.hlc);
+    cursor = await deliver(a,b,cursor,left.directory,5);
+    expect(await b.getEntry(entry.id)).toBeNull();
+    expect((await b.getHistory(entry.id)).versions).toHaveLength(0);
+    expect(await a.exportLocalSyncPacket(cursor)).toBeNull();
+  });
   it('prevents an offline gap from silently advancing a peer cursor', async () => {
     const { a,b,left,entry } = await nodes();
     const first = (await a.exportLocalSyncPacket(zero(a),1))!;

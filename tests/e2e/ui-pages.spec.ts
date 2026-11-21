@@ -47,6 +47,7 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   const profile = await page.getByRole('combobox', { name: 'Представление', exact: true }).inputValue();
   await entry.click();
   await expect(page.getByRole('region', { name: 'Материал 220', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/m65-desktop-1280-card.png', fullPage: true });
   await expect(page.locator('.shade,[role=dialog],[aria-modal=true]')).toHaveCount(0);
   await expect(page.getByRole('searchbox', { name: 'Поиск', exact: true })).toHaveCount(0);
   await page.locator('.detail').getByRole('button', { name: /Материал 221/ }).click();

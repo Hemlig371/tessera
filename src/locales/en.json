@@ -728,5 +728,6 @@
   "largeAttachmentsError": "Could not read attachments",
   "largeAttachmentsExport": "Export selected",
   "largeAttachmentsExported": "Files exported: {{count}}",
-  "calendarOpenFailed": "The .ics file was saved, but the calendar app could not open. Open the file from your file manager."
+  "calendarOpenFailed": "The .ics file was saved, but the calendar app could not open. Open the file from your file manager.",
+  "globalSearchLocked": "Global search is unavailable while any library is locked on this device. Open the intended library directly."
 }

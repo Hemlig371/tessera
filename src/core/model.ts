@@ -153,6 +153,7 @@ export interface UiDefinition {
   rows?: LayoutRow[];
   list?: ListOptions;
   quick_actions?: import('./quick-actions').QuickActionDefinition[];
+  totals?: import('./query-summary').SummaryMeasure[];
 }
 export interface UiConfiguration extends Stamp {
   collection_id: string;

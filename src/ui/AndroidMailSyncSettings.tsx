@@ -98,7 +98,7 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
         {qr && <img alt={t('mailSyncInvite')} width={240} height={240} src={qr} />}
         <textarea readOnly rows={5} value={invite} aria-label={t('mailSyncInvite')}
           onFocus={event=>event.currentTarget.select()} />
-      </section>
+      </section>}
       <form onSubmit={event=>{event.preventDefault();void act(async()=>{
         const peers=peersText.split(',').map(p=>p.trim()).filter(Boolean);
         await configureAndroidMailSync(api,{...config,peers},password||undefined);
@@ -140,7 +140,7 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
         void act(async()=>{await stopAndroidMailGroup(api);setInvite('');setQr('');setConfig(empty);setPeersText('');});
       }}>{t('mailSyncDetach')}</button>
     </>}
-    {result && <p role="status" className="mail-sync-result">{t('mailSyncReceipt',{applied:result.applied,duplicate:result.duplicate,gaps:result.gaps,sent:result.sent,acknowledgements:result.acknowledgements})}</p>
+    {result && <p role="status" className="mail-sync-result">{t('mailSyncReceipt',{applied:result.applied,duplicate:result.duplicate,gaps:result.gaps,sent:result.sent,acknowledgements:result.acknowledgements})}</p>}
     {message && <p role="status" className="mail-sync-result">{message}</p>}
     {error && <ErrorMessage code={error}/>}
     <div className="form-actions"><button type="button" disabled={working} onClick={cancel}>{t('cancel')}</button></div>

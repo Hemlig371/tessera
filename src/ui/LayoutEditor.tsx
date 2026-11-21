@@ -1,4 +1,7 @@
 import { DateSelectionEditor } from './DateSelectionEditor';
+import { QueryTotalsEditor } from './QueryTotalsEditor';
+import { modeFields } from '../core/mode-options';
+import type { SummaryMeasure } from '../core/query-summary';
 import { LayoutRowsEditor } from './LayoutRowsEditor';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +39,7 @@ export function LayoutEditor({
   const items = kind === 'list' ? storedItems : [...storedItems].sort((a, b) => (order.get(a.field_id) ?? Infinity) - (order.get(b.field_id) ?? Infinity));
   const [list, setList] = useState<ListOptions>(definition.list ?? {});
   const [actions, setActions] = useState<QuickActionDefinition[]>(definition.quick_actions ?? []);
+  const [totals, setTotals] = useState<SummaryMeasure[]>(definition.totals ?? []);
   function patch(id: string, value: Partial<LayoutItem>) {
     setItems((old) => old.map((item) => (item.field_id === id ? { ...item, ...value } : item)));
   }
@@ -60,7 +64,7 @@ export function LayoutEditor({
       className="layout-editor"
       onSubmit={(e) => {
         e.preventDefault();
-        save({ ...definition, fields: items, ...(allowQuickActions && kind !== 'form' ? { quick_actions: actions } : {}), ...(kind === 'list' ? { list } : { rows: rows.filter(row => row.field_ids.length) }) });
+        save({ ...definition, fields: items, ...(allowQuickActions && kind !== 'form' ? { quick_actions: actions } : {}), ...(kind === 'list' ? { list, totals } : { rows: rows.filter(row => row.field_ids.length) }) });
       }}
     >
       <p className="screen-hint">{t('independentLayouts')}</p>
@@ -183,15 +187,19 @@ export function LayoutEditor({
             {t('listMode')}
             <select
               value={list.mode ?? 'rows'}
-              onChange={(e) => setList((old) => ({ ...old, mode: e.target.value as ListOptions['mode'] }))}
+              onChange={(e) => setList((old) => ({ ...old, mode: e.target.value as ListOptions['mode'], mode_field: undefined }))}
             >
-              {['rows', 'cards', 'table'].map((mode) => (
+              {(['rows', 'cards', 'table', 'kanban', 'calendar', 'tree'] as const).map((mode) => (
                 <option key={mode} value={mode}>
                   {t(`modes.${mode}`)}
                 </option>
               ))}
             </select>
           </label>
+          {list.mode && ['kanban', 'calendar', 'tree'].includes(list.mode) && <label>{t('modeField')}<select value={list.mode_field ?? ''} onChange={event => setList(old => ({ ...old, mode_field: event.target.value || undefined }))}>
+            <option value="">{t('chooseField')}</option>
+            {modeFields(list.mode, fields, fields[0]?.collection_id ?? '').map(field => <option value={field.id} key={field.id}>{field.name}</option>)}
+          </select></label>}
           <label>
             {t('sortBy')}
             <select
@@ -235,6 +243,7 @@ export function LayoutEditor({
             </select>
           </label>
           <DateSelectionEditor fields={fields} value={list.date_selection} change={value => setList(old => ({ ...old, date_selection: value }))} />
+          <QueryTotalsEditor fields={fields} measures={totals} change={setTotals} busy={busy} />
           <h3>{t('filters')}</h3>
           {list.filters?.map((f, index) => (
             <div className="filter" key={index}>

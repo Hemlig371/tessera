@@ -268,7 +268,10 @@
   "modes": {
     "rows": "Rows",
     "cards": "Cards",
-    "table": "Table"
+    "table": "Table",
+    "kanban": "Kanban",
+    "calendar": "Calendar",
+    "tree": "Tree"
   },
   "operators": {
     "eq": "Equals",
@@ -627,5 +630,38 @@
     "hint": "Relative periods follow the device’s local date. Weeks start on Monday; record date ranges match by overlap.",
     "noFields": "Add a date, local date and time, or date range field.",
     "active": "{{field}}: {{period}}"
-  }
+  },
+  "kanban": "Kanban",
+  "calendar": "Calendar",
+  "tree": "Tree",
+  "queryTotals": "Query totals",
+  "queryTotalsHint": "Computed across all matching records, including pages not yet loaded.",
+  "summaryOperation": "Operation",
+  "summaryField": "Field",
+  "summaryOperations": {
+    "count": "Record count",
+    "counta": "Nonempty",
+    "sum": "Sum",
+    "average": "Average",
+    "min": "Minimum",
+    "max": "Maximum"
+  },
+  "modeField": "View field",
+  "backToView": "Back to view",
+  "moveToColumn": "Move to column",
+  "expandAll": "Expand all",
+  "collapseAll": "Collapse all",
+  "treeCycle": "Relation cycle",
+  "treeMissingParent": "Parent missing from results",
+  "treeDepth": "Level {{count}}",
+  "openCalendarDay": "Open {{date}}, records: {{count}}",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "calendarMonth": "Month",
+  "addTotal": "Add total",
+  "removeTotal": "Remove total {{number}}",
+  "allMatchingRecords": "All matching records",
+  "showAllCount": "Show all ({{count}})",
+  "noEntries": "No records",
+  "today": "Today"
 }

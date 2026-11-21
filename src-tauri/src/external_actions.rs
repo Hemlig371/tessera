@@ -19,6 +19,23 @@ pub async fn external_open_url(url: String) -> Result<(), String> {
         if status.success() { Ok(()) } else { Err("externalOpenFailed".into()) }
     }).await.map_err(|_| "externalOpenFailed")?
 }
+/// Reveal the user-selected export directory after a successful batch operation.
+#[tauri::command]
+pub async fn external_open_folder(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder = std::path::Path::new(&path).canonicalize().map_err(|_| "externalOpenFailed")?;
+        if !folder.is_dir() { return Err("externalOpenFailed".into()); }
+        #[cfg(target_os = "windows")]
+        let mut command = Command::new("explorer.exe");
+        #[cfg(target_os = "macos")]
+        let mut command = Command::new("open");
+        #[cfg(target_os = "linux")]
+        let mut command = Command::new("xdg-open");
+        let status = command.arg(folder).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+            .status().map_err(|_| "externalOpenFailed")?;
+        if status.success() { Ok(()) } else { Err("externalOpenFailed".into()) }
+    }).await.map_err(|_| "externalOpenFailed")?
+}
 /// Open only an explicitly exported iCalendar file in its OS-associated app.
 #[tauri::command]
 pub async fn external_open_calendar_file(path: String) -> Result<(), String> {

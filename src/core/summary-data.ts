@@ -55,7 +55,8 @@ export async function readSummaryWidget(session: SqlSession, libraryId: string, 
   const [profile] = widget.profile_id ? await session.query<{ config: string }>('SELECT config FROM display_profiles WHERE id=?',[widget.profile_id]) : [];
   const actions = profile ? (JSON.parse(profile.config) as { quick_actions?: QuickActionDefinition[] }).quick_actions : undefined;
   const publicFields = fields.filter(field => field.type !== 'secret');
-  const allowed = new Set(publicFields.map(field => field.id));
+  const safe = new Set(publicFields.map(field => field.id));
+  const allowed = new Set([...widget.field_ids, ...(actions?.map(action => action.field_id) ?? [])].filter(id => safe.has(id)));
   // Widget previews must never expose secret values, even in non-rendered object keys.
   const entries = page.items.map(entry => ({
     ...entry,

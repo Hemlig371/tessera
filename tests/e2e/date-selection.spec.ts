@@ -1,9 +1,8 @@
 import { test, expect } from '../support/e2e-test';
 import { openConstructor } from '../support/ui-actions';
 
-// M3-profile-dates-ui: two unsuccessful harness/navigation fixes; see audit.md.
-// Catalog buttons use openLibrary/openCollection labels; the filter itself was not reached.
-test.fixme('profile date conditions persist and change the common record query', async ({ page }) => {
+// M7: verify the previously quarantined date-filter path using current catalog labels.
+test('profile date conditions persist and change the common record query', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
@@ -20,8 +19,8 @@ test.fixme('profile date conditions persist and change the common record query',
   };
   const navigate = async () => {
     await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
-    await page.locator('main').getByRole('button', { name: 'Заметки: профили (dev/CI)', exact: true }).click();
-    await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: профили (dev/CI)»', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   };
   await reopen(); await navigate();
   await expect(page.locator('.entry')).toHaveCount(2);

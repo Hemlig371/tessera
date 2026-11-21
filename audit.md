@@ -1,6 +1,6 @@
 # Tessera — статус и точка продолжения
 
-Срез 21.11.2026: **0.24.0 / Android code 25**, схема `tessera-dev-bootstrap-2`. **M1–M5 приняты; Android M6-подсистема принята по обязательной fresh priority автоматике на функциональном SHA [`fb55ca2`](https://github.com/Hemlig371/tessera/commit/fb55ca2792e041fb0b3f0ea47b81391c77193d74), [GitHub Actions #44932288319](https://github.com/Hemlig371/tessera/actions/runs/44932288319), 8/8 jobs success без baseline/resume. Полный блок M6 ещё НЕ закрыт:** отсутствуют нативный SMTP/IMAP и OS key vault для Windows/macOS; пользователь не разрешал реальные почтовые аккаунты, поэтому межпровайдерский E2E/поведение на физических устройствах не проверены. Старый M5 остаётся принятым отдельно.
+Срез 21.11.2026: **0.24.0 / Android versionCode 25**, схема `tessera-dev-bootstrap-2`. **M1–M6 закрыты по обязательной автоматике.** M6 full fresh priority: функциональный SHA [`2519366a370b68ce28884f1576289b6d3208c989`](https://github.com/Hemlig371/tessera/commit/2519366a370b68ce28884f1576289b6d3208c989), [GitHub Actions #44943126794](https://github.com/Hemlig371/tessera/actions/runs/44943126794) — **8/8 jobs success на одном SHA**, без baseline/resume. Android APK + эмулятор, Windows checks/native/NSIS, macOS arm64 DMG. AES-256-GCM, QR-подключение, Android Keystore, Windows Credential Manager, macOS Keychain, нативный SMTP/IMAP TLS, bounded offline staging, retries/UIDVALIDITY, 2–3 SQLite replica convergence приняты по CI. Реальные почтовые провайдеры, физические устройства/OEM/пользовательская камера не проверялись без разрешения; этот риск отнесён к M7 ручной/провайдерской приёмке, **не считать выполненным**. `target-specification-v4.0.md` не менялся, локальные тесты не запускались.
 Принятый M3 SHA: `83d268d79edd5b5a2cc0c87d4b0670ba372a2f0c`, GitHub Actions [44908239799](https://github.com/Hemlig371/tessera/actions/runs/44908239799). Проверка относится к функциональному SHA; следующая правка audit/README — только документация. Перед дальнейшей работой проверить main. Правила — [AGENTS.md](AGENTS.md), команды — [README.md](README.md).
 
 ## Единственная актуальная очередь
@@ -13,7 +13,7 @@
 | M3 — режимы и сводки (§6–7) | **Закрыт по обязательной автоматике:** даты Today/Week/range, Kanban/календарь/дерево, итоги всего запроса, семь видов библиотечных виджетов/редактор/старты, формулы по связям, ограничения secret, архивный roundtrip. UI-сценарий дат в карантине, визуальная/телефонная приёмка отложена до M7 |
 | M4 — интеграции (§4.1, §8.5, §9, §12) | **Закрыт по обязательной автоматике:** Android OS-auth по библиотекам/recent-apps, Share текст/URL/файлы прямо в Inbox (idempotent UUID), системный календарь/напоминания и desktop .ics, приватная SQLite диагностика, каталог крупных вложений, проверенный batch SAF/Tauri экспорт, ленивый локальный кэш миниатюр изображений ≤24 MiB. Desktop-блокировки нет |
 | M5 — локальный протокол | **Закрыт по обязательной автоматике:** независимые SQLite и файловый mailbox, подтверждённый архивный baseline/checkpoint, типизированные события/курсоры и applied-ACK, повтор/перестановка/gap/rollback/offline, LWW/Top-20/history clear/tombstones, 90-дневная пауза, detach/recovery; малые файлы ≤256 KiB/chunk + SHA-256, крупные только metadata/placeholder. Fresh priority `48aace2` — 8/8 success. Криптографическая и почтовая синхронизация — M6 |
-| M6 — защищённая синхронизация (в работе) | **Android WIP, НЕ принято:** AES-256-GCM authenticated envelopes и криптографическая проверка chunks/ACK; QR + Keystore; собственный SMTP/IMAP TLS, UID/UIDVALIDITY, bounded/проверенная encrypted SQLite очередь, foreground retry и ручной detach. Тесты добавлены, два первых прогона выявили и устранили TS/Kotlin ошибки; финальный Android fresh priority `fb55ca2` — [44932288319](https://github.com/Hemlig371/tessera/actions/runs/44932288319), **8/8 success**. Windows/macOS native email/OS secret storage, реальный провайдер и полноценное восстановление длительного offline остаются открытыми. Без реальных аккаунтов/секретов |
+| M6 — защищённая синхронизация | **Закрыт по обязательной автоматике:** 0.24.0 / Android 25, AES-GCM authenticated packet/ACK/chunk, OS vault на Android/Windows/macOS, QR офлайн и Android camera/desktop image decode с текстовым fallback, SMTP/IMAP TLS native Android Kotlin и Tauri Rust/system-curl, bounded UID/UIDVALIDITY/encrypted staging, 90-дневный safety, retry/ACK, 3 SQLite replicas, LWW/Top-20. Fresh priority `2519366` — [44943126794](https://github.com/Hemlig371/tessera/actions/runs/44943126794), **8/8 success без baseline/resume**. Реальные SMTP/IMAP провайдеры и физические устройства не тестировались без согласия, остаются ручной проверкой в M7 |
 | M7 — сквозная приёмка (§14.3–14.4) | ≥50k/20–30 полей/тысячи связей, безопасность, адаптивность/полировка и широкие UI, физические устройства/OEM/SAF. Карантин исправить либо удалить с ведома пользователя. Гант/граф вне v4.0 |
 
 ## Доказательства приёмки
@@ -224,3 +224,27 @@
 - Функциональный SHA `460b6dae6c68259a3fae12a2b4187d218589204a`, [GitHub Actions #44942161383](https://github.com/Hemlig371/tessera/actions/runs/44942161383), **7/8 success**, не принято: scope, Windows checks, sync-foundation, Windows native-checks, Android APK, Android emulator, macOS desktop — success; **Windows desktop** failed на `cargo test --locked`.
 - Windows desktop log job `136963712218`: `src/sync_secrets.rs:58:22 error[E0425]: cannot find function GetLastError`. Единственное оставшееся обращение при удалении credentials; заменено на `std::io::Error::last_os_error().raw_os_error()==Some(1168)`. Дополнен Rust-контракт допустимых имён Keychain/CredMan. Предыдущий macOS native `Security.framework` код компилировался и desktop bundle прошёл.
 - Следующий функциональный SHA `2519366a370b68ce28884f1576289b6d3208c989` с `[priority ci]`, fresh без baseline/resume. На момент документационной записи итоговый run ещё не известен. Полный M6 не считать принятым до подтверждённых **8/8** на этом SHA.
+
+
+### M6 — полная автоматическая приёмка (закрыто, 21.11.2026)
+
+**Функциональный SHA:** [`2519366a370b68ce28884f1576289b6d3208c989`](https://github.com/Hemlig371/tessera/commit/2519366a370b68ce28884f1576289b6d3208c989). **Fresh priority [#44943126794](https://github.com/Hemlig371/tessera/actions/runs/44943126794), event=push, branch=main, completed/success, 8/8 jobs success**, без baseline и native_resume. GitHub API подтвердил точный `head_sha`; последующие изменения документации только `[skip ci]`, функциональный SHA не менялся.
+
+| Job / ID | Conclusion |
+| --- | --- |
+| scope `136964482982` | success |
+| sync-foundation `136964516601` | success |
+| checks Windows `136964516648` | success |
+| native-checks Windows `136965271605` | success |
+| android-apk `136965271622` | success |
+| android-emulator `136965271625` | success |
+| desktop macOS arm64 DMG `136966461662` | success |
+| desktop Windows x64 NSIS `136966461708` | success |
+
+**Артефакты run:** `tessera-android-debug-apk` (ID `14722392141`), `tessera-windows-x64` (`14722318399`), `tessera-macos-arm64` (`14722314799`), `android-instrumentation-results` (`14722308168`), `scale-metrics-node-windows-latest` и `scale-metrics-native-windows-latest`. Результаты собраны одним run, не смешаны с прошлым M5/Android-базовым SHA.
+
+**Целостность:** не переписывались принятые M5 SQLite replay, HLC/LWW, журнал, архивный baseline, applied-ACK; M6 оборачивает packet/receipt/attachment chunks в аутентифицированные WebCrypto AES-256-GCM с отдельными случайными nonce. Android Kotlin SMTP/IMAP/Keystore/ZXing/camera и desktop Rust SMTP/IMAP через системный TLS curl, Windows CredMan/macOS Keychain, QR, durable encrypted offline stage подключены к общему циклу. После выхода из группы данные остаются локально; у новой группы новый dataset_id и ключ. Ни в SQLite, ни в обычный архив OS-секреты не добавляются.
+
+**Тесты:** Windows core typecheck/lint/unit/DB/smoke, encrypted independent two-/three-replica SQLite, offline-partition concurrent edits, tombstone/history, cryptographic tamper/replay, bounded mail staging и QR; Rust native adapter MIME/UID и key-name contracts; Windows/macOS desktop tests/build; Android APK/emulator. Реальные почтовые ящики и почтовые учётные данные **не применялись**, локальные тесты не запускались, архив передачи не создавался.
+
+**Честная граница автоматической приёмки:** сборка и изолированные контракты **не доказывают** совместимость с конкретным IMAP/SMTP провайдером, OAuth/2FA, фактическое TLS-соединение между физическими устройствами, camera/SAF/OEM-поведение или пользовательский многочасовой/90-дневный сценарий реального ящика. В M7 провести только с явным разрешением пользователя и отдельным тестовым ящиком; не заявлять эти сценарии «проверенными». Linux application optional/не проверялся. **Следующий блок M7** — широкая финальная сквозная приёмка/UI и physical/provider matrix без переписывания законченного M6.

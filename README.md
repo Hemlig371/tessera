@@ -2,7 +2,7 @@
 
 Внутренний dev-документ. Local-first база для Android, Windows, macOS и Linux: React/TypeScript Core + нативные SQLite/Rust/Kotlin, без обязательных сервера, аккаунта и сети.
 
-Версия разработки **0.24.0** (**M6 в разработке, Android encrypted-mail path подтверждён fresh priority на `fb55ca2` ([run #44932288319](https://github.com/Hemlig371/tessera/actions/runs/44932288319), 8/8); Windows/macOS mail ещё не реализован**; M5 принят на SHA [`48aace2`](https://github.com/Hemlig371/tessera/commit/48aace27cdf4740569327db9ba878a34a47d74be), [run #44919215785](https://github.com/Hemlig371/tessera/actions/runs/44919215785), 8/8 jobs), Android **versionCode=25**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
+Версия разработки **0.24.0** (**M1–M6 приняты по обязательной автоматике**; M6 fresh functional SHA [`2519366`](https://github.com/Hemlig371/tessera/commit/2519366a370b68ce28884f1576289b6d3208c989), GitHub Actions [#44943126794](https://github.com/Hemlig371/tessera/actions/runs/44943126794), **8/8 success** без baseline; Android **versionCode 25**, dev-схема `tessera-dev-bootstrap-2`). Реальные почтовые провайдеры и физические устройства без разрешения пользователя не проверены; их ручная приёмка — M7. Единственный актуальный статус/CI-доказательства — [audit.md](audit.md).
 
 | Документ | Назначение |
 | --- | --- |
@@ -13,7 +13,7 @@
 
 ## Карта репозитория
 
-Путь данных: **UI → Repository / TS Core → последовательный SQLite-адаптер → native SQLite**. UI не выполняет SQL; Rust/Kotlin реализуют OS/хранилище, бизнес-правила остаются в TS. Состояние приёмки M1–M5, ограничения и текущая работа M6 — только в [audit.md](audit.md).
+Путь данных: **UI → Repository / TS Core → последовательный SQLite-адаптер → native SQLite**. UI не выполняет SQL; Rust/Kotlin реализуют OS/хранилище, бизнес-правила остаются в TS. Состояние приёмки M1–M6 и очередь M7 — только в [audit.md](audit.md).
 
 | Где | Что искать / точка входа |
 | --- | --- |
@@ -25,7 +25,8 @@
 | [history.ts](src/core/history.ts), [hlc.ts](src/core/hlc.ts), [change-journal.ts](src/core/change-journal.ts), [trash.ts](src/core/trash.ts) | История, часы, журнал и tombstones — основа принятого M5 local sync |
 | [sync-protocol.ts](src/core/sync-protocol.ts), [sync-apply.ts](src/core/sync-apply.ts), [sync-safety.ts](src/core/sync-safety.ts), [local-sync-engine.ts](src/core/local-sync-engine.ts), [local-sync-attachments.ts](src/core/local-sync-attachments.ts) | **M5 принят:** локальные валидированные пакеты, SQLite replay/ACK, 90-дневная защита, файловый mailbox и chunk-передача; шифрование и почтовый SMTP/IMAP транспорт — только M6 |
 | [secure-sync-envelope.ts](src/core/secure-sync-envelope.ts), [encrypted-sync-mailbox.ts](src/core/encrypted-sync-mailbox.ts), [sync-pairing.ts](src/core/sync-pairing.ts) | M6: AES-256-GCM authenticated envelopes/receipts/chunks, проверяемая QR-приглашение и защита от переполнения/подделки; M5 core replay не заменяется |
-| [mail-sync-cycle.ts](src/platform/mail-sync-cycle.ts), [mail-sync-stage.ts](src/platform/mail-sync-stage.ts), [mail-sync-setup.ts](src/platform/mail-sync-setup.ts), [AndroidMailSyncSettings.tsx](src/ui/AndroidMailSyncSettings.tsx) | M6 Android WIP: ручное включение почтового обмена, SMTP/IMAP plugin, Keystore, QR через ZXing/OS camera, защищённая offline inbox очередь и foreground 15-minute opt-in; Windows/macOS email не готовы |
+| [mail-sync-cycle.ts](src/platform/mail-sync-cycle.ts), [mail-sync-stage.ts](src/platform/mail-sync-stage.ts), [mail-sync-setup.ts](src/platform/mail-sync-setup.ts), [AndroidMailSyncSettings.tsx](src/ui/AndroidMailSyncSettings.tsx) | M6 принят по автоматике: opt-in почта с общим encrypted mailbox, Android SMTP/IMAP/Keystore/ZXing/camera, Windows/macOS системный TLS SMTP/IMAP и CredMan/Keychain, QR offline, защищённая inbox stage и foreground 15-minute scheduler; реальные провайдеры требуют отдельного разрешения |
+| [src-tauri/src/sync_mail.rs](src-tauri/src/sync_mail.rs), [src-tauri/src/sync_secrets.rs](src-tauri/src/sync_secrets.rs), [src/platform/sync-qr.ts](src/platform/sync-qr.ts) | M6 desktop native: системный curl с TLS для SMTP/IMAP и OS secret vault (Windows Credential Manager/macOS Keychain), offline QR; внешнего сервиса для QR и браузерного credential fallback нет |
 | [database-archive.ts](src/core/database-archive.ts), [archive-zip.ts](src/core/archive-zip.ts), [attachments.ts](src/core/attachments.ts) | Логический экспорт/импорт, ZIP и файловые ссылки/GC |
 | [src/platform/open.ts](src/platform/open.ts), [serial-database.ts](src/platform/serial-database.ts) | Выбор native-платформы и сериализация; остальные адаптеры — рядом |
 | [src-tauri/src](src-tauri/src), [src-tauri/sqlite-bridge](src-tauri/sqlite-bridge) | Desktop OS/SQLite/replacement и общий Rust test-driver |

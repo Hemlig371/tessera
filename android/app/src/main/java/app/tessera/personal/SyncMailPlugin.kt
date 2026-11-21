@@ -152,7 +152,7 @@ class SyncMailPlugin : Plugin() {
             if(after<0 || limit !in 1..256) throw IllegalArgumentException()
             var validity=0L
             val messages=JSArray()
-            var highestUid=after.toLong()
+            var lastFetchedUid=after.toLong()
             connect(a).use { ch ->
                 if(!ch.line().startsWith("* OK",ignoreCase=true)) throw IllegalStateException()
                 // AUTHENTICATE PLAIN avoids exposing account credentials in IMAP command lines.
@@ -178,10 +178,11 @@ class SyncMailPlugin : Plugin() {
                 imap(ch,"a03","UID SEARCH UID $start:*") { line,_ ->
                     if(line.startsWith("* SEARCH",true)) {
                         for(s in line.removePrefix("* SEARCH").trim().split(" "))
-                            s.toLongOrNull()?.let { if(it>after) { found.add(it);highestUid=maxOf(highestUid,it) } }
+                            s.toLongOrNull()?.let { if(it>after) found.add(it) }
                     }
                 }
                 for(uid in found.sorted().take(limit)) {
+                    lastFetchedUid=uid
                     imap(ch,"a04","UID FETCH $uid (UID BODY.PEEK[])") { line,channel ->
                         val literalSize=Regex("\\{(\\d+)\\}$").find(line)?.groupValues?.get(1)?.toIntOrNull()
                         if(literalSize!=null) {
@@ -211,7 +212,7 @@ class SyncMailPlugin : Plugin() {
                 }
                 ch.send("a05 LOGOUT\r\n")
             }
-            JSObject().put("uidValidity",validity.toString()).put("maxUid",highestUid.toString()).put("messages",messages)
+            JSObject().put("uidValidity",validity.toString()).put("lastFetchedUid",lastFetchedUid.toString()).put("messages",messages)
         }
     }
 }

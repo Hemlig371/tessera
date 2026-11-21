@@ -27,6 +27,7 @@ import { entryRules, FieldError, prepareEntryData, RowError } from './entry-data
 import { activeCollection, activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 import { queryEntries } from './queries';
 import { AppError } from './errors';
+import { safeDiagnosticReport } from './diagnostics';
 import { assertHlc, nextHlc } from './hlc';
 import { canonical, localTimestamp } from './model';
 import type {
@@ -82,6 +83,7 @@ export class Repository {
     private readonly files: BinaryFileAdapter | null
   ) {}
   get datasetId(): string { return this.currentDatasetId; }
+  diagnosticReport() { return safeDiagnosticReport(this.db); }
   static async open(db: DatabaseAdapter, files: BinaryFileAdapter | null = null): Promise<Repository> {
     const ids = await db.transaction(async (s) => {
       const [format] = await s.query<{ value: string }>(

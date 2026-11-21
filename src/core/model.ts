@@ -144,7 +144,8 @@ export interface ListOptions {
   sort_field?: string;
   direction?: 'asc' | 'desc';
   filters?: EntryFilter[];
-  mode?: 'rows' | 'cards' | 'table';
+  mode?: import('./mode-options').CollectionMode;
+  mode_field?: string;
   group_field?: string;
 }
 export interface UiDefinition {

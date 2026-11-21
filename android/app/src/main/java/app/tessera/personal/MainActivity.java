@@ -1,6 +1,7 @@
 package app.tessera.personal;
 
 import android.os.Bundle;
+import android.view.WindowManager;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -10,6 +11,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BinaryFilesPlugin.class);
         registerPlugin(LocalFilesPlugin.class);
         registerPlugin(ExternalActionsPlugin.class);
+        registerPlugin(DeviceAuthPlugin.class);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); // Hide sensitive previews in recent apps.
         super.onCreate(savedInstanceState);
     }
 }

@@ -25,6 +25,13 @@ describe('CI scope', () => {
     expect(ciScope({ name: 'workflow_dispatch', target: 'android', fullNative: false })).toMatchObject({ native: false, bridge: false, desktop: false });
     expect(() => ciScope({ name: 'workflow_dispatch', target: 'unknown' })).toThrow('Unsupported native target');
   });
+  it('runs fresh priority native checks only for explicit main push checkpoint, without Linux application jobs', () => {
+    const scope = ciScope({ name: 'push', ref: 'refs/heads/main', message: 'feat: M3 acceptance [priority ci]' }, ['package.json']);
+    expect(scope).toMatchObject({ native: true, target: 'priority', bridge: true, desktop: true, checkMatrix: ['windows-latest'], bridgeMatrix: ['windows-latest'] });
+    expect(scope.desktopMatrix.map(job => job.os)).toEqual(['windows-latest', 'macos-15']);
+    expect(ciScope({ name: 'push', ref: 'refs/heads/other', message: '[priority ci]' }, ['package.json']).target).toBe('all');
+    expect(ciScope({ name: 'pull_request', ref: 'refs/heads/main', message: '[priority ci]' }, ['package.json']).target).toBe('all');
+  });
   it('never narrows automatic native acceptance using an unrelated manual target', () => {
     expect(ciScope({ name: 'push', target: 'android' }, ['android/app/build.gradle'])).toMatchObject({ native: true, bridge: true, desktop: true, target: 'all' });
   });

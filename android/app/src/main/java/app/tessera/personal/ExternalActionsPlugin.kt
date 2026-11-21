@@ -136,8 +136,8 @@ class ExternalActionsPlugin : Plugin() {
                     .putExtra(CalendarContract.Events.ALL_DAY, allDay)
                 call.getString("description")?.let { intent.putExtra(CalendarContract.Events.DESCRIPTION, it) }
                 call.getString("location")?.let { intent.putExtra(CalendarContract.Events.EVENT_LOCATION, it) }
-                if (intent.resolveActivity(context.packageManager) == null) call.reject("calendarUnavailable")
-                else { activity.startActivity(intent); call.resolve() }
+                activity.startActivity(intent)
+                call.resolve()
             } catch (_: Exception) { call.reject("calendarUnavailable") }
         }
     }
@@ -150,8 +150,8 @@ class ExternalActionsPlugin : Plugin() {
                 val intent = Intent("android.intent.action.CREATE_REMINDER")
                     .putExtra(Intent.EXTRA_TITLE, title)
                     .putExtra(Intent.EXTRA_TEXT, call.getString("description") ?: "")
-                if (intent.resolveActivity(context.packageManager) == null) call.reject("reminderUnavailable")
-                else { activity.startActivity(intent); call.resolve() }
+                activity.startActivity(intent)
+                call.resolve()
             } catch (_: Exception) { call.reject("reminderUnavailable") }
         }
     }

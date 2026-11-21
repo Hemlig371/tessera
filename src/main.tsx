@@ -2,7 +2,7 @@ import { DatabaseArchive } from './ui/DatabaseArchive';
 import { databaseInitialized } from './core/database-archive';
 import type { DatabaseAdapter, BinaryFileAdapter } from './core/ports';
 import { openBinaryFiles } from './platform/binary-files';
-import { acknowledgeAndroidShare, pendingAndroidShares, subscribeAndroidShares } from './platform/external-actions';
+import { acknowledgeAndroidShare, pendingAndroidShares, sharedFileSource, subscribeAndroidShares } from './platform/external-actions';
 import { createRoot } from 'react-dom/client';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -46,7 +46,25 @@ function Root() {
           if (pending.error) throw new Error(pending.error);
           for (const share of pending.items) {
             const inbox = await api.getInbox();
-            await api.saveNewEntry(inbox.id, { [inbox.incoming_field_id]: share.text }, share.id);
+            const previous = await api.getEntry(share.id);
+            if (previous) {
+              if (previous.collection_id !== inbox.id) throw new Error('staleRecord');
+              await acknowledgeAndroidShare(share.id);
+              continue;
+            }
+            const fileFields = share.files.length ? await api.listFields(inbox.id) : [];
+            const attachmentField = fileFields.find(field => field.type === 'file');
+            if (share.files.length && !attachmentField) throw new Error('invalidAttachment');
+            const ids: string[] = [];
+            for (const file of share.files) {
+              const staged = await api.stageAttachment(inbox.id, share.id, sharedFileSource(share.id, file));
+              ids.push(staged.id);
+            }
+            const text = share.text.trim() || share.files.map(file => file.name).join('\n');
+            await api.saveNewEntry(inbox.id, {
+              [inbox.incoming_field_id]: text,
+              ...(attachmentField ? { [attachmentField.id]: ids } : {}),
+            }, share.id);
             await acknowledgeAndroidShare(share.id);
           }
         } while (again && alive);

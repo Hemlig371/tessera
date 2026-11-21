@@ -663,5 +663,41 @@
   "allMatchingRecords": "Все подходящие записи",
   "showAllCount": "Показать все ({{count}})",
   "noEntries": "Нет записей",
-  "today": "Сегодня"
+  "today": "Сегодня",
+  "librarySummary": "Сводка библиотеки",
+  "summaryEmpty": "Нет виджетов",
+  "summaryEmptyHint": "Добавьте виджеты в конструкторе библиотеки.",
+  "summaryEditorHint": "Виджеты используют записи и профили коллекций библиотеки. Пустой профиль означает независимый запрос без фильтров по умолчанию.",
+  "summaryNewWidget": "Новый виджет",
+  "summaryTitle": "Название виджета",
+  "summaryKind": "Тип виджета",
+  "summarySource": "Коллекция",
+  "summaryWidth": "Ширина (колонки)",
+  "summaryNoProfile": "Без профиля — все записи",
+  "summaryFormulaIdsHint": "Формула в каноническом формате: английские функции и UUID полей, например SUM([UUID]).",
+  "summaryGoalLabel": "Цель",
+  "summaryChartStyle": "Тип диаграммы",
+  "summaryBar": "Столбцы",
+  "summaryLine": "Линия",
+  "summaryPeriod": "Период группировки",
+  "summaryPeriods": {
+    "value": "Значения",
+    "day": "День",
+    "week": "Неделя",
+    "month": "Месяц"
+  },
+  "summaryLimit": "Количество записей (до 50)",
+  "summaryAddWidget": "Добавить виджет",
+  "summaryKinds": {
+    "metric": "Показатель",
+    "progress": "Прогресс",
+    "chart": "Диаграмма",
+    "list": "Список",
+    "table": "Таблица",
+    "calendar": "Календарь",
+    "create": "Создать запись"
+  },
+  "summaryGoal": "Цель: {{goal}}",
+  "summaryOpenSource": "Открыть коллекцию",
+  "summaryChartLimit": "Показано {{count}} из {{total}} групп"
 }

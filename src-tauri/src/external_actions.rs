@@ -19,6 +19,25 @@ pub async fn external_open_url(url: String) -> Result<(), String> {
         if status.success() { Ok(()) } else { Err("externalOpenFailed".into()) }
     }).await.map_err(|_| "externalOpenFailed")?
 }
+/// Open only an explicitly exported iCalendar file in its OS-associated app.
+#[tauri::command]
+pub async fn external_open_calendar_file(path: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let file = std::path::Path::new(&path).canonicalize().map_err(|_| "externalOpenFailed")?;
+        if !file.is_file() || !file.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("ics")) {
+            return Err("externalOpenFailed".into());
+        }
+        #[cfg(target_os = "windows")]
+        let mut command = { let mut c = Command::new("rundll32.exe"); c.arg("url.dll,FileProtocolHandler"); c };
+        #[cfg(target_os = "macos")]
+        let mut command = Command::new("open");
+        #[cfg(target_os = "linux")]
+        let mut command = Command::new("xdg-open");
+        let status = command.arg(file).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+            .status().map_err(|_| "externalOpenFailed")?;
+        if status.success() { Ok(()) } else { Err("externalOpenFailed".into()) }
+    }).await.map_err(|_| "externalOpenFailed")?
+}
 #[cfg(test)]
 mod tests {
     use super::*;

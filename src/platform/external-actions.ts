@@ -2,11 +2,13 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor
 import { AppError } from '../core/errors';
 import { externalUrl } from '../core/markdown';
 import { UUID_RE } from '../core/model';
+import type { ByteSource } from '../core/attachments';
 const native = registerPlugin<{
   openUrl(options: { url: string }): Promise<void>;
   createCalendarEvent(options: { title: string; start: number; end: number; allDay: boolean; description?: string; location?: string }): Promise<void>;
   createReminder(options: { title: string; description?: string }): Promise<void>;
-  pendingSharedText(): Promise<{ items: Array<{ id: string; text: string }>; error?: string }>;
+  pendingSharedText(): Promise<{ items: Array<{ id: string; text: string; files?: Array<{ index: number; name: string; mime: string; size: number }> }>; error?: string }>;
+  readSharedFile(options: { id: string; index: number; offset: number; length: number }): Promise<{ data: string }>;
   ackSharedText(options: { id: string }): Promise<void>;
   addListener(name: 'shareReceived', listener: () => void): Promise<PluginListenerHandle>;
   shortcutSupported(): Promise<{ supported: boolean }>;
@@ -51,7 +53,7 @@ export async function openAndroidReminder(title: string, description?: string): 
   await native.createReminder({ title, description });
 }
 
-export interface IncomingSharedText { id: string; text: string }
+export interface IncomingSharedText { id: string; text: string; files: Array<{ index: number; name: string; mime: string; size: number }> }
 export async function pendingAndroidShares(): Promise<{ items: IncomingSharedText[]; error?: string }> {
   if (Capacitor.getPlatform() !== 'android') return { items: [] };
   const result = await native.pendingSharedText();
@@ -60,7 +62,12 @@ export async function pendingAndroidShares(): Promise<{ items: IncomingSharedTex
     if (typeof item?.id !== 'string' || !UUID_RE.test(item.id) ||
       typeof item.text !== 'string' || !item.text || item.text.length > 65536)
       throw new AppError('invalidSharedText');
-    return { id: item.id, text: item.text };
+    const files = item.files ?? [];
+    if (!Array.isArray(files) || files.length > 16 ||
+        files.some((file, index) => !file || file.index !== index || typeof file.name !== 'string' ||
+          !file.name || typeof file.mime !== 'string' || !Number.isSafeInteger(file.size) || file.size < 0))
+      throw new AppError('invalidSharedFile');
+    return { id: item.id, text: item.text, files };
   });
   return { items, error: result.error };
 }
@@ -73,4 +80,20 @@ export async function subscribeAndroidShares(listener: () => void): Promise<() =
   if (Capacitor.getPlatform() !== 'android') return () => undefined;
   const handle = await native.addListener('shareReceived', listener);
   return () => { void handle.remove().catch(() => undefined); };
+}
+
+/** Share bytes live in a private OS staging area, never in navigation state. */
+export function sharedFileSource(shareId: string, file: IncomingSharedText['files'][number]): ByteSource {
+  if (!UUID_RE.test(shareId) || !Number.isInteger(file.index) || file.index < 0 || file.index > 15) throw new AppError('invalidSharedFile');
+  return {
+    name: file.name, mime: file.mime, size: file.size,
+    async read(offset, length) {
+      if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 1 || length > 256 * 1024 || offset + length > file.size)
+        throw new AppError('invalidSharedFile');
+      const result = await native.readSharedFile({ id: shareId, index: file.index, offset, length });
+      const binary = atob(result.data);
+      if (binary.length !== length) throw new AppError('invalidSharedFile');
+      return Uint8Array.from(binary, char => char.charCodeAt(0));
+    },
+  };
 }

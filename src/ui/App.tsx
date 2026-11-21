@@ -700,7 +700,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       pendingRecordReturn.current = searchRecordOrigin.current; searchRecordOrigin.current = null;
       ui.leaveSearch();
     }
-    else if (ui.screen === 'records' && ui.libraryId && !collection?.system_kind) ui.select(ui.libraryId);
+    else if ((ui.screen === 'records' || ui.screen === 'summary') && ui.libraryId && !collection?.system_kind) ui.select(ui.libraryId);
     else ui.home();
   }, [busy, rememberBrowse, ui, collection?.system_kind]);
   useEffect(() => {
@@ -1071,8 +1071,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             month={(widget, value) => setSummaryMonths(old => ({ ...old, [widget.id]: value }))}
             day={(widget, date) => { clearRecordContext(); ui.select(library.id, widget.collection_id, widget.profile_id); setDrilldown({ scope: widget.collection_id, field: widget.kind === 'calendar' ? widget.calendar_field : '', value: date, date }); }} />
         ) : ui.screen === 'library' && library ? (
-          <Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
-            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} />
+          <><button type="button" disabled={disabled} onClick={() => { clearRecordContext(); ui.selectSummary(library.id); }}>{t('librarySummary')}</button><Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
+            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} /></>
         ) : !browsing ? (
           <div className="empty">
             <h2>{t('chooseCollection')}</h2>

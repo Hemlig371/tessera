@@ -69,6 +69,9 @@ class SyncMailPlugin : Plugin() {
         try {
             val ssl=SSLSocketFactory.getDefault().createSocket(plain,account.host,account.port,true) as SSLSocket
             ssl.soTimeout=18000
+            val params=ssl.sslParameters
+            params.endpointIdentificationAlgorithm="HTTPS"
+            ssl.sslParameters=params
             ssl.startHandshake()
             return Channel(ssl)
         } catch(e:Exception){plain.close();throw e}
@@ -99,7 +102,6 @@ class SyncMailPlugin : Plugin() {
         }
         throw IllegalStateException("mailLimit")
     }
-    private fun encoded(value:String)=Base64.encodeToString(value.toByteArray(Charsets.UTF_8),Base64.NO_WRAP)
     private fun launch(call:PluginCall,block:()->JSObject) {
         thread(name="tessera-sync-mail") {
             try { call.resolve(block()) }

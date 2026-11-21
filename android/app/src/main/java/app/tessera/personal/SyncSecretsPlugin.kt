@@ -56,7 +56,7 @@ class SyncSecretsPlugin : Plugin() {
         val name = call.getString("name")
         if (name !in names) { call.reject("invalidSyncSecret"); return }
         val encoded = prefs.getString(name, null)
-        if (encoded == null) { call.resolve(JSObject().put("value", JSObject.NULL)); return }
+        if (encoded == null) { call.resolve(JSObject().put("value", org.json.JSONObject.NULL)); return }
         try {
             val data = Base64.decode(encoded, Base64.NO_WRAP)
             if (data.size < 29) throw IllegalArgumentException()

@@ -59,6 +59,8 @@ describe('M6 AES-GCM authenticated transport',()=>{
     await a.attachments!.writeChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:0,bytes:chunk});
     expect(chunks.get(sender+':'+change.id+':0')).not.toEqual(chunk);
     expect(await b.attachments!.readChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:0,length:512})).toEqual(chunk);
+    await a.attachments!.writeChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:512,bytes:new Uint8Array(0)});
+    expect(chunks.get(sender+':'+change.id+':512')?.length).toBeGreaterThan(0);
     await expect(b.attachments!.readChunk({dataset_id:dataset,source_id:receiver,attachment_id:change.id,offset:0,length:512}))
       .rejects.toThrow('invalidSyncPacket');
   });

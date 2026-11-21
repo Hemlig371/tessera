@@ -36,7 +36,7 @@ export async function runAndroidMailSyncCycle(
   }
   const {transport,commitCursor}=androidEmailTransport({...connection,password},cursor,api.datasetId,api.deviceId);
   const mailbox=encryptedSyncMailbox(transport,key,api.datasetId,api.deviceId);
-  const result=await runLocalSyncCycle(api,mailbox,peers,limit);
+  const result=await runLocalSyncCycle(api,mailbox,peers,limit,1400*1024);
   // The local inbox/outbox DB commits precede IMAP cursor advancement.
   const next=commitCursor();
   await api.db.transaction(s=>s.execute(

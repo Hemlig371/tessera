@@ -27,10 +27,11 @@ function receiptBytes(receipt: SyncReceipt): Uint8Array {
 }
 /** Poll a local mailbox. Retains gaps for later cycles; no cursor advances on failed work. */
 export async function runLocalSyncCycle(
-  api: Repository, mailbox: LocalSyncMailbox, peers: readonly string[], limit = 100
+  api: Repository, mailbox: LocalSyncMailbox, peers: readonly string[], limit = 100, maxPacketBytes = 8 * 1024 * 1024
 ): Promise<LocalSyncCycleResult> {
   if ((await api.localSyncSafety()).mode !== 'active') throw new AppError('invalidSyncState');
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200 ||
+  if (!Number.isSafeInteger(maxPacketBytes) || maxPacketBytes < 1024 || maxPacketBytes > 8 * 1024 * 1024 ||
+      !Number.isSafeInteger(limit) || limit < 1 || limit > 200 ||
       peers.length < 1 || peers.length > 32 || new Set(peers).size !== peers.length ||
       peers.some(id => !UUID_RE.test(id) || id === api.deviceId)) throw new AppError('invalidSyncPacket');
   const result: LocalSyncCycleResult = { applied:0, duplicate:0, gaps:0, sent:0, acknowledgements:0 };
@@ -79,7 +80,13 @@ export async function runLocalSyncCycle(
     const ack = await api.localSyncPeerAck(peerId);
     if (ack === null) await api.acknowledgeLocalChanges(peerId,{dataset_id:api.datasetId,seq:0});
     const after = { dataset_id:api.datasetId,seq:ack ?? 0 };
-    const packet = await api.exportLocalSyncPacket(after,limit);
+    let pageLimit = limit;
+    let packet = await api.exportLocalSyncPacket(after,pageLimit);
+    while (packet && encodeLocalPacket(packet).length > maxPacketBytes && pageLimit > 1) {
+      pageLimit = Math.max(1, Math.floor(pageLimit / 2));
+      packet = await api.exportLocalSyncPacket(after,pageLimit);
+    }
+    if (packet && encodeLocalPacket(packet).length > maxPacketBytes) throw new AppError('invalidLimit');
     if (packet) {
       if (mailbox.attachments) for (const event of packet.events) {
         if (event.entity_type !== 'attachment' || event.payload.purged !== 0 ||

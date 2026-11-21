@@ -18,7 +18,7 @@ export interface SecureEnvelope extends SecureHeader {
 }
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
-const MAX_PLAINTEXT = 1536 * 1024;
+const MAX_PLAINTEXT = 1400 * 1024;
 const MAX_WIRE = 2 * 1024 * 1024;
 const fail = (): never => { throw new AppError('invalidSyncPacket'); };
 const isObject = (x: unknown): x is Record<string,unknown> =>
@@ -56,7 +56,7 @@ function parse(input: unknown): SecureEnvelope {
 /** The 32-byte group secret must come from OS secure storage, never SQLite or a log. */
 export async function importGroupKey(secret: Uint8Array): Promise<CryptoKey> {
   if (!(secret instanceof Uint8Array) || secret.byteLength !== 32) return fail();
-  return crypto.subtle.importKey('raw',secret,{name:'AES-GCM'},false,['encrypt','decrypt']);
+  return crypto.subtle.importKey('raw',new Uint8Array(secret),{name:'AES-GCM'},false,['encrypt','decrypt']);
 }
 function validatePayload(kind: SecureKind, plain: Uint8Array, h: SecureHeader): void {
   if (kind === 'chunk') return;
@@ -84,7 +84,7 @@ export async function sealSyncBytes(
   validatePayload(h.kind,plain,h);
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
-    {name:'AES-GCM',iv:nonce,additionalData:header(h),tagLength:128},key,plain));
+    {name:'AES-GCM',iv:nonce,additionalData:header(h),tagLength:128},key,new Uint8Array(plain)));
   const wire = encoder.encode(canonical({...h,nonce:base64(nonce),ciphertext:base64(ciphertext)} as JsonValue));
   if (wire.length > MAX_WIRE) return fail();
   return wire;
@@ -114,7 +114,7 @@ export async function openSyncBytes(
       key.algorithm.name !== 'AES-GCM' || !key.usages.includes('decrypt')) return fail();
   try {
     const bytes = new Uint8Array(await crypto.subtle.decrypt(
-      {name:'AES-GCM',iv:nonce,additionalData:header(h),tagLength:128},key,ciphertext));
+      {name:'AES-GCM',iv:nonce,additionalData:header(h),tagLength:128},key,new Uint8Array(ciphertext)));
     validatePayload(h.kind,bytes,h);
     return {header:h,bytes};
   } catch { return fail(); }

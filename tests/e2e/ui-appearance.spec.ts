@@ -36,6 +36,7 @@ test('system/light/dark themes and local density/text size persist without recor
   await page.getByRole('button', { name: 'Сохранить оформление' }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await expect(root).toHaveAttribute('data-theme', 'light');
+  await page.screenshot({ path: 'test-results/m65-phone-light-150.png', fullPage: true });
   await expect(root).toHaveAttribute('data-density', 'compact');
   expect(await root.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(darkBackground);
   expect(await query()).toEqual(before);

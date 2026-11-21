@@ -11,6 +11,7 @@ export interface SecureHeader {
   sender_id: string;
   kind: SecureKind;
   message_id: string;
+  offset?: number;
 }
 export interface SecureEnvelope extends SecureHeader {
   nonce: string;
@@ -49,8 +50,12 @@ function parse(input: unknown): SecureEnvelope {
   if (!isObject(input) || input.format !== 'tessera-secure-sync' || input.version !== 1 ||
       !uuid(input.dataset_id) || !uuid(input.sender_id) || !uuid(input.message_id) ||
       !['packet','receipt','chunk'].includes(String(input.kind)) ||
-      Object.keys(input).sort().join(',') !==
-      'ciphertext,dataset_id,format,kind,message_id,nonce,sender_id,version') return fail();
+      (input.kind === 'chunk'
+        ? (!Number.isSafeInteger(input.offset) || (input.offset as number) < 0 ||
+          Object.keys(input).sort().join(',') !==
+          'ciphertext,dataset_id,format,kind,message_id,nonce,offset,sender_id,version')
+        : (input.offset !== undefined || Object.keys(input).sort().join(',') !==
+          'ciphertext,dataset_id,format,kind,message_id,nonce,sender_id,version'))) return fail();
   return input as unknown as SecureEnvelope;
 }
 /** The 32-byte group secret must come from OS secure storage, never SQLite or a log. */
@@ -80,7 +85,8 @@ export async function sealSyncBytes(
       (plain.byteLength === 0 && metadata.kind !== 'chunk') || key.algorithm.name !== 'AES-GCM' || !key.usages.includes('encrypt')) return fail();
   const h: SecureHeader = {format:'tessera-secure-sync',version:1,...metadata};
   if (!uuid(h.dataset_id) || !uuid(h.sender_id) || !uuid(h.message_id) ||
-      !['packet','receipt','chunk'].includes(h.kind)) return fail();
+      !['packet','receipt','chunk'].includes(h.kind) ||
+      (h.kind === 'chunk' ? !Number.isSafeInteger(h.offset) || h.offset! < 0 : h.offset !== undefined)) return fail();
   validatePayload(h.kind,plain,h);
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
@@ -102,7 +108,8 @@ function parseWire(wire: Uint8Array) {
   if (nonce.length !== 12 || ciphertext.length < 16) return fail();
   const h: SecureHeader = {format:envelope.format,version:envelope.version,
     dataset_id:envelope.dataset_id,sender_id:envelope.sender_id,
-    kind:envelope.kind,message_id:envelope.message_id};
+    kind:envelope.kind,message_id:envelope.message_id,
+    ...(envelope.kind === 'chunk' ? {offset:envelope.offset} : {})};
   return {header:h,nonce,ciphertext};
 }
 /** Authentication is checked before any packet parsing or SQLite effects. */

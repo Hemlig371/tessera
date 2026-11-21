@@ -19,8 +19,9 @@ export function encryptedSyncMailbox(
   transport: OpaqueSyncTransport, key: CryptoKey, datasetId: string, deviceId: string
 ): LocalSyncMailbox {
   if (!UUID_RE.test(datasetId) || !UUID_RE.test(deviceId)) throw new AppError('invalidId');
-  const wrap = async (kind: SecureKind, messageId: string, bytes: Uint8Array) =>
-    sealSyncBytes(key,{dataset_id:datasetId,sender_id:deviceId,kind,message_id:messageId},bytes);
+  const wrap = async (kind: SecureKind, messageId: string, bytes: Uint8Array, offset?:number) =>
+    sealSyncBytes(key,{dataset_id:datasetId,sender_id:deviceId,kind,message_id:messageId,
+      ...(kind === 'chunk' ? {offset} : {})},bytes);
   const list = async (kind: 'packet'|'receipt') => {
     const encrypted = await transport.list(kind);
     if (encrypted.length > 2048) throw new AppError('invalidLimit');
@@ -53,7 +54,7 @@ export function encryptedSyncMailbox(
             chunk.bytes.length > 256*1024) throw new AppError('invalidSyncPacket');
         // Deterministic logical ID for transport lookup, never used as an IV.
         await transport.attachments!.put(deviceId,chunk.attachment_id,chunk.offset,
-          await wrap('chunk',chunk.attachment_id,chunk.bytes));
+          await wrap('chunk',chunk.attachment_id,chunk.bytes,chunk.offset));
       },
       async readChunk(req) {
         if (req.dataset_id !== datasetId || !UUID_RE.test(req.source_id) ||
@@ -62,7 +63,7 @@ export function encryptedSyncMailbox(
         const opened = await openSyncBytes(key,
           await transport.attachments!.get(req.source_id,req.attachment_id,req.offset),{dataset_id:datasetId,kind:'chunk'});
         if (opened.header.sender_id !== req.source_id ||
-            opened.header.message_id !== req.attachment_id ||
+            opened.header.message_id !== req.attachment_id || opened.header.offset !== req.offset ||
             opened.bytes.length !== req.length) throw new AppError('invalidSyncPacket');
         return opened.bytes;
       },

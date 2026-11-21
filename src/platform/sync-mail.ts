@@ -43,7 +43,7 @@ export function androidEmailTransport(
   };
   const send=async(kind:'packet'|'receipt'|'chunk',source:string,id:string,offset:number,wire:Uint8Array)=>{
     const h=inspectSecureHeader(wire);
-    if(h.dataset_id!==datasetId || h.sender_id!==deviceId || h.kind!==kind || h.message_id!==id || source!==deviceId)
+    if(h.dataset_id!==datasetId || h.sender_id!==deviceId || h.kind!==kind || h.message_id!==id || h.offset!==(kind==='chunk'?offset:undefined) || source!==deviceId)
       throw new AppError('invalidSyncPacket');
     await native.send({...connection,kind,source,id,offset,payload:to64(wire)});
   };

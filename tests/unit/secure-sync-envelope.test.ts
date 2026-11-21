@@ -61,6 +61,11 @@ describe('M6 AES-GCM authenticated transport',()=>{
     expect(await b.attachments!.readChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:0,length:512})).toEqual(chunk);
     await a.attachments!.writeChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:512,bytes:new Uint8Array(0)});
     expect(chunks.get(sender+':'+change.id+':512')?.length).toBeGreaterThan(0);
+    const forgedChunk=JSON.parse(new TextDecoder().decode(chunks.get(sender+':'+change.id+':0')!));
+    forgedChunk.offset=512;
+    chunks.set(sender+':'+change.id+':0',new TextEncoder().encode(JSON.stringify(forgedChunk)));
+    await expect(b.attachments!.readChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:0,length:512}))
+      .rejects.toThrow('invalidSyncPacket');
     await expect(b.attachments!.readChunk({dataset_id:dataset,source_id:receiver,attachment_id:change.id,offset:0,length:512}))
       .rejects.toThrow('invalidSyncPacket');
   });

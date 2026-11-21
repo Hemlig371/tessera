@@ -51,8 +51,16 @@ export async function readSummaryWidget(session: SqlSession, libraryId: string, 
     return { kind: 'calendar',days: projection.days,month: projection.month };
   }
   if (widget.kind !== 'list' && widget.kind !== 'table') throw new AppError('invalidUiConfig');
-  const entries = (await queryEntries(session,{ ...query,cursor: null,limit: widget.limit })).items;
+  const page = await queryEntries(session, { ...query, cursor: null, limit: widget.limit });
   const [profile] = widget.profile_id ? await session.query<{ config: string }>('SELECT config FROM display_profiles WHERE id=?',[widget.profile_id]) : [];
   const actions = profile ? (JSON.parse(profile.config) as { quick_actions?: QuickActionDefinition[] }).quick_actions : undefined;
-  return { kind: widget.kind,entries,fields: fields.filter(field => field.type !== 'secret'),...(actions ? { actions } : {}) };
+  const publicFields = fields.filter(field => field.type !== 'secret');
+  const allowed = new Set(publicFields.map(field => field.id));
+  // Widget previews must never expose secret values, even in non-rendered object keys.
+  const entries = page.items.map(entry => ({
+    ...entry,
+    data: Object.fromEntries(Object.entries(entry.data).filter(([id]) => allowed.has(id))),
+    ...(entry.relation_previews ? { relation_previews: Object.fromEntries(Object.entries(entry.relation_previews).filter(([id]) => allowed.has(id))) } : {}),
+  }));
+  return { kind: widget.kind, entries, fields: publicFields, ...(actions ? { actions } : {}) };
 }

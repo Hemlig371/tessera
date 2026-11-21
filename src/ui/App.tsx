@@ -4,6 +4,9 @@ import type { SummaryMeasure, SummaryResult } from '../core/query-summary';
 import { QueryTotals } from './QueryTotals';
 import { KanbanBoard } from './KanbanBoard';
 import { CalendarView } from './CalendarView';
+import { LibrarySummaryView, type WidgetState } from './LibrarySummaryView';
+import { LibrarySummaryEditor } from './LibrarySummaryEditor';
+import { librarySummary, type SummaryWidget } from '../core/library-summary';
 import { TreeView } from './TreeView';
 import { localDateLiteral } from '../core/relative-dates';
 import { quickLayout } from '../core/quick-forms';
@@ -121,6 +124,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const [totalsLoading, setTotalsLoading] = useState(false);
   const [totalsError, setTotalsError] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => localDateLiteral().slice(0, 7));
+  const [summaryMonths, setSummaryMonths] = useState<Record<string, string>>({});
+  const [widgetStates, setWidgetStates] = useState<Record<string, WidgetState>>({});
   const [drilldown, setDrilldown] = useState<{ scope: string; field: string; value: import('../core/model').JsonValue; date?: string } | null>(null);
   const [context, setContext] = useState<Context | null>(null),
     [revision, refresh] = useState(0);
@@ -187,7 +192,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
   const viewMode = ui.scope === 'collection' && !collection?.system_kind ? (layouts.list.list?.mode ?? 'rows') : 'rows';
   const viewField = layouts.list.list?.mode_field;
-  const drillScope = [collection?.id, activeProfileId, viewMode].join(':');
+  const drillScope = collection?.id ?? '';
   const activeDrilldown = drilldown?.scope === drillScope ? drilldown : null;
   const query: EntryQuery = {
     ...(ui.scope === 'collection'
@@ -202,6 +207,21 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     } : {}),
   };
   const queryToken = JSON.stringify(query);
+  const summaryWidgets = library && ui.screen === 'summary' ? librarySummary(library).widgets : [];
+  const summaryToken = JSON.stringify([library?.id, ui.screen, summaryWidgets, summaryMonths, revision]);
+  useEffect(() => {
+    if (ui.screen !== 'summary' || !library) { setWidgetStates({}); return; }
+    const controller = new AbortController();
+    const widgets = librarySummary(library).widgets;
+    setWidgetStates(Object.fromEntries(widgets.map(widget => [widget.id, { loading: true, error: null, data: null }])));
+    for (const widget of widgets) {
+      void api.readSummaryWidget(library.id, widget, summaryMonths[widget.id], controller.signal)
+        .then(data => { if (!controller.signal.aborted) setWidgetStates(old => ({ ...old, [widget.id]: { loading: false, error: null, data } })); })
+        .catch(error => { if (!controller.signal.aborted) setWidgetStates(old => ({ ...old, [widget.id]: { loading: false, error: errorKey(error), data: null } })); });
+    }
+    return () => controller.abort();
+    // Widgets and requested months are represented in summaryToken.
+  }, [api, summaryToken]);
   const specialMode = !activeDrilldown && ['kanban', 'calendar', 'tree'].includes(viewMode) && !!viewField && ui.scope === 'collection';
   const projectionToken = JSON.stringify([queryToken, viewMode, viewField, calendarMonth, revision, layouts.list.fields, layouts.list.quick_actions]);
   useEffect(() => {
@@ -372,7 +392,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }, [api, ui.libraryId]);
   useEffect(() => {
     if (!library || library.system_kind) return;
-    const location = ui.screen === 'library' ? { kind: 'collections' as const } :
+    const location = ui.screen === 'summary' ? { kind: 'summary' as const } : ui.screen === 'library' ? { kind: 'collections' as const } :
       ui.screen === 'records' && ui.scope === 'collection' && collection?.library_id === library.id ?
         { kind: 'collection' as const, collection_id: collection.id, ...(activeProfileId ? { profile_id: activeProfileId } : {}) } : null;
     if (location) void api.rememberLibraryLocation(library.id, location).catch(e => setError(errorKey(e)));
@@ -575,7 +595,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     try {
       const target = await api.resolveLibraryStart(id);
       if (request === navigationRequest.current) {
-        ui.select(id, target.kind === 'collection' ? target.collection_id : undefined, target.kind === 'collection' ? target.profile_id : undefined);
+        if (target.kind === 'summary') ui.selectSummary(id);
+        else ui.select(id, target.kind === 'collection' ? target.collection_id : undefined, target.kind === 'collection' ? target.profile_id : undefined);
         if (closeDrawer) useUi.setState({ navOpen: false });
       }
     } catch (e) { if (request === navigationRequest.current) setError(errorKey(e)); }
@@ -621,13 +642,38 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       }
     })().catch(error => setError(errorKey(error))).finally(() => setBusy(false));
   }
+  async function createFromWidget(widget: SummaryWidget) {
+    if (busy || !library) return;
+    const collectionId = widget.collection_id;
+    setBusy(true); setError(null); clearRecordContext();
+    try {
+      const target = await api.getCollection(collectionId);
+      const [nextFields, form, card, list, quick] = await Promise.all([
+        api.listFields(collectionId),
+        api.getUiConfig(collectionId, 'form'),
+        api.getUiConfig(collectionId, 'card'),
+        api.getUiConfig(collectionId, 'list', widget.profile_id),
+        api.getQuickForm(collectionId),
+      ]);
+      const draft = await loadCreationDraft(target);
+      if (draft) setOpeningDraft(draft);
+      else {
+        const resolved = await api.resolveCreation(collectionId);
+        setCreationInitial(resolved.data);
+      }
+      setFields(nextFields); setLayouts({ form, card, list }); setQuickDefinition(quick);
+      ui.select(library.id, collectionId, widget.profile_id);
+      ui.openEditor('entry');
+    } catch (error) { setError(errorKey(error)); }
+    finally { setBusy(false); }
+  }
   function open(editor: typeof ui.editor, editingId?: string) {
     setDraftRecoveryPath(null);
     if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) { beginCreate({ kind: editor === 'quick-entry' ? 'quick' : 'standard' }); return; }
     selectionRequest.current++;
     rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
     if (editor) useUi.setState({ navOpen: false });
-    if (editor && ['library-start','library','collection','fields','form','card','list','quick','profiles','presets'].includes(editor)) useUi.setState({ constructorOpen: true });
+    if (editor && ['library-start','library-summary','library','collection','fields','form','card','list','quick','profiles','presets'].includes(editor)) useUi.setState({ constructorOpen: true });
     setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false);
     ui.openEditor(editor, '', editingId);
   }
@@ -764,7 +810,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'library-summary' ? t('librarySummary') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -920,7 +966,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             {ui.screen !== 'libraries' && <button className="section-back" disabled={disabled} onClick={backSection} aria-label={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}>← {t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}</button>}
             <small>{library?.name ?? t('brand')}</small>
             <h1>
-              {ui.screen === 'libraries' ? t('libraries') : ui.screen === 'library' ? library?.name ?? t('collections') : ui.scope === 'all'
+              {ui.screen === 'libraries' ? t('libraries') : ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? library?.name ?? t('collections') : ui.scope === 'all'
                 ? t('allEntries')
                 : ui.scope === 'library'
                   ? library?.name
@@ -955,7 +1001,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
-            </button><button disabled={disabled} onClick={() => open('library-start')}>{t('libraryStart')}</button>
+            </button><button disabled={disabled} onClick={() => open('library-start')}>{t('libraryStart')}</button><button disabled={disabled} onClick={() => open('library-summary')}>{t('librarySummary')}</button>
               {shortcutAvailable && <button disabled={disabled} onClick={() => { void requestShortcut(); }}>{t('pinLibraryShortcut')}</button>}</>
           )}
           {collection && !collection.system_kind && (
@@ -1016,6 +1062,14 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         </p>}
         {ui.screen === 'libraries' ? (
           <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} />
+        ) : ui.screen === 'summary' && library ? (
+          <LibrarySummaryView widgets={summaryWidgets} states={widgetStates} busy={disabled}
+            open={id => { void selectEntry(id); }}
+            openCollection={widget => { clearRecordContext(); ui.select(library.id, widget.collection_id, widget.profile_id); }}
+            create={widget => { void createFromWidget(widget); }}
+            quick={async (entry, fieldId, mutation) => { await run(async () => { await api.quickAction(entry.id, fieldId, mutation, entry.hlc); }, false); }}
+            month={(widget, value) => setSummaryMonths(old => ({ ...old, [widget.id]: value }))}
+            day={(widget, date) => { clearRecordContext(); ui.select(library.id, widget.collection_id, widget.profile_id); setDrilldown({ scope: widget.collection_id, field: widget.kind === 'calendar' ? widget.calendar_field : '', value: date, date }); }} />
         ) : ui.screen === 'library' && library ? (
           <Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
             busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} />
@@ -1238,6 +1292,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <div className="form-actions"><button disabled={busy} onClick={close}>{t('cancel')}</button>
               <button className="danger" disabled={busy} onClick={() => { void run(async () => { await api.clearHistory(); }); }}>{t('confirmClearHistory')}</button></div></div>}
           {ui.editor === 'appearance' && <DeviceAppearanceEditor value={appearance} busy={busy} cancel={close} save={value => { void run(async () => { setAppearance(await api.saveDeviceAppearance(value)); }); }} />}
+          {ui.editor === 'library-summary' && library && <LibrarySummaryEditor api={api} libraryId={library.id} busy={busy} cancel={close}
+            save={value => { void run(async () => { await api.saveLibrarySummary(library.id, value); }); }} />}
           {ui.editor === 'library-start' && library && <LibraryStartEditor api={api} libraryId={library.id} busy={busy} cancel={close}
             save={value => { void run(async () => { await api.saveLibraryNavigation(library.id, value); }); }} />}
           {ui.editor === 'move' && selected && <InboxMoveForm registerFileClose={registerFileClose} api={api} entry={selected} libraries={libraries} busy={busy} cancel={close}

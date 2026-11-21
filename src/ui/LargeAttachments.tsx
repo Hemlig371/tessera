@@ -80,7 +80,7 @@ export function LargeAttachments({ api, busy }: { api: Repository; busy: boolean
         <strong>{item.name}</strong> · {formatSize(item.size)}</label>
       <small>{item.library_name} / {item.collection_name} / {item.record_title}</small>
       <small>{t('attachmentStates.' + item.status)}</small>
-      {item.status !== 'present' && item.other_copies > 0 && <small>{t('attachmentOtherCopies', { count: item.other_copies })}</small>
+      {item.status !== 'present' && item.other_copies > 0 && <small>{t('attachmentOtherCopies', { count: item.other_copies })}</small>}
     </li>)}</ul>
     {next && <button type="button" disabled={disabled} onClick={() => { void more(); }}>{t('loadMore')}</button>}
   </section>;

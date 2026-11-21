@@ -83,6 +83,11 @@
 - В `scripts/ci-scope.mjs` добавлен явный **main push** marker `[priority ci]`, запускающий fresh native priority (Windows fast/native, Windows/macOS desktop, Android APK/emulator; Linux application не включён). Непомеченные push и PR сохраняют прежнюю политику; включён негативный/позитивный unit-контракт.
 - **До выполнения GitHub Actions код не принят.** На этой точке версия всё ещё 0.20.0/code21, APK содержит только M2; локальные проверки запрещены запросом пользователя. Следом fast CI для диагностики, затем исправление реальных ошибок и единый bump до 0.21.0/code22 перед fresh priority.
 
+## GitHub Actions — диагностика новых сводок (21.11.2026)
+
+- [Run 44907803820](https://github.com/Hemlig371/tessera/actions/runs/44907803820) на `0235de74`: scope и sync-foundation успешны; Linux fast упал на `typecheck` из-за **четырёх TS2304** в расширенном архивном DB-тесте — не была деструктурирована `library` из `seed()`. Исправлено в `6c63692`, без изменения пользовательской модели и данных; Windows status проверить отдельно по завершению.
+- После этого без локальных запусков дополнительно сокращены поля payload widget list/table до настроенных полей/quick-actions, исправлена стабильность зависимостей редактора и безопасный relation filter; это требует нового full fast CI на свежем SHA. Ни один старый зелёный прогон не покрывает новые файлы.
+
 ## Продолжение M3
 
 1. **Следующая задача — интегрировать M3**, не переписывать готовое. Новые модули `src/core/{relative-dates,date-selection,mode-options,tree-projection,kanban-projection,calendar-projection,collection-projection,query-summary,query-insights,query-formula,grouped-summary,library-summary,summary-data}.ts`, UI CalendarView/KanbanBoard/TreeView/LibrarySummaryView/QueryTotals/QueryTotalsEditor/SummaryFormulaInput + formula-references и collection-modes.css, 12 unit/DB файлов. Кроме завершённого ниже фильтра дат, эти режимы/сводки пока не подключены к App/Repository/модели/локалям. Сохранение этого кода не означает готовность режимов или сводок. Версию M3 ещё не повышали.

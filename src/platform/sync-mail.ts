@@ -14,7 +14,9 @@ const native=registerPlugin<{
   fetch(args:MailConnection&{afterUid:number;limit:number}):Promise<{uidValidity:string;lastFetchedUid:string;messages:MailItem[]}>;
 }>('SyncMail');
 const from64=(s:string):Uint8Array=>{
-  const raw=atob(s);return Uint8Array.from(raw,c=>c.charCodeAt(0));
+  const raw=atob(s);const bytes=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+  return bytes;
 };
 const to64=(bytes:Uint8Array):string=>{
   let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);

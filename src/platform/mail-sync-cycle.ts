@@ -20,7 +20,9 @@ export async function runAndroidMailSyncCycle(
   if(!password || !groupSecret || !/^[A-Za-z0-9+/]{43}=$/.test(groupSecret))
     throw new AppError('secureStorageUnavailable');
   let bytes:Uint8Array;
-  try { bytes=Uint8Array.from(atob(groupSecret),c=>c.charCodeAt(0)); }
+  try {const raw=atob(groupSecret);bytes=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+  }
   catch { throw new AppError('invalidSyncSecret'); }
   const key=await importGroupKey(bytes);
   bytes.fill(0);

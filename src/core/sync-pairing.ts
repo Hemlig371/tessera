@@ -33,7 +33,8 @@ export function parseSyncInvitation(value:string):{datasetId:string;sourceId:str
         Object.keys(v).sort().join(',') !== 'dataset_id,format,group_key,source_id,version') return fail();
     const raw=atob(v.group_key);
     if (raw.length !== 32) return fail();
-    const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+    const bytes=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
     if (encode(bytes)!==v.group_key) return fail();
     return {datasetId:v.dataset_id,sourceId:v.source_id,secret:bytes};
   } catch { return fail(); }

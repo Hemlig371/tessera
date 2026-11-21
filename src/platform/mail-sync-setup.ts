@@ -54,7 +54,9 @@ export async function invitationForDevice(api:Repository):Promise<string> {
   const stored=await syncSecretStore().load('group-key');
   if(!stored)throw new AppError('secureStorageUnavailable');
   let raw:Uint8Array;
-  try {raw=Uint8Array.from(atob(stored),c=>c.charCodeAt(0));}
+  try {const text=atob(stored);raw=new Uint8Array(text.length);
+    for(let i=0;i<text.length;i++)raw[i]=text.charCodeAt(i);
+  }
   catch {throw new AppError('invalidSyncSecret');}
   try {return createSyncInvitation(api.datasetId,api.deviceId,raw);}
   finally {raw.fill(0);}

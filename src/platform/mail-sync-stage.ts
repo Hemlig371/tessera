@@ -22,7 +22,11 @@ export function stageIncomingEmail(
     for (let i=0;i<bytes.length;i+=8192) s+=String.fromCharCode(...bytes.subarray(i,i+8192));
     return btoa(s);
   };
-  const from64 = (value:string) => Uint8Array.from(atob(value),c=>c.charCodeAt(0));
+  const from64 = (value:string) => {
+    const raw=atob(value), bytes=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+    return bytes;
+  };
   const fingerprint = async (bytes:Uint8Array) => {
     const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(bytes)));
     return Array.from(hash,b=>b.toString(16).padStart(2,'0')).join('');

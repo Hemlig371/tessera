@@ -93,7 +93,7 @@ class SyncMailPlugin : Plugin() {
     }
     private fun imapQuote(value:String):String {
         if(value.any { it.code<32 || it.code==127 }) throw IllegalArgumentException()
-        return "\\"" + value.replace("\\","\\\\").replace("\\"","\\\\\"") + "\\""
+        return "\"" + value.replace("\\","\\\\").replace("\"","\\\"") + "\""
     }
     private fun imap(channel:Channel,tag:String,cmd:String,consumer:(String,Channel)->Unit={_,_->}) {
         channel.send("$tag $cmd\r\n")

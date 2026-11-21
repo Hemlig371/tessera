@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LocalFilesPlugin.class);
         registerPlugin(ExternalActionsPlugin.class);
         registerPlugin(DeviceAuthPlugin.class);
+        registerPlugin(SyncSecretsPlugin.class);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); // Hide sensitive previews in recent apps.
         super.onCreate(savedInstanceState);
     }

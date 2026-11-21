@@ -514,6 +514,26 @@ export class Repository {
       });
     });
   }
+  /** Android-only local UI preference; never sync a biometric gate as library content. */
+  async isLibraryLocked(id: string): Promise<boolean> {
+    requireId(id);
+    return this.db.read(async s => {
+      const [library] = await s.query<{ id: string }>('SELECT id FROM libraries WHERE id=? AND deleted_at IS NULL AND system_kind IS NULL', [id]);
+      if (!library) throw new AppError('notFound');
+      const [setting] = await s.query<{ value: string }>('SELECT value FROM local_settings WHERE key=?', ['library_lock:' + id]);
+      return setting?.value === '1';
+    });
+  }
+  async setLibraryLocked(id: string, locked: boolean): Promise<void> {
+    requireId(id);
+    if (typeof locked !== 'boolean') throw new AppError('invalidData');
+    await this.db.transaction(async s => {
+      const [library] = await s.query<{ id: string }>('SELECT id FROM libraries WHERE id=? AND deleted_at IS NULL AND system_kind IS NULL', [id]);
+      if (!library) throw new AppError('notFound');
+      if (locked) await s.execute("INSERT INTO local_settings(key,value) VALUES(?,'1') ON CONFLICT(key) DO UPDATE SET value='1'", ['library_lock:' + id]);
+      else await s.execute('DELETE FROM local_settings WHERE key=?', ['library_lock:' + id]);
+    });
+  }
   listLibraries(): Promise<Library[]> {
     return this.db.read((s) =>
       s.query<Library>('SELECT * FROM libraries WHERE deleted_at IS NULL AND system_kind IS NULL ORDER BY position,created_at,id')

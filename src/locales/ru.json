@@ -721,5 +721,11 @@
   "libraryLocked": "Библиотека заблокирована",
   "unlockLibrary": "Подтвердить личность",
   "enableLibraryLock": "Включить блокировку",
-  "disableLibraryLock": "Выключить блокировку"
+  "disableLibraryLock": "Выключить блокировку",
+  "largeAttachmentsTitle": "Крупные вложения",
+  "largeAttachmentsHint": "Вложения сверх установленного порога; выбор и экспорт выполняются только по явному действию. Экспорт по одному файлу через системный диалог.",
+  "largeAttachmentsEmpty": "Крупных вложений нет",
+  "largeAttachmentsError": "Не удалось прочитать вложения",
+  "largeAttachmentsExport": "Экспортировать выбранные",
+  "largeAttachmentsExported": "Экспортировано файлов: {{count}}"
 }

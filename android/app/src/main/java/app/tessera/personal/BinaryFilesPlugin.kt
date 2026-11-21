@@ -3,6 +3,7 @@ package app.tessera.personal
 import android.app.Activity
 import android.content.Intent
 import android.provider.DocumentsContract
+import android.net.Uri
 import android.util.Base64
 import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSObject
@@ -71,6 +72,74 @@ class BinaryFilesPlugin : Plugin() {
             } catch (error: Exception) {
                 try { if (uri != null) DocumentsContract.deleteDocument(context.contentResolver, uri) } catch (_: Exception) { }
                 reject(call, error)
+            }
+        }
+    }
+
+    /** One SAF folder picker, bounded selections. Existing user files are never silently overwritten. */
+    @PluginMethod fun exportGroup(call: PluginCall) {
+        if (picking) { call.reject("fileBusy"); return }
+        val items = call.data.optJSONArray("files")
+        if (items == null || items.length() !in 1..100) { call.reject("invalidAttachment"); return }
+        picking = true
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        try { startActivityForResult(call, intent, "folderSelected") }
+        catch (_: Exception) { picking = false; call.reject("fileError") }
+    }
+    @ActivityCallback private fun folderSelected(call: PluginCall?, result: ActivityResult) {
+        picking = false
+        if (call == null) return
+        if (result.resultCode != Activity.RESULT_OK) { call.resolve(JSObject().put("saved", false)); return }
+        val tree = result.data?.data ?: return call.reject("fileError")
+        worker.execute {
+            val created = mutableListOf<Uri>()
+            try {
+                val root = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+                val paths = mutableMapOf<String, Uri>()
+                val items = call.data.getJSONArray("files")
+                val safe = Regex("^[^/\\\\\\u0000-\\u001f\\u007f]{1,120}$")
+                val extension = Regex("^[a-f0-9]{64}$")
+                fun folder(parent: Uri, part: String): Uri {
+                    if (!safe.matches(part) || part == "." || part == "..") error("invalidAttachment")
+                    val key = parent.toString() + "/" + part
+                    return paths.getOrPut(key) {
+                        val uri = DocumentsContract.createDocument(context.contentResolver, parent,
+                            DocumentsContract.Document.MIME_TYPE_DIR, part) ?: error("fileError")
+                        created.add(uri)
+                        uri
+                    }
+                }
+                var complete = 0
+                for (index in 0 until items.length()) {
+                    val file = items.getJSONObject(index)
+                    val id = file.getString("id")
+                    val sha = file.getString("sha256")
+                    val size = file.getLong("size")
+                    if (!extension.matches(sha) || size < 0L || size > 9007199254740991L) error("invalidAttachment")
+                    val segments = file.getJSONArray("folders")
+                    if (segments.length() !in 1..4) error("invalidAttachment")
+                    var parent = root
+                    for (j in 0 until segments.length()) parent = folder(parent, segments.getString(j))
+                    val name = file.getString("name")
+                    if (!safe.matches(name) || name == "." || name == "..") error("invalidAttachment")
+                    val mime = file.getString("mime")
+                    val uri = DocumentsContract.createDocument(context.contentResolver, parent, mime, name)
+                        ?: error("fileError")
+                    created.add(uri)
+                    store.export(id, size, sha) {
+                        context.contentResolver.openOutputStream(uri, "wt") ?: error("fileError")
+                    }
+                    complete++
+                }
+                call.resolve(JSObject().put("saved", true).put("count", complete))
+            } catch (_: Exception) {
+                // Delete only documents created by this operation, never pre-existing user files.
+                for (uri in created.asReversed()) {
+                    try { DocumentsContract.deleteDocument(context.contentResolver, uri) } catch (_: Exception) { }
+                }
+                call.reject("fileError")
             }
         }
     }

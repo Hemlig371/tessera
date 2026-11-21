@@ -64,7 +64,8 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect((await a.getEntry(entry.id))?.data).toEqual((await b.getEntry(entry.id))?.data);
     expect((await a.getHistory(entry.id)).versions).toHaveLength(3);
     expect((await b.getHistory(entry.id)).versions).toHaveLength(3);
-    expect(await a.exportLocalSyncPacket(sent)).toBeNull();
+    await deliver(a,b,sent,left.directory,5); // The third edit is relayed once, not endlessly echoed.
+    expect((await b.getHistory(entry.id)).versions).toHaveLength(3);
   });
   it('rejects a missing page, wrong dataset and malicious replay without changing cursor or records', async () => {
     const { a,b,entry } = await nodes();

@@ -115,3 +115,10 @@
 - Артефакты CI: `tessera-android-debug-apk` (14710638300), `tessera-windows-x64` (14710378831), `tessera-macos-arm64` (14710519683), Android instrumentation (14710673755). Не публиковать как ручную проверку физических устройств.
 - **Оставшиеся ручные проверки (M7):** OEM Android, биометрия/Keyguard и переходы в фон, сторонние Share-поставщики и SAF document tree, системный reminder/calendar handler и ассоциация .ics, полный UI/UX/адаптивность; Linux необязателен. Это не карантин дефектов ядра/данных. 
 - **Продолжение: M5**, по очереди в начале audit.md; не повторять M1–M4. После этого принятого SHA допустимы только [skip ci] правки документации audit/README, не меняющие функциональный код; при любом новом функциональном изменении требуется новый fresh priority.
+
+## M5 — работа начата (21.11.2026), НЕ ПРИНЯТО
+
+- Baseline M4 остаётся `796325f` / Actions `44913204840`, 8/8. M5 идёт непосредственно в `main`, коммиты сгруппированы по протокольным слоям с `[skip ci]`, версия до приёмки остаётся `0.22.0` / Android 23.
+- M5 WIP: `sync-protocol.ts` (типизированные, ограниченные пакеты/receipt и строгая проверка очередности/поля/UUID/HLC), `sync-apply.ts` (transactional LWW структур/attachments/settings/history), Repository API `exportLocalSyncPacket`, `applyLocalSyncPacket`, `acceptLocalSyncReceipt`, `localSyncReceiveCursor`; входящие курсоры в `local_settings`, удаляются при detach; повтор страницы идемпотентен, пропуск отклоняется до изменения данных. Базовые `startLocalSync`/pause/ACK/compact ранее существовали, не переписаны.
+- Контракты `tests/unit/sync-protocol.test.ts` и `tests/db/local-sync-protocol.test.ts` покрывают независимые SQLite после офлайн-архива, файлы транспорта, двусторонний обмен, ACK после применения, повтор, пропуск, неверный dataset, rollback SQLite и detach. Все изменения требуют GitHub Actions; **не считать эти контракты зелёными без CI**.
+- Следующее: исправить результаты CI без карантина ядра/данных; затем доказать 3+ peers, Top-20/clear/tombstones, chunks малых файлов и large placeholders, 90-дневный guard/recovery, stress/chaos и полную свежую native priority-приёмку. M5 не закрывать, пока это не сделано.

@@ -500,7 +500,7 @@ export class Repository {
       const markers = await s.query<{ key: string; value: string }>("SELECT key,value FROM app_meta WHERE key LIKE 'history:%' OR key IN('trash:retention','attachment:limit') ORDER BY key");
       for (const marker of markers) {
         const hlc = marker.key.startsWith('history:clear:') ? marker.value : (JSON.parse(marker.value) as { hlc: string }).hlc;
-        await this.log(s, ['trash:retention', 'attachment:limit'].includes(marker.key) ? 'app_setting' : 'history_marker', { id: marker.key, hlc, device_id: this.deviceId }, { ...marker });
+        await this.log(s, ['trash:retention', 'attachment:limit'].includes(marker.key) ? 'app_setting' : 'history_marker', { id: marker.key, hlc, device_id: hlc.slice(-36) }, { ...marker });
       }
       return journalCheckpoint(s);
     });

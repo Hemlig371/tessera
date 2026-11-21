@@ -135,6 +135,26 @@ jobs:
       # Stage 1 only: real HLC property tests. Mail/chaos tests come with the protocol.
       - run: npm run test:sync
 
+  greenmail-integration:
+    needs: [scope, checks, sync-foundation]
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.checks.result == 'success' && needs['sync-foundation'].result == 'success' }}
+    runs-on: ubuntu-24.04
+    services:
+      greenmail:
+        image: greenmail/standalone:2.1.15
+        env:
+          GREENMAIL_OPTS: '-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=sync:ci-only-mail-password@localhost'
+        ports:
+          - 3465:3465
+          - 3993:3993
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - run: npm ci
+      - name: Real SMTP/IMAP TLS + AES-GCM + SQLite replay/ACK (isolated GreenMail)
+        run: npm run test:greenmail
+
   desktop:
     needs: [scope, checks, sync-foundation, native-checks]
     if: >-

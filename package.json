@@ -32,7 +32,8 @@
     "licenses": "node scripts/licenses.mjs",
     "tauri": "tauri",
     "test:scale": "vitest run tests/db/scale.test.ts --reporter=verbose",
-    "check:platforms": "node scripts/check-platform-versions.mjs"
+    "check:platforms": "node scripts/check-platform-versions.mjs",
+    "test:greenmail": "vitest run tests/sync/greenmail.test.ts --testTimeout=120000"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",

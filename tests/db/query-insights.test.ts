@@ -44,8 +44,8 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     expect(projection.mode).toBe('kanban');
     if (projection.mode !== 'kanban') throw new Error('wrong projection');
     expect(projection.columns.find(column => column.value === optionId)?.count).toBe(211);
-    expect(projection.columns.find(column => column.value === 'todo')?.entries.length).toBe(20);
-    expect(projection.columns.find(column => column.value === 'todo')?.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
+    expect(projection.columns.find(column => column.value === optionId)?.entries.length).toBe(20);
+    expect(projection.columns.find(column => column.value === optionId)?.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
     const widget = { id: crypto.randomUUID(), title: ' Последние ', width: 1 as const,
       collection_id: collection.id, kind: 'table' as const, field_ids: [amount.id], limit: 3 };
     await api.saveLibrarySummary(library.id, { widgets: [widget] });

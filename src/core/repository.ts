@@ -1,3 +1,5 @@
+import { normalizeLibrarySummary, librarySummary, type LibrarySummaryDefinition, type SummaryWidget } from './library-summary';
+import { readSummaryWidget, type SummaryWidgetData } from './summary-data';
 import { projectCollection, type CollectionProjection } from './collection-projection';
 import type { ModeOptions } from './mode-options';
 import { summarizeEntries } from './query-insights';
@@ -525,6 +527,26 @@ export class Repository {
       if (navigation.start.kind !== 'last' && !await validLibraryLocation(s, id, navigation.start)) throw new AppError('invalidLibraryNavigation');
       await this.update(s, 'libraries', 'library', library, { config: canonical({ ...JSON.parse(library.config), navigation }) });
     });
+  }
+  /** Persist a complete library dashboard as one ordinary library revision and journal event. */
+  saveLibrarySummary(id: string, definition: LibrarySummaryDefinition): Promise<Library> {
+    requireId(id);
+    return this.db.transaction(async s => {
+      const library = await navigationLibrary(s, id);
+      if (library.system_kind) throw new AppError('systemContainer');
+      const summary = await normalizeLibrarySummary(s, id, definition);
+      return this.update(s, 'libraries', 'library', library, {
+        config: canonical({ ...JSON.parse(library.config), summary }),
+      });
+    });
+  }
+  getLibrarySummary(id: string): Promise<LibrarySummaryDefinition> {
+    requireId(id);
+    return this.db.read(async s => librarySummary(await navigationLibrary(s, id)));
+  }
+  readSummaryWidget(libraryId: string, widget: SummaryWidget, month?: string, signal?: AbortSignal): Promise<SummaryWidgetData> {
+    requireId(libraryId);
+    return this.db.transaction(s => readSummaryWidget(s, libraryId, widget, month, signal));
   }
   resolveLibraryStart(id: string): Promise<LibraryLocation> {
     requireId(id); return this.db.read(s => resolveLibraryStart(s, id));

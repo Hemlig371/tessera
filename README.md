@@ -23,6 +23,7 @@
 | [queries.ts](src/core/queries.ts), [entry-data.ts](src/core/entry-data.ts), [relations.ts](src/core/relations.ts) | SQL-пагинация/фильтры, подготовка данных, прямые и обратные связи |
 | [decimal.ts](src/core/decimal.ts), [formula.ts](src/core/formula.ts), [calculated-fields.ts](src/core/calculated-fields.ts), [quick-actions.ts](src/core/quick-actions.ts) | Точная арифметика, парсер/вычисление, кэш/инвалидация и быстрые действия |
 | [history.ts](src/core/history.ts), [hlc.ts](src/core/hlc.ts), [change-journal.ts](src/core/change-journal.ts), [trash.ts](src/core/trash.ts) | История, часы, журнал и tombstones; это ещё не полный sync |
+| [sync-protocol.ts](src/core/sync-protocol.ts), [sync-apply.ts](src/core/sync-apply.ts), [sync-safety.ts](src/core/sync-safety.ts), [local-sync-engine.ts](src/core/local-sync-engine.ts), [local-sync-attachments.ts](src/core/local-sync-attachments.ts) | M5 WIP: локальные валидированные пакеты, SQLite replay/ACK, 90-дневная пауза, файловый transport и chunk-передача; E2E/почтовый транспорт только в M6 |
 | [database-archive.ts](src/core/database-archive.ts), [archive-zip.ts](src/core/archive-zip.ts), [attachments.ts](src/core/attachments.ts) | Логический экспорт/импорт, ZIP и файловые ссылки/GC |
 | [src/platform/open.ts](src/platform/open.ts), [serial-database.ts](src/platform/serial-database.ts) | Выбор native-платформы и сериализация; остальные адаптеры — рядом |
 | [src-tauri/src](src-tauri/src), [src-tauri/sqlite-bridge](src-tauri/sqlite-bridge) | Desktop OS/SQLite/replacement и общий Rust test-driver |

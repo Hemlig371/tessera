@@ -717,5 +717,9 @@
   "diagnosticsCorrupt": "Обнаружено повреждение",
   "diagnosticsPageCount": "Страниц базы",
   "diagnosticsExport": "Экспортировать отчёт JSON",
-  "diagnosticsSaved": "Отчёт сохранён"
+  "diagnosticsSaved": "Отчёт сохранён",
+  "libraryLocked": "Библиотека заблокирована",
+  "unlockLibrary": "Подтвердить личность",
+  "enableLibraryLock": "Включить блокировку",
+  "disableLibraryLock": "Выключить блокировку"
 }

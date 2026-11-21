@@ -56,6 +56,7 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     if (data.kind !== 'table') throw new Error('wrong widget');
     expect(data.entries).toHaveLength(3);
     expect(data.entries.every(entry => entry.data[amount.id] === '0.1')).toBe(true);
+    expect(data.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
   });
 
 });

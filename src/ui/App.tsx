@@ -215,7 +215,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       .finally(() => { if (!controller.signal.aborted) setProjectionLoading(false); });
     return () => controller.abort();
     // Options and preview IDs are represented by the serialized token.
-  }, [api, projectionToken, specialMode]);
+  }, [api, projectionToken, specialMode, queryToken, viewMode, viewField, calendarMonth, layouts.list.fields, layouts.list.quick_actions]);
   const totalMeasures = ui.scope === 'collection' ? layouts.list.totals ?? [] : [];
   const totalToken = JSON.stringify([queryToken, totalMeasures, revision]);
   useEffect(() => {
@@ -228,7 +228,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       .finally(() => { if (!controller.signal.aborted) setTotalsLoading(false); });
     return () => controller.abort();
     // The serialized token captures query, measures and revision.
-  }, [api, totalToken, browsing, ui.scope]);
+  }, [api, totalToken, browsing, ui.scope, totalMeasures, queryToken]);
   const rowsReady = readyBrowse?.token === queryToken && readyBrowse.revision === revision;
   const queryFailure = !loading && failedBrowse?.token === queryToken && failedBrowse.revision === revision ? failedBrowse.code : null;
   const readingEntries = loading || (!rowsReady && !queryFailure);
@@ -1027,10 +1027,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <>
             {activeDrilldown && <button type="button" disabled={disabled} onClick={() => setDrilldown(null)}>{t('backToView')}</button>}
             {ui.scope === 'collection' && !!totalMeasures.length && <QueryTotals measures={totalMeasures} values={totals} fields={fields} loading={totalsLoading} error={totalsError} />}
-            {specialMode && projection?.mode === 'kanban' || specialMode && projectionLoading && viewMode === 'kanban' || specialMode && projectionError && viewMode === 'kanban' ? <KanbanBoard
+            {specialMode && viewMode === 'kanban' ? <KanbanBoard
               columns={projection?.mode === 'kanban' ? projection.columns : []} busy={disabled} loading={projectionLoading} error={projectionError}
               open={id => { void selectEntry(id); }}
-              move={(entry,value) => { if (viewField) void run(() => api.saveEntry(entry.collection_id, { [viewField]: value }, entry.id, entry.hlc), false); }}
+              move={(entry,value) => { if (viewField) void run(async () => { await api.saveEntry(entry.collection_id, { [viewField]: value }, entry.id, entry.hlc); }, false); }}
               showColumn={column => { if (viewField) setDrilldown({ scope: drillScope, field: viewField, value: column.value }); }}
             /> : null}
             {specialMode && viewMode === 'calendar' && <CalendarView month={calendarMonth} days={projection?.mode === 'calendar' ? projection.days : []} loading={projectionLoading} error={projectionError} busy={disabled} changeMonth={setCalendarMonth}

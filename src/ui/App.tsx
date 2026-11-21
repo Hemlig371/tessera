@@ -656,14 +656,16 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         api.getQuickForm(collectionId),
       ]);
       const draft = await loadCreationDraft(target);
+      let editor: 'entry' | 'quick-entry' = 'entry';
       if (draft) setOpeningDraft(draft);
       else {
         const resolved = await api.resolveCreation(collectionId);
         setCreationInitial(resolved.data);
+        editor = resolved.form === 'quick' ? 'quick-entry' : 'entry';
       }
       setFields(nextFields); setLayouts({ form, card, list }); setQuickDefinition(quick);
       ui.select(library.id, collectionId, widget.profile_id);
-      ui.openEditor('entry');
+      ui.openEditor(editor);
     } catch (error) { setError(errorKey(error)); }
     finally { setBusy(false); }
   }

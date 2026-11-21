@@ -2,7 +2,7 @@
 
 Внутренний dev-документ. Local-first база для Android, Windows, macOS и Linux: React/TypeScript Core + нативные SQLite/Rust/Kotlin, без обязательных сервера, аккаунта и сети.
 
-Версия разработки **0.23.0** (**M5 принят** на SHA [`48aace2`](https://github.com/Hemlig371/tessera/commit/48aace27cdf4740569327db9ba878a34a47d74be), GitHub Actions [#44919215785](https://github.com/Hemlig371/tessera/actions/runs/44919215785), **8/8 jobs success**; следующий блок — **M6**, в новом чате), Android **versionCode=24**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
+Версия разработки **0.24.0** (**M6 в разработке, Android encrypted-mail path добавлен, свежая CI-приёмка ещё не подтверждена**; M5 принят на SHA [`48aace2`](https://github.com/Hemlig371/tessera/commit/48aace27cdf4740569327db9ba878a34a47d74be), [run #44919215785](https://github.com/Hemlig371/tessera/actions/runs/44919215785), 8/8 jobs), Android **versionCode=25**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
 
 | Документ | Назначение |
 | --- | --- |
@@ -13,7 +13,7 @@
 
 ## Карта репозитория
 
-Путь данных: **UI → Repository / TS Core → последовательный SQLite-адаптер → native SQLite**. UI не выполняет SQL; Rust/Kotlin реализуют OS/хранилище, бизнес-правила остаются в TS. Состояние приёмки M1–M5 и точка начала M6 — только в [audit.md](audit.md).
+Путь данных: **UI → Repository / TS Core → последовательный SQLite-адаптер → native SQLite**. UI не выполняет SQL; Rust/Kotlin реализуют OS/хранилище, бизнес-правила остаются в TS. Состояние приёмки M1–M5, ограничения и текущая работа M6 — только в [audit.md](audit.md).
 
 | Где | Что искать / точка входа |
 | --- | --- |
@@ -24,12 +24,14 @@
 | [decimal.ts](src/core/decimal.ts), [formula.ts](src/core/formula.ts), [calculated-fields.ts](src/core/calculated-fields.ts), [quick-actions.ts](src/core/quick-actions.ts) | Точная арифметика, парсер/вычисление, кэш/инвалидация и быстрые действия |
 | [history.ts](src/core/history.ts), [hlc.ts](src/core/hlc.ts), [change-journal.ts](src/core/change-journal.ts), [trash.ts](src/core/trash.ts) | История, часы, журнал и tombstones — основа принятого M5 local sync |
 | [sync-protocol.ts](src/core/sync-protocol.ts), [sync-apply.ts](src/core/sync-apply.ts), [sync-safety.ts](src/core/sync-safety.ts), [local-sync-engine.ts](src/core/local-sync-engine.ts), [local-sync-attachments.ts](src/core/local-sync-attachments.ts) | **M5 принят:** локальные валидированные пакеты, SQLite replay/ACK, 90-дневная защита, файловый mailbox и chunk-передача; шифрование и почтовый SMTP/IMAP транспорт — только M6 |
+| [secure-sync-envelope.ts](src/core/secure-sync-envelope.ts), [encrypted-sync-mailbox.ts](src/core/encrypted-sync-mailbox.ts), [sync-pairing.ts](src/core/sync-pairing.ts) | M6: AES-256-GCM authenticated envelopes/receipts/chunks, проверяемая QR-приглашение и защита от переполнения/подделки; M5 core replay не заменяется |
+| [mail-sync-cycle.ts](src/platform/mail-sync-cycle.ts), [mail-sync-stage.ts](src/platform/mail-sync-stage.ts), [mail-sync-setup.ts](src/platform/mail-sync-setup.ts), [AndroidMailSyncSettings.tsx](src/ui/AndroidMailSyncSettings.tsx) | M6 Android WIP: ручное включение почтового обмена, SMTP/IMAP plugin, Keystore, QR через ZXing/OS camera, защищённая offline inbox очередь и foreground 15-minute opt-in; Windows/macOS email не готовы |
 | [database-archive.ts](src/core/database-archive.ts), [archive-zip.ts](src/core/archive-zip.ts), [attachments.ts](src/core/attachments.ts) | Логический экспорт/импорт, ZIP и файловые ссылки/GC |
 | [src/platform/open.ts](src/platform/open.ts), [serial-database.ts](src/platform/serial-database.ts) | Выбор native-платформы и сериализация; остальные адаптеры — рядом |
 | [src-tauri/src](src-tauri/src), [src-tauri/sqlite-bridge](src-tauri/sqlite-bridge) | Desktop OS/SQLite/replacement и общий Rust test-driver |
 | [android/app/src/main/java/app/tessera/personal](android/app/src/main/java/app/tessera/personal) | Capacitor-плагины, Android файлы/replacement/внешние действия; instrumentation в `android/app/src/androidTest/` |
 | [tests](tests), [tests/fixtures/README.md](tests/fixtures/README.md) | `unit` — правила, `db` — общие API на SQLite, `native` — процессы/адаптеры, `e2e` — browser UI, `sync` — пока HLC; общие мосты/контракты в `support` |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml), [scripts/ci-scope.mjs](scripts/ci-scope.mjs) | Jobs/артефакты и выбор профиля/проверка baseline; команды ниже |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml), [.github/workflows/ci-status.yml](.github/workflows/ci-status.yml), [scripts/ci-scope.mjs](scripts/ci-scope.mjs) | Основные 8 jobs/артефакты и отдельная публикация ссылочного commit status по завершении push CI; выбор scope/baseline |
 | `work/` (ignored) | Локальные SDK/JDK/кэши, логи и scratch; не источник правил или обязательных исходников |
 
 ## Разработка

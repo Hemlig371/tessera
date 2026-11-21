@@ -707,5 +707,15 @@
   "reminderCreate": "Создать напоминание",
   "calendarExported": "Файл календаря сохранён",
   "reminderFallback": "Приложение напоминаний недоступно. Используйте «Добавить в календарь».",
-  "calendarUnavailable": "Системное приложение не открылось; данные Tessera не изменены."
+  "calendarUnavailable": "Системное приложение не открылось; данные Tessera не изменены.",
+  "diagnosticsTitle": "Диагностика",
+  "diagnosticsPrivacy": "Отчёт только о SQLite и целостности; записи, секреты, пути, файлы и учётные данные не включаются.",
+  "diagnosticsUnavailable": "Диагностика недоступна",
+  "diagnosticsSchema": "Схема",
+  "diagnosticsIntegrity": "Целостность",
+  "diagnosticsOk": "Без ошибок",
+  "diagnosticsCorrupt": "Обнаружено повреждение",
+  "diagnosticsPageCount": "Страниц базы",
+  "diagnosticsExport": "Экспортировать отчёт JSON",
+  "diagnosticsSaved": "Отчёт сохранён"
 }

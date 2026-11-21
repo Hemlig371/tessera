@@ -663,5 +663,41 @@
   "allMatchingRecords": "All matching records",
   "showAllCount": "Show all ({{count}})",
   "noEntries": "No records",
-  "today": "Today"
+  "today": "Today",
+  "librarySummary": "Library dashboard",
+  "summaryEmpty": "No widgets",
+  "summaryEmptyHint": "Add widgets in the library constructor.",
+  "summaryEditorHint": "Widgets use records and collection profiles. No profile means an independent query without default filters.",
+  "summaryNewWidget": "New widget",
+  "summaryTitle": "Widget title",
+  "summaryKind": "Widget type",
+  "summarySource": "Collection",
+  "summaryWidth": "Width (columns)",
+  "summaryNoProfile": "No profile — all records",
+  "summaryFormulaIdsHint": "Use canonical English functions and field UUIDs, for example SUM([UUID]).",
+  "summaryGoalLabel": "Goal",
+  "summaryChartStyle": "Chart style",
+  "summaryBar": "Bars",
+  "summaryLine": "Line",
+  "summaryPeriod": "Group period",
+  "summaryPeriods": {
+    "value": "Values",
+    "day": "Day",
+    "week": "Week",
+    "month": "Month"
+  },
+  "summaryLimit": "Number of records (up to 50)",
+  "summaryAddWidget": "Add widget",
+  "summaryKinds": {
+    "metric": "Metric",
+    "progress": "Progress",
+    "chart": "Chart",
+    "list": "List",
+    "table": "Table",
+    "calendar": "Calendar",
+    "create": "Create record"
+  },
+  "summaryGoal": "Goal: {{goal}}",
+  "summaryOpenSource": "Open collection",
+  "summaryChartLimit": "Showing {{count}} of {{total}} groups"
 }

@@ -76,7 +76,7 @@ internal class IncomingShareStore(private val context: Context) {
                     .put("mime", mime).put("size", size))
             }
             current.put(JSONObject().put("id", id).put("text", text).put("files", metadata))
-            if (!prefs.edit().putString("items", current.toString()).commit()) error("shareUnavailable")
+            if (!prefs.edit().putString("items", current.toString()).remove("error").commit()) error("shareUnavailable")
         } catch (failure: Exception) {
             directory.deleteRecursively()
             throw failure

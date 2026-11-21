@@ -8,7 +8,7 @@ fn target(name: &str) -> Result<String, String> {
 #[cfg(windows)]
 mod platform {
     use super::*;
-    use std::ptr::{null, null_mut};
+    use std::ptr::null_mut;
     type Dword = u32;
     const CRED_TYPE_GENERIC: Dword = 1;
     const CRED_PERSIST_LOCAL_MACHINE: Dword = 2;
@@ -55,7 +55,7 @@ mod platform {
     pub fn remove(target: &str) -> Result<(), String> {
         let label = utf16(target);
         if unsafe { CredDeleteW(label.as_ptr(),CRED_TYPE_GENERIC,0) } != 0 ||
-            unsafe { GetLastError() } == 1168 { Ok(()) } else { Err("secureStorageUnavailable".into()) }
+            std::io::Error::last_os_error().raw_os_error() == Some(1168) { Ok(()) } else { Err("secureStorageUnavailable".into()) }
     }
 }
 
@@ -141,3 +141,15 @@ pub fn sync_secret_store(name: String, value: String) -> Result<(), String> {
 pub fn sync_secret_load(name: String) -> Result<Option<String>, String> { platform::load(&target(&name)?) }
 #[tauri::command]
 pub fn sync_secret_remove(name: String) -> Result<(), String> { platform::remove(&target(&name)?) }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn only_provision_explicit_os_vault_entries() {
+        assert!(target("group-key").unwrap().ends_with(".group-key"));
+        assert!(target("mail-credentials").unwrap().ends_with(".mail-credentials"));
+        assert!(target("other-key").is_err());
+        assert!(target("group-key\r\n").is_err());
+    }
+}

@@ -723,7 +723,7 @@
   "enableLibraryLock": "Enable library lock",
   "disableLibraryLock": "Disable library lock",
   "largeAttachmentsTitle": "Large attachments",
-  "largeAttachmentsHint": "Files above the configured threshold. Export uses an explicit system dialog for each file.",
+  "largeAttachmentsHint": "Files above the configured threshold. Batch export uses one explicit system folder picker.",
   "largeAttachmentsEmpty": "No large attachments",
   "largeAttachmentsError": "Could not read attachments",
   "largeAttachmentsExport": "Export selected",

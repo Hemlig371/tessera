@@ -8,6 +8,7 @@ import { errorKey } from './common';
 import { SummaryFormulaInput } from './SummaryFormulaInput';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
+import { fieldConfig } from '../core/validation';
 
 type Kind = SummaryWidget['kind'];
 const kinds: Kind[] = ['metric', 'progress', 'chart', 'list', 'table', 'calendar', 'create'];
@@ -88,10 +89,10 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
                 const op = e.target.value as EntryFilter['op'];
                 changeFilter({ field_id: field.id, op, ...(!['empty', 'filled'].includes(op) ? { value: null } : {}) });
               }}>
-                {(['empty','filled','eq','ne', ...(['relation','backlink','file','image'].includes(field.type) ? [] : ['gt','lt'])] as EntryFilter['op'][]).map(op => <option key={op} value={op}>{t('filterOps.' + op)}</option>)}
+                {(['file','image'].includes(field.type) ? ['empty','filled'] : ['relation','backlink'].includes(field.type) ? ['empty','filled','eq','ne'] : ['empty','filled','eq','ne','gt','lt']).map(op => <option key={op} value={op}>{t('operators.' + op)}</option>)}
               </select></label>
-              {!['empty','filled'].includes(filter.op) && (field.type === 'relation' ? <RelationInput api={api} field={field} value={filter.value} change={value => changeFilter({ ...filter, value })} disabled={busy} /> :
-                <FieldInput field={field} label={field.name} value={filter.value} change={value => changeFilter({ ...filter, value })} />)}
+              {!['empty','filled'].includes(filter.op) && (['relation','backlink'].includes(field.type) ? <RelationInput api={api} field={field} value={filter.value} change={value => changeFilter({ ...filter, value })} disabled={busy} /> :
+                <FieldInput field={['formula','aggregate'].includes(field.type) ? { ...field, type: fieldConfig(field).result_type ?? 'decimal' } : field} label={field.name} value={filter.value} change={value => changeFilter({ ...filter, value })} />)}
               <button type="button" onClick={() => replace({ ...widget, filters: (widget.filters ?? []).filter((_, i) => i !== filterIndex) })}>{t('remove')}</button>
             </div>;
           })}

@@ -173,7 +173,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     library = libraries.find((l) => l.id === ui.libraryId);
   const browsing = ui.screen === 'records' && (ui.scope === 'all' || (ui.scope === 'library' && !!library) || !!collection);
   useEffect(() => {
-    if (!browsing) return;
+    if (!browsing && ui.screen !== 'summary') return;
     let day = localDateLiteral(), timer: ReturnType<typeof setTimeout>;
     const checkDay = () => {
       const today = localDateLiteral();
@@ -186,7 +186,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     window.addEventListener('focus', checkDay);
     document.addEventListener('visibilitychange', checkDay);
     return () => { clearTimeout(timer); window.removeEventListener('focus', checkDay); document.removeEventListener('visibilitychange', checkDay); };
-  }, [browsing]);
+  }, [browsing, ui.screen]);
   const activeDateSelection = browsing && ui.scope === 'collection' ? layouts.list.list?.date_selection : null;
   const activeDateRange = activeDateSelection ? freezeDateSelection(activeDateSelection) : null;
   const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
@@ -221,7 +221,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     }
     return () => controller.abort();
     // Widgets and requested months are represented in summaryToken.
-  }, [api, summaryToken]);
+  }, [api, summaryToken, ui.screen, library, summaryMonths]);
   const specialMode = !activeDrilldown && ['kanban', 'calendar', 'tree'].includes(viewMode) && !!viewField && ui.scope === 'collection';
   const projectionToken = JSON.stringify([queryToken, viewMode, viewField, calendarMonth, revision, layouts.list.fields, layouts.list.quick_actions]);
   useEffect(() => {
@@ -645,7 +645,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   async function createFromWidget(widget: SummaryWidget) {
     if (busy || !library) return;
     const collectionId = widget.collection_id;
-    setBusy(true); setError(null); clearRecordContext();
+    setBusy(true); setError(null); clearRecordContext(); setOpeningDraft(null); setCreationInitial({});
     try {
       const target = await api.getCollection(collectionId);
       const [nextFields, form, card, list, quick] = await Promise.all([

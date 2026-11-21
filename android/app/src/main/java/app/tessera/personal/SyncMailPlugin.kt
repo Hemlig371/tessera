@@ -151,6 +151,7 @@ class SyncMailPlugin : Plugin() {
             val limit=call.getInt("limit") ?: 128
             if(after<0 || limit !in 1..256) throw IllegalArgumentException()
             var validity=0L
+            var uidNext=0L
             val messages=JSArray()
             var lastFetchedUid=after.toLong()
             connect(a).use { ch ->
@@ -171,11 +172,14 @@ class SyncMailPlugin : Plugin() {
                 imap(ch,"a02","SELECT INBOX") { line,_ ->
                     val match=Regex("UIDVALIDITY (\\d+)",RegexOption.IGNORE_CASE).find(line)
                     if(match!=null) validity=match.groupValues[1].toLong()
+                    val next=Regex("UIDNEXT (\\\\d+)",RegexOption.IGNORE_CASE).find(line)
+                    if(next!=null) uidNext=next.groupValues[1].toLong()
                 }
-                if(validity<=0) throw IllegalStateException("mailRejected")
+                if(validity<=0 || uidNext<=0) throw IllegalStateException("mailRejected")
                 val found=ArrayList<Long>()
                 val start=after.toLong()+1
-                imap(ch,"a03","UID SEARCH UID $start:*") { line,_ ->
+                val end=minOf(uidNext-1,start+511)
+                if(start<=end) imap(ch,"a03","UID SEARCH UID $start:$end HEADER X-Tessera-Wire 1") { line,_ ->
                     if(line.startsWith("* SEARCH",true)) {
                         for(s in line.removePrefix("* SEARCH").trim().split(" "))
                             s.toLongOrNull()?.let { if(it>after) found.add(it) }
@@ -210,6 +214,7 @@ class SyncMailPlugin : Plugin() {
                         }
                     }
                 }
+                if(found.size<=limit && end>=start) lastFetchedUid=maxOf(lastFetchedUid,end)
                 ch.send("a05 LOGOUT\r\n")
             }
             JSObject().put("uidValidity",validity.toString()).put("lastFetchedUid",lastFetchedUid.toString()).put("messages",messages)

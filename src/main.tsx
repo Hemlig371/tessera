@@ -2,6 +2,7 @@ import { DatabaseArchive } from './ui/DatabaseArchive';
 import { databaseInitialized } from './core/database-archive';
 import type { DatabaseAdapter, BinaryFileAdapter } from './core/ports';
 import { openBinaryFiles } from './platform/binary-files';
+import { acknowledgeAndroidShare, pendingAndroidShares, subscribeAndroidShares } from './platform/external-actions';
 import { createRoot } from 'react-dom/client';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,37 @@ function Root() {
   const [archive, setArchive] = useState(false), [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { void boot.then(setState).catch((e: unknown) => setError(e instanceof Error ? e.message : 'generic')); }, []);
+  // Android Shares bypass the creation form by contract. The incoming UUID is the
+  // SQLite record UUID: a crash between Save and native ACK cannot duplicate it.
+  useEffect(() => {
+    if (!state?.api) return;
+    const api = state.api;
+    let alive = true, draining = false, again = false;
+    const drain = async () => {
+      if (draining) { again = true; return; }
+      draining = true;
+      try {
+        do {
+          again = false;
+          const pending = await pendingAndroidShares();
+          if (pending.error) throw new Error(pending.error);
+          for (const share of pending.items) {
+            const inbox = await api.getInbox();
+            await api.saveNewEntry(inbox.id, { [inbox.incoming_field_id]: share.text }, share.id);
+            await acknowledgeAndroidShare(share.id);
+          }
+        } while (again && alive);
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : 'shareUnavailable');
+      } finally { draining = false; }
+    };
+    let remove: (() => void) | undefined;
+    void subscribeAndroidShares(() => { void drain(); }).then(stop => {
+      if (alive) { remove = stop; void drain(); }
+      else stop();
+    }).catch(e => { if (alive) setError(e instanceof Error ? e.message : 'shareUnavailable'); });
+    return () => { alive = false; remove?.(); };
+  }, [state?.api]);
   const openArchive = () => { archiveOrigin.current = { top: window.scrollY, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null }; setArchive(true); };
   const closeArchive = () => { setArchive(false); requestAnimationFrame(() => { archiveOrigin.current.focus?.focus({ preventScroll: true }); window.scrollTo(0, archiveOrigin.current.top); }); };
   if (error) return <div className="startup"><ErrorMessage code={error}/><button onClick={() => location.reload()}>{t('retry')}</button></div>;

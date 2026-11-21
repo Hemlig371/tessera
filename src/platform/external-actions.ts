@@ -6,6 +6,9 @@ const native = registerPlugin<{
   openUrl(options: { url: string }): Promise<void>;
   createCalendarEvent(options: { title: string; start: number; end: number; allDay: boolean; description?: string; location?: string }): Promise<void>;
   createReminder(options: { title: string; description?: string }): Promise<void>;
+  pendingSharedText(): Promise<{ items: Array<{ id: string; text: string }>; error?: string }>;
+  ackSharedText(options: { id: string }): Promise<void>;
+  addListener(name: 'shareReceived', listener: () => void): Promise<PluginListenerHandle>;
   shortcutSupported(): Promise<{ supported: boolean }>;
   pinLibraryShortcut(options: { id: string; name: string }): Promise<{ requested: boolean }>;
   addListener(name: 'openLibrary', listener: (event: { id: string }) => void): Promise<PluginListenerHandle>;
@@ -46,4 +49,28 @@ export async function openAndroidReminder(title: string, description?: string): 
   if (Capacitor.getPlatform() !== 'android') throw new AppError('nativeRequired');
   if (!title.trim()) throw new AppError('invalidCalendarEvent');
   await native.createReminder({ title, description });
+}
+
+export interface IncomingSharedText { id: string; text: string }
+export async function pendingAndroidShares(): Promise<{ items: IncomingSharedText[]; error?: string }> {
+  if (Capacitor.getPlatform() !== 'android') return { items: [] };
+  const result = await native.pendingSharedText();
+  if (!Array.isArray(result.items) || result.items.length > 32) throw new AppError('shareUnavailable');
+  const items = result.items.map(item => {
+    if (typeof item?.id !== 'string' || !UUID_RE.test(item.id) ||
+      typeof item.text !== 'string' || !item.text || item.text.length > 65536)
+      throw new AppError('invalidSharedText');
+    return { id: item.id, text: item.text };
+  });
+  return { items, error: result.error };
+}
+export async function acknowledgeAndroidShare(id: string): Promise<void> {
+  if (Capacitor.getPlatform() !== 'android') throw new AppError('nativeRequired');
+  if (!UUID_RE.test(id)) throw new AppError('invalidId');
+  await native.ackSharedText({ id });
+}
+export async function subscribeAndroidShares(listener: () => void): Promise<() => void> {
+  if (Capacitor.getPlatform() !== 'android') return () => undefined;
+  const handle = await native.addListener('shareReceived', listener);
+  return () => { void handle.remove().catch(() => undefined); };
 }

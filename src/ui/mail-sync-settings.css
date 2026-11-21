@@ -38,3 +38,6 @@
 @media (prefers-reduced-motion: reduce) {
   .mail-sync-settings * { scroll-behavior: auto; }
 }
+
+.mail-sync-reason { margin: var(--space-2) 0 0; color: var(--error-text); font-size: .9rem; line-height: 1.5; }
+.mail-sync-settings [aria-busy="true"] { cursor: progress; }

@@ -2,7 +2,7 @@
 
 Внутренний dev-документ. Local-first база для Android, Windows, macOS и Linux: React/TypeScript Core + нативные SQLite/Rust/Kotlin, без обязательных сервера, аккаунта и сети.
 
-Версия разработки **0.24.0** (**M6 в разработке, Android encrypted-mail path добавлен, свежая CI-приёмка ещё не подтверждена**; M5 принят на SHA [`48aace2`](https://github.com/Hemlig371/tessera/commit/48aace27cdf4740569327db9ba878a34a47d74be), [run #44919215785](https://github.com/Hemlig371/tessera/actions/runs/44919215785), 8/8 jobs), Android **versionCode=25**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
+Версия разработки **0.24.0** (**M6 в разработке, Android encrypted-mail path подтверждён fresh priority на `fb55ca2` ([run #44932288319](https://github.com/Hemlig371/tessera/actions/runs/44932288319), 8/8); Windows/macOS mail ещё не реализован**; M5 принят на SHA [`48aace2`](https://github.com/Hemlig371/tessera/commit/48aace27cdf4740569327db9ba878a34a47d74be), [run #44919215785](https://github.com/Hemlig371/tessera/actions/runs/44919215785), 8/8 jobs), Android **versionCode=25**, dev-схема `tessera-dev-bootstrap-2`. Ниже описан написанный код, а не подтверждение полной приёмки. Единственный текущий статус, доказательства CI, WIP и очередь M1–M7 — [audit.md](audit.md).
 
 | Документ | Назначение |
 | --- | --- |

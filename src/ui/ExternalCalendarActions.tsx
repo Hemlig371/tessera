@@ -50,6 +50,6 @@ export function ExternalCalendarActions({ entry, fields, title, busy }: { entry:
       {android && <button type="button" disabled={busy || working} onClick={() => { void perform(true); }}>{t('reminderCreate')}</button>}
     </div>
     {saved && <small role="status">{t('calendarExported')}</small>}
-    {error && <p role="alert">{t('errors.' + error, { defaultValue: error === 'reminderUnavailable' ? t('reminderFallback') : t('calendarUnavailable') })}</p>}
+    {error && <p role="alert">{t('errors.' + error, { defaultValue: error === 'reminderUnavailable' ? t('reminderFallback') : error === 'calendarOpenFailed' ? t('calendarOpenFailed') : t('calendarUnavailable') })}</p>}
   </section>;
 }

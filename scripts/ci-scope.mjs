@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 /** Native/build contracts trigger the complete matrix; product checkpoints can request it explicitly. */
 export function ciScope(event, files = []) {
-  const target = event.name === 'workflow_dispatch' ? event.target ?? 'all' : 'all';
+  const priorityPush = event.name === 'push' && event.ref === 'refs/heads/main' && /\[priority ci\]/i.test(event.message ?? '');
+  const target = event.name === 'workflow_dispatch' ? event.target ?? 'all' : priorityPush ? 'priority' : 'all';
   if (!['all', 'priority', 'android', 'android_priority', 'linux_android'].includes(target)) throw new Error('Unsupported native target');
   if (['linux_android','android_priority'].includes(target) && !event.resume) throw new Error('Targeted jobs require verified resume');
   if (event.resume && (event.name !== 'workflow_dispatch' || event.ref !== 'refs/heads/main' || event.fullNative === false)) {
@@ -16,7 +17,7 @@ export function ciScope(event, files = []) {
   else {
     if (!['push', 'pull_request'].includes(event.name)) throw new Error('Unsupported CI event');
     if (event.tag) result = { native: true, reason: 'tag' };
-    else if (/\[(?:full|native) ci\]/i.test(event.message ?? '')) result = { native: true, reason: 'checkpoint' };
+    else if (priorityPush || /\[(?:full|native) ci\]/i.test(event.message ?? '')) result = { native: true, reason: 'checkpoint' };
     else {
       const critical = /^(?:\.github\/workflows\/|android\/|src-tauri\/|src\/platform\/|src\/core\/(?:schema|migrate|ports|sqlite-check)\.ts$|scripts\/|tests\/native\/|tests\/support\/(?:android-main|sqlite-contract|rust-database|.*-scenario|draft-fixture|scale)\.tsx?$|tests\/fixtures\/|package(?:-lock)?\.json$|capacitor\.config\.ts$|vite(?:\.[\w-]+)?\.config\.ts$|vitest\.config\.ts$|tsconfig[^/]*\.json$)/;
       result = { native: files.some(path => !/\.md$/i.test(path) && critical.test(path)), reason: 'changed-paths' };

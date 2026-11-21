@@ -153,3 +153,5 @@
 - **Финальный статус M5 не ставить до запуска нового fresh priority на функциональном SHA этого релиза, без baseline/resume.** Последние добавления к engine/chunks и новые tests не покрыты более ранним run 44916379195.
 
 - Fresh M5 run [44918497349](https://github.com/Hemlig371/tessera/actions/runs/44918497349) на `6472cde`: Windows typecheck/lint/unit/sync success; DB **181/182** — `history_clear` из существующего Repository.clearHistory отсутствовал в новом M5 typed envelope, поэтому fast stop и native jobs skipped. Корневая ошибка исправлена в `sync-protocol.ts` (явная типизация/валидация payload), `sync-apply.ts` (идемпотентное применение и relay) и unit-контракте; проверять только новым fresh priority, не считать M5 принятым.
+
+- Fresh priority [44918969363](https://github.com/Hemlig371/tessera/actions/runs/44918969363) на `6963a23`: sync/scope success; Windows TypeScript TS2454 (`changed` could be uninitialized for повторный `history_clear`), native jobs skipped. Инициализация флага исправлена без изменения LWW/ACK; последующая свежая проверка обязательна.

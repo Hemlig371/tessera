@@ -94,6 +94,7 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   expect(await snapshot()).toEqual(before);
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.locator('[data-editor]').getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Страничный черновик');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/m65-desktop-1280-editor.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

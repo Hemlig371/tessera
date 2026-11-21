@@ -18,6 +18,7 @@ import { Catalog } from './Catalog';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { LargeAttachments } from './LargeAttachments';
 import { androidDeviceLock, confirmDeviceIdentity, deviceAuthAvailable } from '../platform/device-auth';
 import { ExternalCalendarActions } from './ExternalCalendarActions';
 import { AttachmentList } from './AttachmentList';
@@ -858,7 +859,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'diagnostics' ? t('diagnosticsTitle') : ui.editor === 'library-summary' ? t('librarySummary') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'diagnostics' ? t('diagnosticsTitle') : ui.editor === 'large-attachments' ? t('largeAttachmentsTitle') : ui.editor === 'library-summary' ? t('librarySummary') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -1055,7 +1056,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
-          {ui.constructorOpen && ui.screen === 'libraries' && <><button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button></>}
+          {ui.constructorOpen && ui.screen === 'libraries' && <><button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
@@ -1339,6 +1340,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
           {ui.editor === 'diagnostics' && <DiagnosticsPanel api={api} busy={busy} />}
+          {ui.editor === 'large-attachments' && <LargeAttachments api={api} busy={busy} />}
           {ui.editor === 'file-settings' && <AttachmentSettings api={api} busy={busy} cancel={close} save={bytes => { void run(() => api.saveAttachmentLimit(bytes)); }} />}
           {ui.editor === 'trash' && <Trash api={api} busy={busy} revision={revision}
             restore={item => { void run(async () => { await api.setDeleted('record', item.id, false, item.hlc); setUndo(null); }, false); }}

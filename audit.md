@@ -1,8 +1,6 @@
 # Tessera — статус и точка продолжения
 
 Срез 21.11.2026: **0.24.0 / Android code 25**, схема `tessera-dev-bootstrap-2`. **M1–M5 приняты; Android M6-подсистема принята по обязательной fresh priority автоматике на функциональном SHA [`fb55ca2`](https://github.com/Hemlig371/tessera/commit/fb55ca2792e041fb0b3f0ea47b81391c77193d74), [GitHub Actions #44932288319](https://github.com/Hemlig371/tessera/actions/runs/44932288319), 8/8 jobs success без baseline/resume. Полный блок M6 ещё НЕ закрыт:** отсутствуют нативный SMTP/IMAP и OS key vault для Windows/macOS; пользователь не разрешал реальные почтовые аккаунты, поэтому межпровайдерский E2E/поведение на физических устройствах не проверены. Старый M5 остаётся принятым отдельно.
-Срез 21.11.2026: **0.23.0 / Android code 24**, схема `tessera-dev-bootstrap-2`. **M1/M2/M3/M4/M5 приняты по обязательной автоматике. M5 — SHA `48aace2`, [GitHub Actions #44919215785](https://github.com/Hemlig371/tessera/actions/runs/44919215785), 8/8 success, fresh priority без baseline/resume. Следующий блок — M6 (в новом чате).** Принятый M4: `796325f`, [44913204840](https://github.com/Hemlig371/tessera/actions/runs/44913204840), 8/8. Физический телефон и широкая UI/UX-приёмка не проверены; это остаётся в M7.
-
 Принятый M3 SHA: `83d268d79edd5b5a2cc0c87d4b0670ba372a2f0c`, GitHub Actions [44908239799](https://github.com/Hemlig371/tessera/actions/runs/44908239799). Проверка относится к функциональному SHA; следующая правка audit/README — только документация. Перед дальнейшей работой проверить main. Правила — [AGENTS.md](AGENTS.md), команды — [README.md](README.md).
 
 ## Единственная актуальная очередь

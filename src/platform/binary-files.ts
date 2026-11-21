@@ -66,8 +66,8 @@ export async function exportAttachmentGroup(api: Repository, selected: readonly 
     const safeName = exportFileName(view.name);
     const dot = safeName.lastIndexOf('.');
     const suffix = '-' + item.id.slice(0, 8);
-    const name = dot > 0 ? safeSegment(safeName.slice(0, dot)) + suffix + safeName.slice(dot) :
-      safeSegment(safeName) + suffix;
+    const name = dot > 0 ? safeSegment(safeName.slice(0, dot), 30) + suffix + safeName.slice(dot) :
+      safeSegment(safeName, 30) + suffix;
     files.push({
       id: item.id, size: view.size, sha256: view.sha256, mime: view.mime, name,
       folders: [

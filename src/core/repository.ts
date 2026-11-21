@@ -272,7 +272,7 @@ export class Repository {
   }
   /** Stable bounded catalog of files above the configured transfer/archive threshold. */
   async listLargeAttachments(cursor?: { size: number; id: string }, limit = 50): Promise<{
-    items: Array<{ id: string; record_id: string; name: string; mime: string; size: number; status: AttachmentView['status']; library_name: string; collection_name: string; record_title: string }>;
+    items: Array<{ id: string; record_id: string; name: string; mime: string; size: number; status: AttachmentView['status']; other_copies: number; library_name: string; collection_name: string; record_title: string }>;
     next: { size: number; id: string } | null;
   }> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100 ||
@@ -281,9 +281,10 @@ export class Repository {
       const threshold = await attachmentLimit(s);
       const rows = await s.query<{
         id: string; record_id: string; name: string; mime: string; size: number;
-        status: AttachmentView['status'] | null; library_name: string; collection_name: string; data: string; primary_field_id: string; primary_type: string;
+        status: AttachmentView['status'] | null; other_copies: number; library_name: string; collection_name: string; data: string; primary_field_id: string; primary_type: string;
       }>(`SELECT a.id,a.record_id,a.name,a.mime,a.size,al.state AS status,
-         l.name AS library_name,c.name AS collection_name,r.data,c.primary_field_id,pf.type AS primary_type
+         l.name AS library_name,c.name AS collection_name,r.data,c.primary_field_id,pf.type AS primary_type,
+         (SELECT count(*) FROM attachment_locations loc WHERE loc.attachment_id=a.id AND loc.device_id<>? AND loc.present=1) AS other_copies
          FROM attachments a JOIN records r ON r.id=a.record_id AND r.purged=0
          JOIN collections c ON c.id=r.collection_id JOIN libraries l ON l.id=c.library_id
          JOIN fields pf ON pf.id=c.primary_field_id
@@ -292,12 +293,12 @@ export class Repository {
          WHERE a.purged=0 AND (local_lock.value IS NULL OR local_lock.value<>'1') AND a.size>? AND
          (? IS NULL OR a.size<? OR (a.size=? AND a.id>?))
          ORDER BY a.size DESC,a.id LIMIT ?`,
-        [threshold, cursor?.id ?? null, cursor?.size ?? null, cursor?.size ?? null, cursor?.id ?? null, limit + 1]);
+        [this.deviceId, threshold, cursor?.id ?? null, cursor?.size ?? null, cursor?.size ?? null, cursor?.id ?? null, limit + 1]);
       const items = rows.slice(0, limit).map(row => {
         const data = JSON.parse(row.data) as RecordData;
         const primary = data[row.primary_field_id];
         return { id: row.id, record_id: row.record_id, name: row.name, mime: row.mime, size: row.size,
-          status: row.status ?? 'missing' as AttachmentView['status'],
+          status: row.status ?? 'missing' as AttachmentView['status'], other_copies: row.other_copies,
           library_name: row.library_name, collection_name: row.collection_name,
           record_title: row.primary_type !== 'secret' && typeof primary === 'string' ? primary.slice(0, 200) : '' };
       });

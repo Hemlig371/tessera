@@ -1,3 +1,4 @@
+import { queryPathReader } from './calculated-fields';
 import { AppError } from './errors';
 import { Decimal } from './decimal';
 import { decimalTypes } from './field-values';
@@ -27,12 +28,13 @@ export async function evaluateQueryFormula(session: SqlSession, query: EntryQuer
   requireId(query.collection_id ?? '');
   const expression = parseFormula(source), now = new Date();
   const fields = await session.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [query.collection_id!]);
-  const columns = new Map<string, { field: Field; values: FormulaValue[]; error: string | null }>();
+  const reader = await queryPathReader(session);
+  const columns = new Map<string, { path: string[]; field: Field; values: FormulaValue[]; error: string | null }>();
   for (const path of formulaReferences(expression)) {
-    const field = fields.find(field => field.id === path[0]);
-    if (path.length !== 1 || !field || field.type === 'secret') throw new AppError('formulaReference');
+    const field = reader.field(query.collection_id!, path);
     if (['file','image','json','coordinates','date_range','relation','backlink','multiselect'].includes(field.type)) throw new AppError('formulaType');
-    if (!columns.has(field.id)) columns.set(field.id, { field, values: [], error: null });
+    const key = path.join('.');
+    if (!columns.has(key)) columns.set(key, { path, field, values: [], error: null });
   }
   if (columns.size) {
     let cursor: EntryQuery['cursor'] = null;
@@ -41,14 +43,14 @@ export async function evaluateQueryFormula(session: SqlSession, query: EntryQuer
       const page = await queryEntries(session, { ...query, cursor, limit: 200 });
       for (const row of page.items) for (const column of columns.values()) {
         if (column.values.length >= 100_000) throw new AppError('formulaBudget');
-        try { column.values.push(fieldValue(column.field, row)); }
+        try { column.values.push(column.path.length === 1 ? fieldValue(column.field, row) : await reader.value(row.id, query.collection_id!, column.path)); }
         catch (error) { column.error ??= error instanceof AppError ? error.code : 'formulaType'; column.values.push(null); }
       }
       cursor = page.next;
     } while (cursor);
   }
   signal?.throwIfAborted();
-  const result = await evaluateFormula(expression, { resolve: async path => { const column = columns.get(path[0]!)!; if (column.error) throw new AppError(column.error); return column.values; }, now: () => now });
+  const result = await evaluateFormula(expression, { resolve: async path => { const column = columns.get(path.join('.'))!; if (column.error) throw new AppError(column.error); return column.values; }, now: () => now });
   if (Array.isArray(result)) throw new AppError('formulaType');
   return result instanceof Decimal ? result.toString() : result;
 }

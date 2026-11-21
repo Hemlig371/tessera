@@ -27,7 +27,6 @@ export async function evaluateQueryFormula(session: SqlSession, query: EntryQuer
   query = await freezeQueryDates(session,query);
   requireId(query.collection_id ?? '');
   const expression = parseFormula(source), now = new Date();
-  const fields = await session.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [query.collection_id!]);
   const reader = await queryPathReader(session);
   const columns = new Map<string, { path: string[]; field: Field; values: FormulaValue[]; error: string | null }>();
   for (const path of formulaReferences(expression)) {

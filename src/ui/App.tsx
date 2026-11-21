@@ -1,3 +1,4 @@
+import { freezeDateSelection } from '../core/date-selection';
 import { localDateLiteral } from '../core/relative-dates';
 import { quickLayout } from '../core/quick-forms';
 import { SecretValue } from './TypedFieldInput';
@@ -166,6 +167,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     document.addEventListener('visibilitychange', checkDay);
     return () => { clearTimeout(timer); window.removeEventListener('focus', checkDay); document.removeEventListener('visibilitychange', checkDay); };
   }, [browsing]);
+  const activeDateSelection = browsing && ui.scope === 'collection' ? layouts.list.list?.date_selection : null;
+  const activeDateRange = activeDateSelection ? freezeDateSelection(activeDateSelection) : null;
   const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
   const query: EntryQuery = {
     ...(ui.scope === 'collection'
@@ -956,9 +959,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </label>
           </div>
         )}
-        {browsing && ui.scope === 'collection' && layouts.list.list?.date_selection && <p className="screen-hint" role="status">
-          {t('dateSelection.active', { field: fields.find(field => field.id === layouts.list.list?.date_selection?.field_id)?.name ?? '', period: t(`dateSelection.${layouts.list.list.date_selection.period}`) })}
-          {layouts.list.list.date_selection.period === 'range' && ` · ${layouts.list.list.date_selection.start} — ${layouts.list.list.date_selection.end}`}
+        {activeDateSelection && <p className="screen-hint" role="status">
+          {t('dateSelection.active', { field: fields.find(field => field.id === activeDateSelection.field_id)?.name ?? '', period: t(`dateSelection.${activeDateSelection.period}`) })}
+          {activeDateRange?.period === 'range' && ` · ${activeDateRange.start}${activeDateRange.start === activeDateRange.end ? '' : ` — ${activeDateRange.end}`}`}
         </p>}
         {ui.screen === 'libraries' ? (
           <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} />

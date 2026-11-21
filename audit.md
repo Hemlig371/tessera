@@ -71,6 +71,11 @@
 - Исправлено только тестовое значение на `crypto.randomUUID()` с сохранением инварианта stable option ID и проверок группировки; исправление не карантинировано. Повторные проверки проводить только в GitHub Actions, по новому SHA; не засчитывать старый run.
 - Дополнительно: `fetch_commit_workflow_runs` фильтрует PR-события и для push возвращал пустой список. Run доступен через `mcp__GitHub__fetch` по GitHub API URL и `fetch_workflow_run_jobs` — прежняя интерпретация отсутствия запусков была ошибочной.
 
+## GitHub Actions #100 — повторная диагностика M3 (21.11.2026)
+
+- [Run 44905756300](https://github.com/Hemlig371/tessera/actions/runs/44905756300), SHA `07122f1`, push/main: **failure**. Linux и Windows: typecheck/lint/unit/platform/licenses успешно, sync-foundation успешно; DB 167 passed/1 failed из 168 на каждой ОС. Остальные сборки и native пропущены из-за DB failure.
+- В новом `tests/db/query-insights.test.ts:47` колонка Kanban корректно найдена по UUID `optionId` (count 211), но две следующие проверки preview и скрытого секретного поля ошибочно искали прежний литерал `todo`, получая undefined. Исправлены именно обе проверки; production-код и UUID-валидация не ослаблены. Тестовый дефект не карантинирован. Следующий push запускает повторную GitHub Actions диагностику; статус нового SHA проверять отдельно.
+
 ## Продолжение M3
 
 1. **Следующая задача — интегрировать M3**, не переписывать готовое. Новые модули `src/core/{relative-dates,date-selection,mode-options,tree-projection,kanban-projection,calendar-projection,collection-projection,query-summary,query-insights,query-formula,grouped-summary,library-summary,summary-data}.ts`, UI CalendarView/KanbanBoard/TreeView/LibrarySummaryView/QueryTotals/QueryTotalsEditor/SummaryFormulaInput + formula-references и collection-modes.css, 12 unit/DB файлов. Кроме завершённого ниже фильтра дат, эти режимы/сводки пока не подключены к App/Repository/модели/локалям. Сохранение этого кода не означает готовность режимов или сводок. Версию M3 ещё не повышали.

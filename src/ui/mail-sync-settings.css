@@ -1,0 +1,30 @@
+/* M6.5: shared surface and accessible layout for mail and QR setup. */
+.mail-sync-settings { min-width: 0; }
+.mail-sync-settings :is(p, label, legend) { overflow-wrap: anywhere; }
+.mail-sync-settings .mail-sync-panel,
+.mail-sync-invitation {
+  min-width: 0;
+  padding: var(--space-4);
+  margin-block: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.mail-sync-facts { margin: 0; display: grid; gap: var(--space-3); }
+.mail-sync-facts > div { display: grid; grid-template-columns: minmax(8rem, 35%) minmax(0, 1fr); gap: var(--space-2); }
+.mail-sync-facts dt { color: var(--muted); font-size: .9rem; }
+.mail-sync-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.mail-sync-facts code { font-size: .85rem; overflow-wrap: anywhere; word-break: break-word; }
+.mail-sync-invitation { display: grid; justify-items: start; gap: var(--space-3); }
+.mail-sync-invitation img { display: block; max-width: 100%; width: min(240px, 100%); height: auto; background: white; padding: var(--space-2); border-radius: var(--radius-sm); }
+.mail-sync-invitation textarea { width: 100%; min-width: 0; max-width: 100%; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+.mail-sync-warning { margin: 0; color: var(--error-text); }
+.mail-sync-result { padding: var(--space-3); background: var(--accent-soft); border-radius: var(--radius-sm); color: var(--text); overflow-wrap: anywhere; }
+.mail-sync-settings .form-actions { flex-wrap: wrap; }
+.mail-sync-settings :is(input, textarea, select) { max-width: 100%; min-width: 0; }
+.mail-sync-settings input[type="file"] { width: 100%; }
+@media (max-width: 600px) {
+  .mail-sync-facts > div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .mail-sync-settings .mail-sync-panel,
+  .mail-sync-invitation { padding: var(--space-3); }
+}

@@ -94,7 +94,7 @@ async function mergeMarker(s: SqlSession, event: SyncEvent): Promise<boolean> {
 }
 export async function applySyncEvent(s: SqlSession, event: SyncEvent,
   mergeRecord: (entry: Entry) => Promise<boolean>, relay: (event: SyncEvent) => Promise<void>): Promise<void> {
-  let changed = false;
+  let changed: boolean;
   if (event.entity_type === 'record') changed = await mergeRecord(event.payload as unknown as Entry);
   else if (event.entity_type === 'record_version') {
     const version = event.payload as unknown as RecordVersion;

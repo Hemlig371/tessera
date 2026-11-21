@@ -1,3 +1,4 @@
+import { validateModeOptions } from './mode-options';
 import { validateDateSelection } from './date-selection';
 import { AppError } from './errors';
 import type { Field, LayoutItem, LayoutRow, UiDefinition, UiKind } from './model';
@@ -115,7 +116,7 @@ export function validateUiDefinition(
   if (definition.list) {
     if (kind !== 'list') throw new AppError('invalidUiConfig');
     const list = definition.list;
-    if (list.mode && !['rows', 'cards', 'table'].includes(list.mode)) throw new AppError('invalidUiConfig');
+    validateModeOptions(list, fields, fields[0]?.collection_id ?? '');
     if (list.direction && !['asc', 'desc'].includes(list.direction)) throw new AppError('invalidUiConfig');
     for (const id of [list.sort_field, list.group_field])
       if (

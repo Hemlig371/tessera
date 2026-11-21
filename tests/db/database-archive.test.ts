@@ -64,7 +64,7 @@ describe.each(adapters)('%s portable database archive (logical WAL snapshot)', k
     await expect(importDatabaseArchive(bytes(output.state.bytes), target.db, target.files)).rejects.toThrow(mode === 'binary-with-valid-crc' ? 'fileCorrupt' : 'invalidArchive');
   });
   it('round-trips the complete dataset, versions, typed files/config and baseline point with a fresh device, no credentials/queues/cursors', async () => {
-    const { f, api, collection, file, owner, staged } = await seed(), output = writer();
+    const { f, api, library, collection, file, owner, staged } = await seed(), output = writer();
     const date = await api.createField(collection.id, 'Дата архива', 'date');
     const dateProfile = await api.createDisplayProfile(collection.id, 'Сегодня', { fields: [], list: { date_selection: { field_id: date.id, period: 'today' } } });
     await api.saveUiConfig(collection.id, 'list', { fields: [], list: { mode: 'calendar', mode_field: date.id }, totals: [{ operation: 'count' }] });

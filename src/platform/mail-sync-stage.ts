@@ -52,6 +52,7 @@ export function stageIncomingEmail(
     for(const wire of arriving) {
       const h=inspectSecureHeader(wire);
       if(h.dataset_id!==api.datasetId || (h.sender_id===api.deviceId && h.kind!=='receipt'))continue;
+      await openSyncBytes(key,wire,{dataset_id:api.datasetId,kind:h.kind});
       const id=prefix+await fingerprint(wire);
       if(stored.has(id))continue;
       total+=wire.length;

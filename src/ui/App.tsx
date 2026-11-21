@@ -18,6 +18,7 @@ import { Catalog } from './Catalog';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { androidDeviceLock, confirmDeviceIdentity, deviceAuthAvailable } from '../platform/device-auth';
 import { ExternalCalendarActions } from './ExternalCalendarActions';
 import { AttachmentList } from './AttachmentList';
 import { fileIds, isFile } from '../core/attachments';
@@ -82,6 +83,49 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     format = useFormatValue(),
     ui = useUi();
   const [fileCleanupPending, setFileCleanupPending] = useState(0);
+  const [libraryGate, setLibraryGate] = useState<{ id: string; required: boolean; approved: boolean } | null>(null);
+  const [gateError, setGateError] = useState<string | null>(null);
+  const [gateWorking, setGateWorking] = useState(false);
+  useEffect(() => {
+    if (!androidDeviceLock() || !ui.libraryId) return;
+    const id = ui.libraryId;
+    let active = true;
+    void api.isLibraryLocked(id).then(required => {
+      if (active) setLibraryGate({ id, required, approved: false });
+    }).catch(e => { if (active) setGateError(errorKey(e)); });
+    return () => { active = false; };
+  }, [api, ui.libraryId]);
+  useEffect(() => {
+    if (!androidDeviceLock()) return;
+    const obscure = () => {
+      if (document.hidden) setLibraryGate(previous => previous && { ...previous, approved: false });
+    };
+    document.addEventListener('visibilitychange', obscure);
+    return () => document.removeEventListener('visibilitychange', obscure);
+  }, []);
+  async function unlockLibrary() {
+    if (!ui.libraryId || gateWorking) return;
+    setGateWorking(true); setGateError(null);
+    try {
+      await confirmDeviceIdentity();
+      const required = await api.isLibraryLocked(ui.libraryId);
+      setLibraryGate({ id: ui.libraryId, required, approved: true });
+    } catch (e) { setGateError(errorKey(e)); }
+    finally { setGateWorking(false); }
+  }
+  async function toggleLibraryLock() {
+    if (!ui.libraryId || gateWorking) return;
+    setGateWorking(true); setGateError(null);
+    try {
+      if (!(await deviceAuthAvailable())) throw new Error('authUnavailable');
+      await confirmDeviceIdentity();
+      const current = await api.isLibraryLocked(ui.libraryId);
+      await api.setLibraryLocked(ui.libraryId, !current);
+      setLibraryGate({ id: ui.libraryId, required: !current, approved: true });
+    } catch (e) { setGateError(errorKey(e)); }
+    finally { setGateWorking(false); }
+  }
+
   const [appearance, setAppearance] = useState(defaultAppearance);
   const [appearanceReady, setAppearanceReady] = useState(false);
   const [shortcutAvailable, setShortcutAvailable] = useState(false), [shortcutRequested, setShortcutRequested] = useState(false);
@@ -826,6 +870,15 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           ? t(ui.editingId ? 'edit' : 'newEntry')
           : t(ui.editor === 'fields' ? 'fields' : ui.editor === 'csv' ? 'csv' : `layouts.${ui.editor}`);
   const groupField = fields.find((f) => f.id === layouts.list.list?.group_field);
+  if (androidDeviceLock() && ui.libraryId && ui.scope !== 'all' &&
+      (libraryGate?.id !== ui.libraryId || (libraryGate.required && !libraryGate.approved))) {
+    return <main className="startup" role="region" aria-label={t('libraryLocked')}>
+      <h1>{t('libraryLocked')}</h1>
+      {gateError && <ErrorMessage code={gateError} />}
+      {libraryGate?.id === ui.libraryId && libraryGate.required && <button type="button" disabled={gateWorking} onClick={() => { void unlockLibrary(); }}>{t('unlockLibrary')}</button>}
+      <button type="button" disabled={gateWorking} onClick={goHome}>{t('backToLibraries')}</button>
+    </main>;
+  }
   return (
     <div className={'app' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '')}>
       <aside className="sidebar">
@@ -924,6 +977,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button className="icon-button" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
           <button className="icon-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
           {openArchive && <button className="icon-button" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
+          {androidDeviceLock() && ui.libraryId && ui.scope !== 'all' && <button type="button" disabled={disabled || gateWorking} onClick={() => { void toggleLibraryLock(); }}>{libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock')}</button>}
           <button className="icon-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
           <label className="language">
             <span className="visually-hidden">{t('language')}</span>

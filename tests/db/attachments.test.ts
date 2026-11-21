@@ -20,6 +20,16 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     return { api, collection, file, owner };
   }
   const clocks = async () => f.db.read(async s => ({ hlc: await s.query("SELECT value FROM local_settings WHERE key='hlc'"), records: await s.query('SELECT * FROM records'), versions: await s.query('SELECT * FROM record_versions'), changes: await s.query('SELECT * FROM change_log') }));
+  it('reads a verified bounded thumbnail source without exposing non-image media', async () => {
+    const { api, collection, file, owner } = await setup();
+    const input = await api.stageAttachment(collection.id, owner, source(new Uint8Array([137,80,78,71]), 'photo.png', 'image/png'));
+    await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'Image', [file.id]: [input.id] }, owner);
+    const thumbnail = await api.readAttachmentThumbnailSource(input.id, owner);
+    expect(thumbnail.mime).toBe('image/png');
+    expect([...thumbnail.bytes]).toEqual([137,80,78,71]);
+    const text = await api.stageAttachment(collection.id, crypto.randomUUID(), source(new Uint8Array([1]), 'doc.bin'));
+    await expect(api.readAttachmentThumbnailSource(text.id, text.owner_id)).rejects.toThrow('previewUnavailable');
+  });
   it('lists large files with bounded cursor and hides locally locked libraries', async () => {
     const { api, collection, file, owner } = await setup();
     await api.saveAttachmentLimit(1);

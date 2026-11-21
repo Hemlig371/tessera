@@ -412,13 +412,19 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
             var intent = ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id"));
             assertEquals(scope.getString("library_id"), intent.getStringExtra("tessera.library_id"));
-            scenario.onActivity(activity -> activity.startActivity(intent));
+            // Keep the in-process re-entry in ActivityScenario's own task. A launcher
+            // shortcut uses NEW_TASK, but starting that same intent from inside an
+            // ActivityScenario can background the tracked Activity and leave close()
+            // waiting for DESTROYED while it is PAUSED in a different task.
+            // The separate cold-start scenario below still uses the real shortcut flags.
+            var reentry = new android.content.Intent(intent).setFlags(intent.getFlags() & ~android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            scenario.onActivity(activity -> activity.startActivity(reentry));
             awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='+ Новая запись' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
             awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]:not(:disabled)')");
             js(scenario, "const input=document.querySelector('[data-editor] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Shortcut preserves creation draft');input.dispatchEvent(new Event('input',{bubbles:true}))");
-            scenario.onActivity(activity -> activity.startActivity(intent));
+            scenario.onActivity(activity -> activity.startActivity(reentry));
             awaitJs(scenario, "document.body.innerText.includes('Библиотека из ярлыка откроется после закрытия текущей формы.')");
             assertEquals("\"Shortcut preserves creation draft\"", js(scenario, "document.querySelector('[data-editor] input[aria-label=Название]').value"));
             js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");

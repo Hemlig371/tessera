@@ -6,6 +6,8 @@ mod binary_files;
 mod csv_files;
 mod local_files;
 mod external_actions;
+mod sync_secrets;
+mod sync_mail;
 use csv_files::CsvFiles;
 use serde_json::Value;
 use std::{path::PathBuf, sync::Mutex};
@@ -77,6 +79,6 @@ fn main() {
             app.manage(Storage { db: Mutex::new(db), backups: root.join("operational/backups"), error });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![db_open, db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, import_files::import_stage, csv_files::csv_open, csv_files::csv_write, csv_files::csv_write_bytes, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url, external_actions::external_open_calendar_file, external_actions::external_open_folder, binary_files::binary_begin, binary_files::binary_write, binary_files::binary_finish, binary_files::binary_inspect, binary_files::binary_stat, binary_files::binary_read, binary_files::binary_remove, binary_files::binary_export, binary_files::binary_export_batch])
+        .invoke_handler(tauri::generate_handler![db_open, db_query, db_execute, db_begin, db_commit, db_rollback, db_backup, db_close, import_files::import_stage, csv_files::csv_open, csv_files::csv_write, csv_files::csv_write_bytes, csv_files::csv_finish, csv_files::csv_abort, local_files::local_read, local_files::local_write, local_files::local_remove, external_actions::external_open_url, external_actions::external_open_calendar_file, external_actions::external_open_folder, binary_files::binary_begin, binary_files::binary_write, binary_files::binary_finish, binary_files::binary_inspect, binary_files::binary_stat, binary_files::binary_read, binary_files::binary_remove, binary_files::binary_export, binary_files::binary_export_batch, sync_secrets::sync_secret_store, sync_secrets::sync_secret_load, sync_secrets::sync_secret_remove, sync_mail::sync_mail_send, sync_mail::sync_mail_fetch])
         .run(tauri::generate_context!()).expect("Tessera startup failed");
 }

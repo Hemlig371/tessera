@@ -7,6 +7,7 @@ import { createAndroidSyncGroup, invitationForDevice, joinAndroidSyncGroup,
   executeAndroidMailCycle, stopAndroidMailGroup, saveMailCycleError } from '../platform/mail-sync-setup';
 import {renderSyncQr,scanSyncQr} from '../platform/sync-qr';
 import {syncSecretStore} from '../platform/sync-secrets';
+import {nativeMailSyncSupported} from '../platform/native-mail-sync';
 import type {LocalSyncSafety} from '../core/sync-safety';
 import type {LocalSyncCycleResult} from '../core/local-sync-engine';
 import {ErrorMessage,errorKey} from './common';
@@ -22,6 +23,7 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
   const [keyPresent,setKeyPresent]=useState(false);
   const [invite,setInvite]=useState('');
   const [qr,setQr]=useState('');
+  const [joinText,setJoinText]=useState('');
   const [peerId,setPeerId]=useState('');
   const [checkpoint,setCheckpoint]=useState('');
   const [message,setMessage]=useState('');
@@ -53,7 +55,8 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
   };
   const displayInvite=async(value:string)=>{
     setInvite(value);
-    setQr(await renderSyncQr(value));
+    if (nativeMailSyncSupported() && '__TAURI_INTERNALS__' in window) setQr('');
+    else setQr(await renderSyncQr(value));
   };
   const update=(key:keyof MailSyncConfig,value:string|number)=>{
     setConfig(old=>({...old,[key]:value}));
@@ -68,14 +71,19 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
       <div className="form-actions">
         <button disabled={working} onClick={()=>{void act(async()=>{await displayInvite(await createAndroidSyncGroup(api));});}}>{t('mailSyncStart')}</button>
         <button disabled={working} onClick={()=>{void act(async()=>{
-          const value=await scanSyncQr();if(value===null)return;
+          const value='__TAURI_INTERNALS__' in window ? joinText : await scanSyncQr();
+          if(value===null || !value)return;
           const seq=await joinAndroidSyncGroup(api,value);
           setMessage(t('mailSyncJoined')+' '+seq);
         });}}>{t('mailSyncJoin')}</button>
+        {'__TAURI_INTERNALS__' in window && <textarea aria-label={t('mailSyncJoin')} rows={4}
+           placeholder={t('mailSyncJoin')} value={joinText} onChange={e=>setJoinText(e.target.value)} />}
       </div>}
     {keyPresent && <>
       <div className="form-actions"><button disabled={working} onClick={()=>{void act(async()=>{await displayInvite(await invitationForDevice(api));});}}>{t('mailSyncInvite')}</button></div>
-      {invite && <div><p>{t('mailSyncQrSensitive')}</p><img alt={t('mailSyncInvite')} width={240} height={240} src={qr} /></div>}
+      {invite && <div><p>{t('mailSyncQrSensitive')}</p>
+        {qr ? <img alt={t('mailSyncInvite')} width={240} height={240} src={qr} /> : <textarea readOnly rows={5} value={invite} aria-label={t('mailSyncInvite')} />}
+      </div>}
       <form onSubmit={event=>{event.preventDefault();void act(async()=>{
         const peers=peersText.split(',').map(p=>p.trim()).filter(Boolean);
         await configureAndroidMailSync(api,{...config,peers},password||undefined);

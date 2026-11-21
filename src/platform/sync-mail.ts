@@ -2,6 +2,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { AppError } from '../core/errors';
 import { inspectSecureHeader } from '../core/secure-sync-envelope';
 import type { OpaqueSyncTransport } from '../core/encrypted-sync-mailbox';
+import { invoke } from '@tauri-apps/api/core';
+import { nativeMailSyncSupported } from './native-mail-sync';
 
 export interface MailConnection {
   smtpHost:string; smtpPort:number; imapHost:string; imapPort:number;
@@ -9,10 +11,20 @@ export interface MailConnection {
 }
 export interface MailCursor { uidValidity:string|null; lastUid:number }
 interface MailItem {uid:number;kind:'packet'|'receipt'|'chunk';source:string;id:string;offset:number;payload:string}
-const native=registerPlugin<{
+const android=registerPlugin<{
   send(args:MailConnection&{kind:string;source:string;id:string;offset:number;payload:string}):Promise<void>;
   fetch(args:MailConnection&{afterUid:number;limit:number}):Promise<{uidValidity:string;lastFetchedUid:string;messages:MailItem[]}>;
 }>('SyncMail');
+const native={
+  send:async(args:MailConnection&{kind:string;source:string;id:string;offset:number;payload:string}):Promise<void>=>{
+    if(Capacitor.getPlatform()==='android')return android.send(args);
+    await invoke<void>('sync_mail_send',{args});
+  },
+  fetch:async(args:MailConnection&{afterUid:number;limit:number})=>{
+    if(Capacitor.getPlatform()==='android')return android.fetch(args);
+    return invoke<{uidValidity:string;lastFetchedUid:string;messages:MailItem[]}>('sync_mail_fetch',{args});
+  },
+};
 const from64=(s:string):Uint8Array=>{
   const raw=atob(s);const bytes=new Uint8Array(raw.length);
   for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
@@ -25,7 +37,7 @@ const to64=(bytes:Uint8Array):string=>{
 export function androidEmailTransport(
   connection:MailConnection,cursor:MailCursor,datasetId:string,deviceId:string
 ):{transport:OpaqueSyncTransport;commitCursor:()=>MailCursor;reset:()=>void;listEncryptedChunks:()=>Promise<readonly Uint8Array[]>} {
-  if(Capacitor.getPlatform()!=='android')throw new AppError('nativeRequired');
+  if(!nativeMailSyncSupported())throw new AppError('nativeRequired');
   let batch:MailItem[]|null=null;
   let pending:MailCursor={...cursor};
   const fetch=async()=>{

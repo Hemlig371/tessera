@@ -20,6 +20,7 @@ import { AttachmentSettings } from './AttachmentSettings';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { AndroidMailSyncSettings } from './AndroidMailSyncSettings';
 import { startAndroidMailScheduler } from '../platform/mail-sync-scheduler';
+import { nativeMailSyncSupported } from '../platform/native-mail-sync';
 import { LargeAttachments } from './LargeAttachments';
 import { androidDeviceLock, confirmDeviceIdentity, deviceAuthAvailable } from '../platform/device-auth';
 import { ExternalCalendarActions } from './ExternalCalendarActions';
@@ -86,7 +87,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     format = useFormatValue(),
     ui = useUi();
   const [fileCleanupPending, setFileCleanupPending] = useState(0);
-  useEffect(() => { if (!androidDeviceLock() || suspended) return; return startAndroidMailScheduler(api); }, [api, suspended]);
+  useEffect(() => { if (!nativeMailSyncSupported() || suspended) return; return startAndroidMailScheduler(api); }, [api, suspended]);
   const [libraryGate, setLibraryGate] = useState<{ id: string; required: boolean; approved: boolean } | null>(null);
   const [gateError, setGateError] = useState<string | null>(null);
   const [gateWorking, setGateWorking] = useState(false);
@@ -1066,7 +1067,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
-          {ui.constructorOpen && ui.screen === 'libraries' && <>{androidDeviceLock() && <button disabled={disabled} onClick={() => open('mail-sync')}>{t('mailSyncTitle')}</button>}<button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
+          {ui.constructorOpen && ui.screen === 'libraries' && <>{nativeMailSyncSupported() && <button disabled={disabled} onClick={() => open('mail-sync')}>{t('mailSyncTitle')}</button>}<button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}

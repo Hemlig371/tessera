@@ -20,6 +20,20 @@ describe.each(adapters)('%s local attachment lifecycle (Node filesystem; native 
     return { api, collection, file, owner };
   }
   const clocks = async () => f.db.read(async s => ({ hlc: await s.query("SELECT value FROM local_settings WHERE key='hlc'"), records: await s.query('SELECT * FROM records'), versions: await s.query('SELECT * FROM record_versions'), changes: await s.query('SELECT * FROM change_log') }));
+  it('lists large files with bounded cursor and hides locally locked libraries', async () => {
+    const { api, collection, file, owner } = await setup();
+    await api.saveAttachmentLimit(1);
+    const stage = await api.stageAttachment(collection.id, owner, source());
+    await api.saveNewEntry(collection.id, { [collection.primary_field_id]: 'Catalog record', [file.id]: [stage.id] }, owner);
+    const first = await api.listLargeAttachments(undefined, 1);
+    expect(first.items).toMatchObject([{ id: stage.id, record_id: owner, name: stage.name, size: 4, record_title: 'Catalog record' }]);
+    expect(first.next).toBeNull();
+    await api.setLibraryLocked(collection.library_id, true);
+    expect((await api.listLargeAttachments()).items).toEqual([]);
+    await api.setLibraryLocked(collection.library_id, false);
+    expect((await api.listLargeAttachments()).items).toHaveLength(1);
+    await expect(api.listLargeAttachments(undefined, 101)).rejects.toThrow('invalidQuery');
+  });
   it('stages bounded bytes over 10 MiB without records/versions/HLC/log, then binds everything atomically on explicit Save and reopens', async () => {
     const { api, collection, file, owner } = await setup(); await api.startLocalSync(); const before = await clocks();
     const size = defaultAttachmentLimit + 1, digest = createHash('sha256'); let largest = 0;

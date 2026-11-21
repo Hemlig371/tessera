@@ -243,8 +243,10 @@ export function e2ePlugin(): Plugin {
             const value = await createNutritionFixture(await Repository.open(db));
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
-          if (op === 'profiles-seed') {
-            const value = await profilesScenario(await Repository.open(db));
+          if (op === 'profiles-seed' || op === 'profile-dates-seed') {
+            // Mutating the date filter must not alter named-profiles' shared fixture.
+            const value = await profilesScenario(await Repository.open(db),
+              op === 'profile-dates-seed' ? 'Заметки: даты (dev/CI)' : 'Заметки: профили (dev/CI)');
             res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ value })); return;
           }
           if (op === 'draft-recovery-seed') {

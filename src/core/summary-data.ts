@@ -24,7 +24,7 @@ export async function readSummaryWidget(session: SqlSession, libraryId: string, 
   const widget = (await normalizeLibrarySummary(session,libraryId,{ widgets: [input] })).widgets[0]!;
   signal?.throwIfAborted();
   if (widget.kind === 'create') return { kind: 'create' };
-  const base: EntryQuery = widget.profile_id ? await readProfileQuery(session,widget.collection_id,widget.profile_id) : { collection_id: widget.collection_id, date_selection: null };
+  const base: EntryQuery = widget.profile_id ? await readProfileQuery(session,widget.collection_id,widget.profile_id) : { collection_id: widget.collection_id, date_selection: null, filters: [], sort_field: 'updated_at', direction: 'desc', group_field: '' };
   const query = await freezeQueryDates(session,{ ...base, filters: [...base.filters ?? [], ...widget.filters ?? []] });
   if (widget.kind === 'metric' || widget.kind === 'progress') {
     const value = await evaluateQueryFormula(session,query,widget.formula,signal);

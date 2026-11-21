@@ -72,7 +72,11 @@ export async function chooseIcsWriter(name: string, title: string): Promise<CsvW
   await invoke('csv_open', { path });
   return {
     write: text => invoke('csv_write', { text }),
-    finish: () => invoke('csv_finish'),
+    finish: async () => {
+      await invoke('csv_finish');
+      try { await invoke('external_open_calendar_file', { path }); }
+      catch { throw new AppError('calendarOpenFailed'); }
+    },
     abort: () => invoke('csv_abort'),
   };
 }

@@ -32,7 +32,7 @@ describe.each(adapters)('%s M6 durable encrypted mail staging',kind=>{
     const second=stageIncomingEmail(api,plainStore,async()=>[],key);
     expect(await second.transport.attachments!.exists!(peer,attachment,0)).toBe(true);
     expect(await second.transport.attachments!.get(peer,attachment,0)).toEqual(wire);
-    const malicious=Uint8Array.from(wire);malicious[malicious.length-4]^=1;
+    const malicious=Uint8Array.from(wire);malicious[malicious.length-4]=(malicious[malicious.length-4] ?? 0)^1;
     const bad=stageIncomingEmail(api,plainStore,async()=>[malicious],key);
     await expect(bad.transport.list('packet')).rejects.toThrow('invalidSyncPacket');
     expect((await api.db.read(s=>s.query<{key:string}>(

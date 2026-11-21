@@ -41,7 +41,7 @@ describe.each(adapters)('%s M6 encrypted independent SQLite replay',kind=>{
     const first=await runLocalSyncCycle(a,am,[b.deviceId],20);
     expect(first.sent).toBe(1);
     expect(Buffer.from(packetBytes[0]!).toString()).not.toContain('After');
-    const tampered=Uint8Array.from(packetBytes[0]!);tampered[tampered.length-9]^=1;
+    const tampered=Uint8Array.from(packetBytes[0]!);tampered[tampered.length-9]=(tampered[tampered.length-9] ?? 0)^1;
     packetBytes.unshift(tampered);
     await expect(runLocalSyncCycle(b,bm,[a.deviceId],20)).rejects.toThrow('invalidSyncPacket');
     expect(await b.localSyncReceiveCursor(a.deviceId)).toBe(manifest.checkpoint.seq);

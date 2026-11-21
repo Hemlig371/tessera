@@ -59,7 +59,7 @@ describe.each(adapters)('%s M6 encrypted attachment transfer on independent SQLi
     const name=chunkKey(a.deviceId,attached.id,0);
     const original=Uint8Array.from(cache.get(name)!);
     expect(original.length).toBeGreaterThan(data.length/2);
-    const corrupted=Uint8Array.from(original);corrupted[corrupted.length-8]^=1;
+    const corrupted=Uint8Array.from(original);corrupted[corrupted.length-8]=(corrupted[corrupted.length-8] ?? 0)^1;
     cache.set(name,corrupted);
     await expect(runLocalSyncCycle(b,bm,[a.deviceId],50)).rejects.toThrow('invalidSyncPacket');
     expect((await b.getAttachmentView(attached.id,initial.id,true)).status).toBe('missing');

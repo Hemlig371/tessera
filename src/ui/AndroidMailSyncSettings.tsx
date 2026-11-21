@@ -117,7 +117,7 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
         void act(async()=>{await stopAndroidMailGroup(api);setInvite('');setQr('');setConfig(empty);setPeersText('');});
       }}>{t('mailSyncDetach')}</button>
     </>}
-    {result && <p>{t('mailSyncReceipt',result)}</p>}
+    {result && <p>{t('mailSyncReceipt',{applied:result.applied,duplicate:result.duplicate,gaps:result.gaps,sent:result.sent,acknowledgements:result.acknowledgements})}</p>}
     {message && <p role="status">{message}</p>}
     {error && <ErrorMessage code={error}/>}
     <div className="form-actions"><button type="button" disabled={working} onClick={cancel}>{t('cancel')}</button></div>

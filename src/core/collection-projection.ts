@@ -21,18 +21,28 @@ export async function projectCollection(session: SqlSession, query: EntryQuery, 
   const board = options.mode === 'kanban' ? new KanbanProjection(field) : null;
   const calendar = options.mode === 'calendar' ? new CalendarProjection(field, month) : null;
   const rows: EntryListItem[] = [];
-  const treeFields = new Set([field.id,...previewFields.filter(id => fields.some(field => field.id === id && field.type !== 'secret'))]);
+  const safeFields = new Set([field.id,...previewFields.filter(id => fields.some(candidate => candidate.id === id && candidate.type !== 'secret'))]);
   let cursor: EntryQuery['cursor'] = null;
   do {
     signal?.throwIfAborted();
     const page = await queryEntries(session, { ...query, cursor, limit: 200 });
-    for (const row of page.items) { if (board) board.add(row); else if (calendar) calendar.add(row); else {
-        // Tree needs the whole hierarchy, but never retains every hidden/large source value.
-        const projected = { ...row,data: Object.fromEntries(Object.entries(row.data).filter(([id]) => treeFields.has(id))) };
-        if (row.computed) Object.defineProperty(projected,'computed',{ value: Object.fromEntries(Object.entries(row.computed).filter(([id]) => treeFields.has(id))) });
-        if (row.relation_previews) projected.relation_previews = Object.fromEntries(Object.entries(row.relation_previews).filter(([id]) => treeFields.has(id)));
-        rows.push(projected);
-      } }
+    for (const row of page.items) {
+      // Never expose secret/hidden source data in any collection projection.
+      // The mode field itself is required for grouping, while previews and actions are allowlisted.
+      const projected: EntryListItem = {
+        ...row,
+        data: Object.fromEntries(Object.entries(row.data).filter(([id]) => safeFields.has(id))),
+      };
+      if (row.computed) Object.defineProperty(projected, 'computed', {
+        value: Object.fromEntries(Object.entries(row.computed).filter(([id]) => safeFields.has(id))),
+      });
+      if (row.relation_previews) projected.relation_previews = Object.fromEntries(
+        Object.entries(row.relation_previews).filter(([id]) => safeFields.has(id))
+      );
+      if (board) board.add(projected);
+      else if (calendar) calendar.add(projected);
+      else rows.push(projected);
+    }
     cursor = page.next;
   } while (cursor);
   signal?.throwIfAborted();

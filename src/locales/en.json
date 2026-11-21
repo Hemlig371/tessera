@@ -717,5 +717,9 @@
   "diagnosticsCorrupt": "Corruption detected",
   "diagnosticsPageCount": "Database pages",
   "diagnosticsExport": "Export JSON report",
-  "diagnosticsSaved": "Report saved"
+  "diagnosticsSaved": "Report saved",
+  "libraryLocked": "Library locked",
+  "unlockLibrary": "Confirm identity",
+  "enableLibraryLock": "Enable library lock",
+  "disableLibraryLock": "Disable library lock"
 }

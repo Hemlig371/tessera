@@ -22,7 +22,7 @@ const to64=(bytes:Uint8Array):string=>{
 /** Cursor is committed ONLY after runLocalSyncCycle returns. Never advance on a failed apply. */
 export function androidEmailTransport(
   connection:MailConnection,cursor:MailCursor,datasetId:string,deviceId:string
-):{transport:OpaqueSyncTransport;commitCursor:()=>MailCursor;reset:()=>void} {
+):{transport:OpaqueSyncTransport;commitCursor:()=>MailCursor;reset:()=>void;listEncryptedChunks:()=>Promise<readonly Uint8Array[]>} {
   if(Capacitor.getPlatform()!=='android')throw new AppError('nativeRequired');
   let batch:MailItem[]|null=null;
   let pending:MailCursor={...cursor};
@@ -65,6 +65,7 @@ export function androidEmailTransport(
       },
     },
     commitCursor:()=>({...pending}),
+    listEncryptedChunks:async()=>(await fetch()).filter(m=>m.kind==='chunk').map(m=>from64(m.payload)),
     reset:()=>{batch=null;},
   };
 }

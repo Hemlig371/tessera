@@ -101,6 +101,7 @@ export async function stopAndroidMailGroup(api:Repository):Promise<void> {
   const vault=syncSecretStore();
   await vault.remove('group-key');
   await vault.remove('mail-credentials');
+  await api.db.transaction(s=>s.execute("DELETE FROM local_settings WHERE key LIKE 'sync_mail:stage:%'"));
   for(const key of ['config','cursor','last_error','last_result'])await setLocal(api,key,null);
 }
 export async function saveMailCycleError(api:Repository):Promise<void> {

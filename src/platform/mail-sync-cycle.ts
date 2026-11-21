@@ -4,6 +4,7 @@ import { encryptedSyncMailbox } from '../core/encrypted-sync-mailbox';
 import { importGroupKey } from '../core/secure-sync-envelope';
 import { runLocalSyncCycle, type LocalSyncCycleResult } from '../core/local-sync-engine';
 import { androidEmailTransport, type MailConnection, type MailCursor } from './sync-mail';
+import { stageIncomingEmail } from './mail-sync-stage';
 import { syncSecretStore } from './sync-secrets';
 
 /** Explicit user action or foreground scheduler may call this; no background service.
@@ -34,9 +35,11 @@ export async function runAndroidMailSyncCycle(
         cursor=saved;
     } catch { throw new AppError('invalidSyncState'); }
   }
-  const {transport,commitCursor}=androidEmailTransport({...connection,password},cursor,api.datasetId,api.deviceId);
-  const mailbox=encryptedSyncMailbox(transport,key,api.datasetId,api.deviceId);
+  const {transport,commitCursor,listEncryptedChunks}=androidEmailTransport({...connection,password},cursor,api.datasetId,api.deviceId);
+  const staged=stageIncomingEmail(api,transport,listEncryptedChunks,key);
+  const mailbox=encryptedSyncMailbox(staged.transport,key,api.datasetId,api.deviceId);
   const result=await runLocalSyncCycle(api,mailbox,peers,limit,1400*1024);
+  await staged.prune();
   // The local inbox/outbox DB commits precede IMAP cursor advancement.
   const next=commitCursor();
   await api.db.transaction(s=>s.execute(

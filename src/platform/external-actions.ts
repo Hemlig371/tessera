@@ -3,6 +3,7 @@ import { AppError } from '../core/errors';
 import { externalUrl } from '../core/markdown';
 import { UUID_RE } from '../core/model';
 import type { ByteSource } from '../core/attachments';
+import { validateIncomingShare, type IncomingSharedText } from '../core/incoming-share';
 const native = registerPlugin<{
   openUrl(options: { url: string }): Promise<void>;
   createCalendarEvent(options: { title: string; start: number; end: number; allDay: boolean; description?: string; location?: string }): Promise<void>;
@@ -53,24 +54,11 @@ export async function openAndroidReminder(title: string, description?: string): 
   await native.createReminder({ title, description });
 }
 
-export interface IncomingSharedText { id: string; text: string; files: Array<{ index: number; name: string; mime: string; size: number }> }
 export async function pendingAndroidShares(): Promise<{ items: IncomingSharedText[]; error?: string }> {
   if (Capacitor.getPlatform() !== 'android') return { items: [] };
   const result = await native.pendingSharedText();
   if (!Array.isArray(result.items) || result.items.length > 32) throw new AppError('shareUnavailable');
-  const items = result.items.map(item => {
-    if (typeof item?.id !== 'string' || !UUID_RE.test(item.id) ||
-      typeof item.text !== 'string' || item.text.length > 65536)
-      throw new AppError('invalidSharedText');
-    const files = item.files ?? [];
-    if (!Array.isArray(files) || files.length > 16 ||
-        files.some((file, index) => !file || file.index !== index || typeof file.name !== 'string' ||
-          !file.name || typeof file.mime !== 'string' || !Number.isSafeInteger(file.size) || file.size < 0))
-      throw new AppError('invalidSharedFile');
-    if (!item.text.trim() && files.length === 0) throw new AppError('invalidSharedText');
-    return { id: item.id, text: item.text, files };
-  });
-  return { items, error: result.error };
+  return { items: result.items.map(validateIncomingShare), error: result.error };
 }
 export async function acknowledgeAndroidShare(id: string): Promise<void> {
   if (Capacitor.getPlatform() !== 'android') throw new AppError('nativeRequired');

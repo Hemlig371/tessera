@@ -5,6 +5,7 @@ import type { LibrarySummaryDefinition, SummaryWidget } from '../core/library-su
 import { modeFields } from '../core/mode-options';
 import type { Repository } from '../core/repository';
 import { errorKey } from './common';
+import { SummaryFormulaInput } from './SummaryFormulaInput';
 
 type Kind = SummaryWidget['kind'];
 const kinds: Kind[] = ['metric', 'progress', 'chart', 'list', 'table', 'calendar', 'create'];
@@ -73,8 +74,9 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
           replace({ ...next, ...(e.target.value ? { profile_id: e.target.value } : {}) });
         }}><option value="">{t('summaryNoProfile')}</option>{collectionProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
         {(widget.kind === 'metric' || widget.kind === 'progress') && <>
-          <label>{t('formulaExpression')}<textarea required rows={3} value={widget.formula} onChange={e => replace({ ...widget, formula: e.target.value })} /></label>
-          <p className="screen-hint">{t('summaryFormulaIdsHint')}</p>
+          <SummaryFormulaInput key={widget.id + ':' + widget.collection_id} fields={Object.values(fields).flat()} collectionId={widget.collection_id}
+            value={widget.formula} change={value => replace({ ...widget, formula: value })}
+            preview={value => api.previewSummaryFormula(libraryId, widget.collection_id, value, widget.profile_id)} busy={busy} />
           {widget.kind === 'progress' && <label>{t('summaryGoalLabel')}<input required value={widget.goal} onChange={e => replace({ ...widget, goal: e.target.value })} /></label>}
         </>}
         {widget.kind === 'chart' && <>

@@ -1,4 +1,10 @@
 import { freezeDateSelection } from '../core/date-selection';
+import type { CollectionProjection } from '../core/collection-projection';
+import type { SummaryResult } from '../core/query-summary';
+import { QueryTotals } from './QueryTotals';
+import { KanbanBoard } from './KanbanBoard';
+import { CalendarView } from './CalendarView';
+import { TreeView } from './TreeView';
 import { localDateLiteral } from '../core/relative-dates';
 import { quickLayout } from '../core/quick-forms';
 import { SecretValue } from './TypedFieldInput';
@@ -107,6 +113,14 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const warnDraftCleanup = () => setError('draftCleanup');
   const [page, setPage] = useState<Page<EntryListItem>>({ items: [], next: null }),
     [selected, setSelected] = useState<Entry | null>(null);
+  const [projection, setProjection] = useState<CollectionProjection | null>(null);
+  const [projectionLoading, setProjectionLoading] = useState(false);
+  const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [totals, setTotals] = useState<SummaryResult[] | null>(null);
+  const [totalsLoading, setTotalsLoading] = useState(false);
+  const [totalsError, setTotalsError] = useState<string | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => localDateLiteral().slice(0, 7));
+  const [drilldown, setDrilldown] = useState<{ scope: string; field: string; value: import('../core/model').JsonValue; date?: string } | null>(null);
   const [context, setContext] = useState<Context | null>(null),
     [revision, refresh] = useState(0);
   const [failedBrowse, setFailedBrowse] = useState<{ token: string; revision: number; code: string } | null>(null);
@@ -170,6 +184,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const activeDateSelection = browsing && ui.scope === 'collection' ? layouts.list.list?.date_selection : null;
   const activeDateRange = activeDateSelection ? freezeDateSelection(activeDateSelection) : null;
   const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
+  const viewMode = ui.scope === 'collection' && !collection?.system_kind ? (layouts.list.list?.mode ?? 'rows') : 'rows';
+  const viewField = layouts.list.list?.mode_field;
+  const drillScope = [collection?.id, activeProfileId, viewMode].join(':');
+  const activeDrilldown = drilldown?.scope === drillScope ? drilldown : null;
   const query: EntryQuery = {
     ...(ui.scope === 'collection'
       ? { collection_id: collection?.id, ...(activeProfileId ? { profile_id: activeProfileId } : {}) }
@@ -177,8 +195,40 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         ? { library_id: library?.id }
         : {}),
     search: ui.search,
+    ...(activeDrilldown && layouts.list.list ? {
+      filters: [...(layouts.list.list.filters ?? []), ...(activeDrilldown.date ? [] : [{ field_id: activeDrilldown.field, op: activeDrilldown.value == null ? 'empty' as const : 'eq' as const, ...(activeDrilldown.value != null ? { value: activeDrilldown.value } : {}) }])],
+      date_selection: activeDrilldown.date ? { field_id: activeDrilldown.field, period: 'range' as const, start: activeDrilldown.date, end: activeDrilldown.date } : layouts.list.list.date_selection ?? null,
+    } : {}),
   };
   const queryToken = JSON.stringify(query);
+  const specialMode = !activeDrilldown && ['kanban', 'calendar', 'tree'].includes(viewMode) && !!viewField && ui.scope === 'collection';
+  const projectionToken = JSON.stringify([queryToken, viewMode, viewField, calendarMonth, revision, layouts.list.fields, layouts.list.quick_actions]);
+  useEffect(() => {
+    if (!specialMode) { setProjection(null); setProjectionError(null); setProjectionLoading(false); return; }
+    const controller = new AbortController();
+    setProjectionLoading(true); setProjection(null); setProjectionError(null);
+    const options = { mode: viewMode as 'kanban' | 'calendar' | 'tree', mode_field: viewField };
+    const previewFields = [...(layouts.list.fields.filter(item => item.visible).map(item => item.field_id)), ...(layouts.list.quick_actions?.map(action => action.field_id) ?? [])];
+    void api.projectCollection(JSON.parse(queryToken) as EntryQuery, options, calendarMonth, controller.signal, previewFields)
+      .then(value => { if (!controller.signal.aborted) setProjection(value); })
+      .catch(error => { if (!controller.signal.aborted) setProjectionError(errorKey(error)); })
+      .finally(() => { if (!controller.signal.aborted) setProjectionLoading(false); });
+    return () => controller.abort();
+    // Options and preview IDs are represented by the serialized token.
+  }, [api, projectionToken, specialMode]);
+  const totalMeasures = ui.scope === 'collection' ? layouts.list.totals ?? [] : [];
+  const totalToken = JSON.stringify([queryToken, totalMeasures, revision]);
+  useEffect(() => {
+    if (!browsing || ui.scope !== 'collection' || !totalMeasures.length) { setTotals(null); setTotalsError(null); setTotalsLoading(false); return; }
+    const controller = new AbortController();
+    setTotalsLoading(true); setTotals(null); setTotalsError(null);
+    void api.queryTotals(JSON.parse(queryToken) as EntryQuery, totalMeasures, controller.signal)
+      .then(value => { if (!controller.signal.aborted) setTotals(value); })
+      .catch(error => { if (!controller.signal.aborted) setTotalsError(errorKey(error)); })
+      .finally(() => { if (!controller.signal.aborted) setTotalsLoading(false); });
+    return () => controller.abort();
+    // The serialized token captures query, measures and revision.
+  }, [api, totalToken, browsing, ui.scope]);
   const rowsReady = readyBrowse?.token === queryToken && readyBrowse.revision === revision;
   const queryFailure = !loading && failedBrowse?.token === queryToken && failedBrowse.revision === revision ? failedBrowse.code : null;
   const readingEntries = loading || (!rowsReady && !queryFailure);
@@ -975,6 +1025,18 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           </div>
         ) : (
           <>
+            {activeDrilldown && <button type="button" disabled={disabled} onClick={() => setDrilldown(null)}>{t('backToView')}</button>}
+            {ui.scope === 'collection' && !!totalMeasures.length && <QueryTotals measures={totalMeasures} values={totals} fields={fields} loading={totalsLoading} error={totalsError} />}
+            {specialMode && projection?.mode === 'kanban' || specialMode && projectionLoading && viewMode === 'kanban' || specialMode && projectionError && viewMode === 'kanban' ? <KanbanBoard
+              columns={projection?.mode === 'kanban' ? projection.columns : []} busy={disabled} loading={projectionLoading} error={projectionError}
+              open={id => { void selectEntry(id); }}
+              move={(entry,value) => { if (viewField) void run(() => api.saveEntry(entry.collection_id, { [viewField]: value }, entry.id, entry.hlc), false); }}
+              showColumn={column => { if (viewField) setDrilldown({ scope: drillScope, field: viewField, value: column.value }); }}
+            /> : null}
+            {specialMode && viewMode === 'calendar' && <CalendarView month={calendarMonth} days={projection?.mode === 'calendar' ? projection.days : []} loading={projectionLoading} error={projectionError} busy={disabled} changeMonth={setCalendarMonth}
+              openEntry={id => { void selectEntry(id); }} openDay={date => { if (viewField) setDrilldown({ scope: drillScope, field: viewField, value: date, date }); }} />}
+            {specialMode && viewMode === 'tree' && <TreeView rows={projection?.mode === 'tree' ? projection.rows : []} busy={disabled} loading={projectionLoading} error={projectionError} open={id => { void selectEntry(id); }} />}
+            {!specialMode && <>
             {!queryFailure && <div className="list-meta" aria-live="polite">
               {readingEntries ? t('loadingEntries') : t('entryCount', { count: page.items.length })}
             </div>}
@@ -1089,6 +1151,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 {t('loadMore')}
               </button>
             )}
+            </>}
           </>
         )}
         </section>

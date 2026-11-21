@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Repository } from '../core/repository';
 import { errorKey } from './common';
 import { useFileSize } from './AttachmentList';
+import { exportAttachmentGroup } from '../platform/binary-files';
 
 type Catalog = Awaited<ReturnType<Repository['listLargeAttachments']>>;
 export function LargeAttachments({ api, busy }: { api: Repository; busy: boolean }) {
@@ -36,14 +37,9 @@ export function LargeAttachments({ api, busy }: { api: Repository; busy: boolean
     if (!selection.length || loading || busy) return;
     setLoading(true); setError(null); setMessage(null);
     try {
-      let completed = 0;
-      for (const id of selection) {
-        const item = items.find(value => value.id === id);
-        if (!item) continue;
-        if (!(await api.exportAttachment(item.id, item.record_id))) break;
-        completed++;
-      }
-      setMessage(t('largeAttachmentsExported', { count: completed }));
+      const selected = selection.map(id => items.find(value => value.id === id)).filter((item): item is Catalog['items'][number] => !!item);
+      const completed = await exportAttachmentGroup(api, selected);
+      if (completed !== null) setMessage(t('largeAttachmentsExported', { count: completed }));
     } catch (e) { setError(errorKey(e)); }
     finally { setLoading(false); }
   }

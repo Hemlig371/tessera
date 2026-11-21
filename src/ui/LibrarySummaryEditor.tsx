@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Collection, DisplayProfile, Field } from '../core/model';
+import type { Collection, DisplayProfile, EntryFilter, Field } from '../core/model';
 import type { LibrarySummaryDefinition, SummaryWidget } from '../core/library-summary';
 import { modeFields } from '../core/mode-options';
 import type { Repository } from '../core/repository';
 import { errorKey } from './common';
 import { SummaryFormulaInput } from './SummaryFormulaInput';
+import { RelationInput } from './RelationInput';
+import { FieldInput } from './common';
 
 type Kind = SummaryWidget['kind'];
 const kinds: Kind[] = ['metric', 'progress', 'chart', 'list', 'table', 'calendar', 'create'];
@@ -73,6 +75,31 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
           delete next.profile_id;
           replace({ ...next, ...(e.target.value ? { profile_id: e.target.value } : {}) });
         }}><option value="">{t('summaryNoProfile')}</option>{collectionProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+        {widget.kind !== 'create' && <fieldset><legend>{t('filters')}</legend>
+          {(widget.filters ?? []).map((filter, filterIndex) => {
+            const field = ownedFields.find(f => f.id === filter.field_id);
+            if (!field) return <p role="alert" key={filterIndex}>{t('errors.invalidFilter')}</p>;
+            const changeFilter = (next: EntryFilter) => replace({ ...widget, filters: (widget.filters ?? []).map((f, i) => i === filterIndex ? next : f) });
+            return <div className="summary-filter" key={filterIndex}>
+              <label>{t('field')}<select value={filter.field_id} onChange={e => changeFilter({ field_id: e.target.value, op: 'empty' })}>
+                {ownedFields.filter(f => f.type !== 'secret').map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select></label>
+              <label>{t('condition')}<select value={filter.op} onChange={e => {
+                const op = e.target.value as EntryFilter['op'];
+                changeFilter({ field_id: field.id, op, ...(!['empty', 'filled'].includes(op) ? { value: null } : {}) });
+              }}>
+                {(['empty','filled','eq','ne', ...(['relation','backlink','file','image'].includes(field.type) ? [] : ['gt','lt'])] as EntryFilter['op'][]).map(op => <option key={op} value={op}>{t('filterOps.' + op)}</option>)}
+              </select></label>
+              {!['empty','filled'].includes(filter.op) && (field.type === 'relation' ? <RelationInput api={api} field={field} value={filter.value} change={value => changeFilter({ ...filter, value })} disabled={busy} /> :
+                <FieldInput field={field} label={field.name} value={filter.value} change={value => changeFilter({ ...filter, value })} />)}
+              <button type="button" onClick={() => replace({ ...widget, filters: (widget.filters ?? []).filter((_, i) => i !== filterIndex) })}>{t('remove')}</button>
+            </div>;
+          })}
+          <button type="button" disabled={!ownedFields.some(f => f.type !== 'secret')} onClick={() => {
+            const candidate = ownedFields.find(f => f.type !== 'secret');
+            if (candidate) replace({ ...widget, filters: [...(widget.filters ?? []), { field_id: candidate.id, op: 'empty' }] });
+          }}>{t('addFilter')}</button>
+        </fieldset>}
         {(widget.kind === 'metric' || widget.kind === 'progress') && <>
           <SummaryFormulaInput key={widget.id + ':' + widget.collection_id} fields={Object.values(fields).flat()} collectionId={widget.collection_id}
             value={widget.formula} change={value => replace({ ...widget, formula: value })}

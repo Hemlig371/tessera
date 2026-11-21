@@ -17,6 +17,7 @@ import { QuickActions } from './QuickActions';
 import { Catalog } from './Catalog';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
+import { ExternalCalendarActions } from './ExternalCalendarActions';
 import { AttachmentList } from './AttachmentList';
 import { fileIds, isFile } from '../core/attachments';
 import { Trash } from './Trash';
@@ -1263,6 +1264,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                   );
                 }} />
             <QuickActions entry={selected} fields={context.fields} actions={context.layouts.card.quick_actions} busy={busy} execute={(fieldId, mutation) => run(async () => { await api.quickAction(selected.id, fieldId, mutation, selected.hlc); }, false)} />
+            {context.fields.find(field => field.id === context.collection.primary_field_id)?.type !== 'secret' && <ExternalCalendarActions entry={selected} fields={context.fields} title={String(selected.data[context.collection.primary_field_id] ?? context.collection.name)} busy={busy} />}
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
             {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
             <div className="actions">

@@ -1,3 +1,4 @@
+// @ts-nocheck — upstream Nayuki MIT QR generator uses guarded array indexing; app code remains strict.
 /* 
  * QR Code generator library (TypeScript)
  * 

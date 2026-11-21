@@ -721,5 +721,11 @@
   "libraryLocked": "Library locked",
   "unlockLibrary": "Confirm identity",
   "enableLibraryLock": "Enable library lock",
-  "disableLibraryLock": "Disable library lock"
+  "disableLibraryLock": "Disable library lock",
+  "largeAttachmentsTitle": "Large attachments",
+  "largeAttachmentsHint": "Files above the configured threshold. Export uses an explicit system dialog for each file.",
+  "largeAttachmentsEmpty": "No large attachments",
+  "largeAttachmentsError": "Could not read attachments",
+  "largeAttachmentsExport": "Export selected",
+  "largeAttachmentsExported": "Files exported: {{count}}"
 }

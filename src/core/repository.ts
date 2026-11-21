@@ -339,6 +339,19 @@ export class Repository {
     if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
     return this.filePort().export(id, exportFileName(view.name), view.mime, view);
   }
+  /** One bounded small-file chunk; large originals are never automatically offered. */
+  async readLocalSyncAttachmentChunk(id: string, ownerId: string, offset: number, length: number): Promise<Uint8Array> {
+    requireId(id); requireId(ownerId);
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) ||
+        length < 1 || length > fileChunkSize) throw new AppError('invalidFileChunk');
+    const view = await this.getAttachmentView(id, ownerId);
+    if (view.large) throw new AppError('fileAboveSyncLimit');
+    if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+    if (offset + length > view.size) throw new AppError('invalidFileOffset');
+    const data = await this.filePort().read(id,offset,length);
+    if (data.length !== length) throw new AppError('fileCorrupt');
+    return data;
+  }
   async readAttachmentPreview(id: string, ownerId: string): Promise<{ mime: string; bytes: Uint8Array }> {
     const view = await this.getAttachmentView(id, ownerId, true);
     if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
@@ -1253,8 +1266,9 @@ export class Repository {
         sort_version: 0,
         search_data: '{}',
       });
-    await bindAttachments(s, row, fields, (entity, meta, payload) => this.log(s, entity, meta, payload));
+    // Publish the record before dependent attachment metadata for incremental peers.
     await this.log(s, 'record', row, row);
+    await bindAttachments(s, row, fields, (entity, meta, payload) => this.log(s, entity, meta, payload));
     if (history) {
       const version = {
         id: crypto.randomUUID(),

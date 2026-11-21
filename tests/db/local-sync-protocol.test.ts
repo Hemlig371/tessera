@@ -15,6 +15,7 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     const left = await fixture(kind); opened.push(left);
     const a = left.api!;
     const library = await a.createLibrary('Shared'), collection = await a.createCollection(library.id, 'Tasks','Title');
+    const file = await a.createField(collection.id,'Files','file',{ multiple:true });
     const entry = await a.saveEntry(collection.id, { [collection.primary_field_id]: 'Before archive' });
     await a.startLocalSync();
     const chunks: Uint8Array[] = [];
@@ -33,7 +34,7 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect(b.datasetId).toBe(a.datasetId);
     expect(b.deviceId).not.toBe(a.deviceId);
     await b.startLocalSync();
-    return { left, right, a,b,library,collection,entry };
+    return { left, right, a,b,library,collection,entry,file };
   }
   const zero = (api: Repository): JournalCheckpoint => ({ dataset_id: api.datasetId,seq:0 });
   async function deliver(sender: Repository,receiver: Repository,after: JournalCheckpoint,folder: string,limit = 20) {
@@ -56,6 +57,7 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect(await b.getEntry(entry.id)).toEqual(await a.getEntry(entry.id));
     const edited = await a.saveEntry(collection.id,{ [collection.primary_field_id]:'After archive' },entry.id,entry.hlc);
     sent = await deliver(a,b,sent,left.directory,5);
+    expect((await b.getEntry(entry.id))?.hlc).toBe(edited.hlc);
     expect((await b.getEntry(entry.id))?.data[collection.primary_field_id]).toBe('After archive');
     const old = await b.getEntry(entry.id);
     const next = await b.saveEntry(collection.id,{ [collection.primary_field_id]:'Edited on B' },old!.id,old!.hlc);
@@ -66,6 +68,44 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect((await b.getHistory(entry.id)).versions).toHaveLength(3);
     await deliver(a,b,sent,left.directory,5); // The third edit is relayed once, not endlessly echoed.
     expect((await b.getHistory(entry.id)).versions).toHaveLength(3);
+  });
+  it('creates a record before its attachment metadata, transfers verified small chunks, and never transfers large bytes', async () => {
+    const { a,b,left,collection,file } = await nodes();
+    const baseline = await deliver(a,b,zero(a),left.directory,20);
+    await a.saveAttachmentLimit(800 * 1024);
+    const owner = crypto.randomUUID();
+    const data = new Uint8Array(600 * 1024).fill(73);
+    const staged = await a.stageAttachment(collection.id,owner, {
+      name:'small.bin',mime:'application/octet-stream',size:data.length,
+      read:async (offset,length) => data.slice(offset,offset+length),
+    });
+    await a.saveNewEntry(collection.id,{[collection.primary_field_id]:'With file',[file.id]:[staged.id]},owner);
+    await deliver(a,b,baseline,left.directory,15);
+    expect((await b.getEntry(owner))?.data[file.id]).toEqual([staged.id]);
+    expect((await b.getAttachmentView(staged.id,owner)).status).toBe('missing');
+    const remoteFile = join(left.directory,'small-share.bin');
+    await writeFile(remoteFile,Buffer.alloc(0));
+    const segments: Uint8Array[] = [];
+    for (let offset = 0; offset < data.length;offset+=256*1024) {
+      const count = Math.min(256*1024,data.length-offset);
+      segments.push(await a.readLocalSyncAttachmentChunk(staged.id,owner,offset,count));
+    }
+    await writeFile(remoteFile,Buffer.concat(segments));
+    const shared = new Uint8Array(await readFile(remoteFile));
+    await b.restoreAttachmentCopy(staged.id,owner,{
+      name:'small.bin',mime:'application/octet-stream',size:shared.length,
+      read:async (offset,length)=>shared.slice(offset,offset+length),
+    });
+    expect((await b.getAttachmentView(staged.id,owner,true)).status).toBe('present');
+    expect(await b.readLocalSyncAttachmentChunk(staged.id,owner,0,10)).toEqual(data.slice(0,10));
+    await expect(a.readLocalSyncAttachmentChunk(staged.id,owner,data.length-2,10)).rejects.toThrow('invalidFileOffset');
+    const bigOwner = crypto.randomUUID(), big = new Uint8Array(900*1024).fill(7);
+    const bigStage = await a.stageAttachment(collection.id,bigOwner,{
+      name:'large.bin',mime:'application/octet-stream',size:big.length,
+      read:async (offset,length)=>big.slice(offset,offset+length),
+    });
+    await a.saveNewEntry(collection.id,{[collection.primary_field_id]:'Large file',[file.id]:[bigStage.id]},bigOwner);
+    await expect(a.readLocalSyncAttachmentChunk(bigStage.id,bigOwner,0,1)).rejects.toThrow('fileAboveSyncLimit');
   });
   it('rejects a missing page, wrong dataset and malicious replay without changing cursor or records', async () => {
     const { a,b,entry } = await nodes();

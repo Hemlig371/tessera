@@ -60,13 +60,14 @@ export async function pendingAndroidShares(): Promise<{ items: IncomingSharedTex
   if (!Array.isArray(result.items) || result.items.length > 32) throw new AppError('shareUnavailable');
   const items = result.items.map(item => {
     if (typeof item?.id !== 'string' || !UUID_RE.test(item.id) ||
-      typeof item.text !== 'string' || !item.text || item.text.length > 65536)
+      typeof item.text !== 'string' || item.text.length > 65536)
       throw new AppError('invalidSharedText');
     const files = item.files ?? [];
     if (!Array.isArray(files) || files.length > 16 ||
         files.some((file, index) => !file || file.index !== index || typeof file.name !== 'string' ||
           !file.name || typeof file.mime !== 'string' || !Number.isSafeInteger(file.size) || file.size < 0))
       throw new AppError('invalidSharedFile');
+    if (!item.text.trim() && files.length === 0) throw new AppError('invalidSharedText');
     return { id: item.id, text: item.text, files };
   });
   return { items, error: result.error };

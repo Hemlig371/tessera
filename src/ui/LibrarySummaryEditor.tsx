@@ -68,8 +68,9 @@ export function LibrarySummaryEditor({ api, libraryId, busy, cancel, save }: {
         </select></label>
         <label>{t('summaryWidth')}<select value={widget.width} onChange={e => replace({ ...widget, width: Number(e.target.value) as 1 | 2 })}><option value="1">1</option><option value="2">2</option></select></label>
         {widget.kind !== 'create' && <label>{t('displayProfile')}<select value={widget.profile_id ?? ''} onChange={e => {
-          const { profile_id: _old, ...rest } = widget;
-          replace({ ...rest, ...(e.target.value ? { profile_id: e.target.value } : {}) } as SummaryWidget);
+          const next = { ...widget };
+          delete next.profile_id;
+          replace({ ...next, ...(e.target.value ? { profile_id: e.target.value } : {}) });
         }}><option value="">{t('summaryNoProfile')}</option>{collectionProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
         {(widget.kind === 'metric' || widget.kind === 'progress') && <>
           <label>{t('formulaExpression')}<textarea required rows={3} value={widget.formula} onChange={e => replace({ ...widget, formula: e.target.value })} /></label>

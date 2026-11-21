@@ -58,6 +58,12 @@
 - В Repository добавлены `projectCollection(query, options, month?, signal?, previewFields?)` и `queryTotals(query, measures, signal?)`. Проекции и точные итоги идут через существующие потоковые SQL-страницы, одна транзакция/снимок, фиксированный относительный интервал и проверка abort; предел 32 показателя.
 - **Не готово и не принято:** UI переключения/отображения режимов и сводок, сохранение конфигурации сводок, архивный roundtrip и полный M3. Эти изменения внесены через GitHub connector; локальную компиляцию/typecheck/lint/DB и CI в этой среде не запускали. До следующих функциональных коммитов проверить компиляцию и адресные DB-тесты на checkout. Версия не менялась, последний APK по-прежнему M2.
 
+## Инкремент M3 — режимы и итоги (21.11)
+
+- В `main` подключены настройки режима/поля и редактирование `UiDefinition.totals`; списки Kanban, календарь, дерево и итоги запроса монтируются из `App` через Repository, с восстановлением списка после drilldown. Добавлены RU/EN строки и стили. `queryTotals` переиспользует `summarizeEntries`, не копирует движок.
+- **Статус: код ожидает проверок в GitHub Actions.** UI широкая приёмка, сводки библиотек, формулы по путям связей и архивный roundtrip M3 ещё не завершены. Версия 0.20.0/code21 сохранена. Нельзя объявлять M3 готовым до прохождения fresh priority и остальных пунктов.
+- Пользователь требует все проверки только в GitHub Actions; локальные typecheck/lint/unit/DB/native не запускать. Следующий push без `[skip ci]` предназначен для CI диагностики; его jobs и фактические результаты указать после получения.
+
 ## Продолжение M3
 
 1. **Следующая задача — интегрировать M3**, не переписывать готовое. Новые модули `src/core/{relative-dates,date-selection,mode-options,tree-projection,kanban-projection,calendar-projection,collection-projection,query-summary,query-insights,query-formula,grouped-summary,library-summary,summary-data}.ts`, UI CalendarView/KanbanBoard/TreeView/LibrarySummaryView/QueryTotals/QueryTotalsEditor/SummaryFormulaInput + formula-references и collection-modes.css, 12 unit/DB файлов. Кроме завершённого ниже фильтра дат, эти режимы/сводки пока не подключены к App/Repository/модели/локалям. Сохранение этого кода не означает готовность режимов или сводок. Версию M3 ещё не повышали.

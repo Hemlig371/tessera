@@ -67,7 +67,8 @@ class SyncMailPlugin : Plugin() {
         plain.connect(InetSocketAddress(account.host,account.port),12000)
         plain.soTimeout=18000
         try {
-            val ssl=SSLSocketFactory.getDefault().createSocket(plain,account.host,account.port,true) as SSLSocket
+            val factory=SSLSocketFactory.getDefault() as SSLSocketFactory
+            val ssl=factory.createSocket(plain,account.host,account.port,true) as SSLSocket
             ssl.soTimeout=18000
             val params=ssl.sslParameters
             params.endpointIdentificationAlgorithm="HTTPS"
@@ -217,7 +218,11 @@ class SyncMailPlugin : Plugin() {
                 if(found.size<=limit && end>=start) lastFetchedUid=maxOf(lastFetchedUid,end)
                 ch.send("a05 LOGOUT\r\n")
             }
-            JSObject().put("uidValidity",validity.toString()).put("lastFetchedUid",lastFetchedUid.toString()).put("messages",messages)
+            JSObject().apply {
+                put("uidValidity",validity.toString())
+                put("lastFetchedUid",lastFetchedUid.toString())
+                put("messages",messages)
+            }
         }
     }
 }

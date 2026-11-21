@@ -8,9 +8,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.net.Uri
 import android.provider.CalendarContract
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.UUID
+import java.util.concurrent.Executors
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
@@ -35,36 +33,17 @@ class ExternalActionsPlugin : Plugin() {
         intent.removeExtra(LIBRARY_ID)
         if (id != null && idPattern.matches(id)) notifyListeners("openLibrary", JSObject().put("id", id), true)
     }
-    private val sharePrefs by lazy { context.getSharedPreferences("incoming-shares", Context.MODE_PRIVATE) }
-    private val shareKey = "items"
+    private val incoming by lazy { IncomingShareStore(context) }
+    private val shareWorker = Executors.newSingleThreadExecutor()
     private val shareIdKey = "tessera.share_id"
-
-    /** Stage explicit text share privately before JS starts; never signal success before the core commits. */
     private fun captureShare(intent: Intent) {
-        if (intent.action != Intent.ACTION_SEND || intent.type != "text/plain") return
-        val id = intent.getStringExtra(shareIdKey) ?: UUID.randomUUID().toString().also { intent.putExtra(shareIdKey, it) }
-        val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
-        if (text.isNullOrEmpty() || text.length > 65536) {
-            sharePrefs.edit().putString("error", "invalidSharedText").apply()
+        if (intent.action !in setOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) return
+        shareWorker.execute {
+            try { incoming.capture(intent) }
+            catch (failure: Exception) { incoming.report(failure.message ?: "shareUnavailable") }
             notifyListeners("shareReceived", JSObject(), true)
-            return
         }
-        val array = JSONArray(sharePrefs.getString(shareKey, "[]"))
-        for (i in 0 until array.length()) if (array.getJSONObject(i).optString("id") == id) return
-        if (array.length() >= 32) {
-            sharePrefs.edit().putString("error", "shareQueueFull").apply()
-            notifyListeners("shareReceived", JSObject(), true)
-            return
-        }
-        array.put(JSONObject().put("id", id).put("text", text))
-        if (!sharePrefs.edit().putString(shareKey, array.toString()).commit()) {
-            sharePrefs.edit().putString("error", "shareUnavailable").apply()
-            notifyListeners("shareReceived", JSObject(), true)
-            return
-        }
-        notifyListeners("shareReceived", JSObject(), true)
     }
-
     override fun load() {
         activity.intent?.let { consumeLibraryIntent(it); captureShare(it) }
     }
@@ -74,38 +53,44 @@ class ExternalActionsPlugin : Plugin() {
         captureShare(intent)
     }
     @PluginMethod fun pendingSharedText(call: PluginCall) {
-        try {
-            val array = JSONArray(sharePrefs.getString(shareKey, "[]"))
-            val error = sharePrefs.getString("error", null)
-            val result = JSObject().put("items", array)
-            if (error != null) result.put("error", error)
-            call.resolve(result)
-        } catch (_: Exception) { call.reject("shareUnavailable") }
+        shareWorker.execute {
+            try {
+                val pending = incoming.pending()
+                val response = JSObject().put("items", pending.items)
+                pending.error?.let { response.put("error", it) }
+                call.resolve(response)
+            } catch (_: Exception) { call.reject("shareUnavailable") }
+        }
+    }
+    @PluginMethod fun readSharedFile(call: PluginCall) {
+        val id = call.getString("id") ?: return call.reject("invalidSharedFile")
+        val index = call.getInt("index") ?: return call.reject("invalidSharedFile")
+        val offset = call.getLong("offset") ?: return call.reject("invalidSharedFile")
+        val length = call.getInt("length") ?: return call.reject("invalidSharedFile")
+        shareWorker.execute {
+            try { call.resolve(JSObject().put("data", incoming.read(id, index, offset, length))) }
+            catch (_: Exception) { call.reject("invalidSharedFile") }
+        }
     }
     @PluginMethod fun ackSharedText(call: PluginCall) {
         val id = call.getString("id") ?: return call.reject("invalidId")
-        try {
-            val pending = JSONArray(sharePrefs.getString(shareKey, "[]"))
-            val remaining = JSONArray()
-            for (i in 0 until pending.length()) {
-                val item = pending.getJSONObject(i)
-                if (item.getString("id") != id) remaining.put(item)
-            }
-            if (!sharePrefs.edit().putString(shareKey, remaining.toString()).remove("error").commit())
-                return call.reject("shareUnavailable")
-            if (activity.intent?.getStringExtra(shareIdKey) == id) {
-                activity.intent?.apply {
-                    removeExtra(shareIdKey)
-                    removeExtra(Intent.EXTRA_TEXT)
-                    action = Intent.ACTION_MAIN
+        shareWorker.execute {
+            try {
+                val done = incoming.acknowledge(id)
+                val current = activity.intent
+                val isCurrent = current?.getStringExtra(shareIdKey) == id
+                if (isCurrent) {
+                    current?.removeExtra(shareIdKey)
+                    current?.removeExtra(Intent.EXTRA_TEXT)
+                    current?.removeExtra(Intent.EXTRA_STREAM)
+                    current?.action = Intent.ACTION_MAIN
                 }
-            }
-            call.resolve()
-            // Return to the sending app only after the SQLite save has completed.
-            if (remaining.length() == 0)
-                activity.runOnUiThread { activity.finish() }
-        } catch (_: Exception) { call.reject("shareUnavailable") }
+                call.resolve()
+                if (done && isCurrent) activity.runOnUiThread { activity.finish() }
+            } catch (_: Exception) { call.reject("shareUnavailable") }
+        }
     }
+    override fun handleOnDestroy() { shareWorker.shutdown() }
     @PluginMethod fun shortcutSupported(call: PluginCall) {
         val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             context.getSystemService(ShortcutManager::class.java)?.isRequestPinShortcutSupported == true

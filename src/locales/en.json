@@ -699,5 +699,13 @@
   },
   "summaryGoal": "Goal: {{goal}}",
   "summaryOpenSource": "Open collection",
-  "summaryChartLimit": "Showing {{count}} of {{total}} groups"
+  "summaryChartLimit": "Showing {{count}} of {{total}} groups",
+  "calendarActions": "External calendar and reminders",
+  "calendarDateField": "Date field",
+  "calendarAdd": "Add to calendar",
+  "calendarExport": "Export event (.ics)",
+  "reminderCreate": "Create reminder",
+  "calendarExported": "Calendar file saved",
+  "reminderFallback": "No reminder app is available. Try Add to calendar.",
+  "calendarUnavailable": "Could not open the external app; Tessera data is unchanged."
 }

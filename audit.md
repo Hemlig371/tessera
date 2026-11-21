@@ -52,6 +52,12 @@
 - Локально typecheck/lint, 207 unit/Node/Rust DB тестов в 28 файлах прошли (включая архивный roundtrip относительного профиля). Логи адресно: `work/m3-dates-typecheck.log`, `work/m3-dates-lint.log`, `work/m3-dates-final-tests.log`. Версия остаётся 0.20.0/code21 до завершения значимого M3; APK M2 выше не содержит этот новый UI. Новый UI-сценарий не прошёл навигацию и отмечен fixme по правилу двух правок (см. карантин); успешную E2E-проверку фильтра не заявлять. Full CI/native/телефон на этом участке не запускались.
 - Для ручной проверки на будущей сборке: две записи на разные даты → два профиля «Сегодня»/«История» → настроить условие в первом → переключить профили → задать диапазон с обеими включительными границами → сохранить/перезапустить; состав и история записей остаются прежними. Полуночные границы/курсор проверены DB-тестом; системные lifecycle/OEM здесь не заявлены.
 
+## Текущий инкремент M3 — API режимов/итогов (21.11)
+
+- На main после `8d282d2` добавлены `ListOptions.mode_field` и расширение `mode` до kanban/calendar/tree; `validateUiDefinition` вызывает существующую проверку `validateModeOptions` (проверка поля и допустимого типа режима).
+- В Repository добавлены `projectCollection(query, options, month?, signal?, previewFields?)` и `queryTotals(query, measures, signal?)`. Проекции и точные итоги идут через существующие потоковые SQL-страницы, одна транзакция/снимок, фиксированный относительный интервал и проверка abort; предел 32 показателя.
+- **Не готово и не принято:** UI переключения/отображения режимов и сводок, сохранение конфигурации сводок, архивный roundtrip и полный M3. Эти изменения внесены через GitHub connector; локальную компиляцию/typecheck/lint/DB и CI в этой среде не запускали. До следующих функциональных коммитов проверить компиляцию и адресные DB-тесты на checkout. Версия не менялась, последний APK по-прежнему M2.
+
 ## Продолжение M3
 
 1. **Следующая задача — интегрировать M3**, не переписывать готовое. Новые модули `src/core/{relative-dates,date-selection,mode-options,tree-projection,kanban-projection,calendar-projection,collection-projection,query-summary,query-insights,query-formula,grouped-summary,library-summary,summary-data}.ts`, UI CalendarView/KanbanBoard/TreeView/LibrarySummaryView/QueryTotals/QueryTotalsEditor/SummaryFormulaInput + formula-references и collection-modes.css, 12 unit/DB файлов. Кроме завершённого ниже фильтра дат, эти режимы/сводки пока не подключены к App/Repository/модели/локалям. Сохранение этого кода не означает готовность режимов или сводок. Версию M3 ещё не повышали.

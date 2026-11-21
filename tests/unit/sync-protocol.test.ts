@@ -10,7 +10,7 @@ describe('M5 local protocol envelope', () => {
   it('encodes a deterministic bounded UTF-8 packet and strict typed receipt', () => {
     const packet = buildLocalPacket(a,b,{dataset_id:a,seq:0},[row]);
     expect(decodeLocalPacket(encodeLocalPacket(packet))).toEqual(packet);
-    expect(parseLocalReceipt({format:'tessera-local-receipt', version:1,dataset_id:a,sender_id:b,receiver_id:a,through_seq:1}).receiver_id).toBe(a);
+    expect(parseLocalReceipt({format:'tessera-local-receipt', version:1,packet_id:b,dataset_id:a,sender_id:b,receiver_id:a,through_seq:1}).receiver_id).toBe(a);
   });
   it('rejects holes, reordered or duplicated events, wrong clock owners and dataset', () => {
     const packet = buildLocalPacket(a,b,{dataset_id:a,seq:0},[row]);

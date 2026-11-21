@@ -29,6 +29,7 @@ import { queryEntries } from './queries';
 import { AppError } from './errors';
 import { safeDiagnosticReport } from './diagnostics';
 import { applySyncEvent } from './sync-apply';
+import { checkLocalSyncSafety, markLocalExchangeComplete, suspendLocalSyncForGap } from './sync-safety';
 import { buildLocalPacket, parseLocalPacket, parseLocalReceipt, type LocalSyncPacket, type SyncReceipt } from './sync-protocol';
 import { assertHlc, nextHlc } from './hlc';
 import { canonical, localTimestamp } from './model';
@@ -490,6 +491,7 @@ export class Repository {
     return this.db.transaction(async s => {
       if (await syncMode(s) === 'active') return journalCheckpoint(s);
       await activateJournal(s);
+      await s.execute("INSERT OR IGNORE INTO local_settings(key,value) VALUES('sync_guard:enabled_at',?)", [new Date().toISOString()]);
       const tables = [
         ['libraries', 'library'], ['collections', 'collection'], ['fields', 'field'],
         ['ui_configs', 'ui_config'], ['quick_forms', 'quick_form'],
@@ -530,7 +532,7 @@ export class Repository {
   /** Emit a typed, bounded local page. Sending is not delivery. */
   async exportLocalSyncPacket(after: JournalCheckpoint, limit = 100): Promise<LocalSyncPacket | null> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
-    if (await this.getSyncMode() !== 'active') throw new AppError('invalidSyncState');
+    if ((await this.localSyncSafety()).mode !== 'active') throw new AppError('invalidSyncState');
     const changes = await this.readLocalChanges(after, limit);
     return changes.length ? buildLocalPacket(this.datasetId, this.deviceId, after, changes) : null;
   }
@@ -539,6 +541,7 @@ export class Repository {
     const packet = parseLocalPacket(input);
     if (packet.dataset_id !== this.datasetId) throw new AppError('datasetMismatch');
     if (packet.sender_id === this.deviceId) throw new AppError('invalidSyncPacket');
+    if ((await this.localSyncSafety()).mode !== 'active') throw new AppError('invalidSyncState');
     return this.db.transaction(async s => {
       if (await syncMode(s) !== 'active') throw new AppError('invalidSyncState');
       const key = 'sync_rx:' + packet.sender_id;
@@ -555,16 +558,16 @@ export class Repository {
         await s.execute('INSERT INTO local_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
           [key,String(packet.through_seq)]);
       }
-      return { format: 'tessera-local-receipt', version: 1, dataset_id: this.datasetId,
+      return { format: 'tessera-local-receipt', version: 1, packet_id: packet.packet_id, dataset_id: this.datasetId,
         sender_id: packet.sender_id, receiver_id: this.deviceId, through_seq: Math.max(last,packet.through_seq) };
     });
   }
   /** Only a receipt from the applying peer can advance the sender's ACK. */
-  acceptLocalSyncReceipt(input: unknown): Promise<void> {
+  async acceptLocalSyncReceipt(input: unknown): Promise<void> {
     const receipt = parseLocalReceipt(input);
     if (receipt.dataset_id !== this.datasetId) throw new AppError('datasetMismatch');
     if (receipt.sender_id !== this.deviceId) throw new AppError('invalidSyncPacket');
-    return this.acknowledgeLocalChanges(receipt.receiver_id, { dataset_id: receipt.dataset_id, seq: receipt.through_seq });
+    await this.acknowledgeLocalChanges(receipt.receiver_id, { dataset_id: receipt.dataset_id, seq: receipt.through_seq });
   }
   async localSyncReceiveCursor(peerId: string): Promise<number> {
     requireId(peerId);
@@ -574,6 +577,15 @@ export class Repository {
       if (!Number.isSafeInteger(seq) || seq < 0) throw new AppError('invalidSyncState');
       return seq;
     });
+  }
+  localSyncSafety(now: Date = new Date()) {
+    return this.db.transaction(s => checkLocalSyncSafety(s,now));
+  }
+  completeLocalSyncExchange(peerId: string, now: Date = new Date()): Promise<void> {
+    return this.db.transaction(s => markLocalExchangeComplete(s,peerId,now));
+  }
+  suspendUnrecoverableLocalSyncGap(): Promise<void> {
+    return this.db.transaction(s => suspendLocalSyncForGap(s));
   }
   private async update<T extends Stamp>(
     s: SqlSession,

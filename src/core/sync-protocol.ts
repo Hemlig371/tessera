@@ -20,6 +20,7 @@ export interface SyncEvent {
 export interface LocalSyncPacket {
   format: 'tessera-local-sync';
   version: 1;
+  packet_id: string;
   dataset_id: string;
   sender_id: string;
   after_seq: number;
@@ -29,6 +30,7 @@ export interface LocalSyncPacket {
 export interface SyncReceipt {
   format: 'tessera-local-receipt';
   version: 1;
+  packet_id: string;
   dataset_id: string;
   sender_id: string;
   receiver_id: string;
@@ -49,11 +51,11 @@ const text = (value: unknown): value is string => typeof value === 'string' && v
 /** Packet validation is performed before any transaction or side effect. */
 export function parseLocalPacket(input: unknown): LocalSyncPacket {
   if (!object(input) || input.format !== 'tessera-local-sync' || input.version !== 1 ||
-      !id(input.dataset_id) || !id(input.sender_id) || !number(input.after_seq) ||
+      !id(input.packet_id) || !id(input.dataset_id) || !id(input.sender_id) || !number(input.after_seq) ||
       !number(input.through_seq) || !Array.isArray(input.events) ||
       input.events.length < 1 || input.events.length > 200 ||
-      input.through_seq !== input.after_seq + input.events.length ||
-      Object.keys(input).some(key => !['format', 'version', 'dataset_id', 'sender_id', 'after_seq', 'through_seq', 'events'].includes(key))) fail();
+      input.through_seq !== input.after_seq + input.events.length || input.packet_id !== input.events[0]?.id ||
+      Object.keys(input).some(key => !['format', 'version', 'packet_id', 'dataset_id', 'sender_id', 'after_seq', 'through_seq', 'events'].includes(key))) fail();
   const packet = input as unknown as LocalSyncPacket;
   const seen = new Set<string>();
   for (let n = 0; n < packet.events.length; n++) {
@@ -85,14 +87,14 @@ export function buildLocalPacket(datasetId: string, senderId: string, after: Jou
     entity_id: row.entity_id, hlc: row.hlc, device_id: row.device_id,
     payload: JSON.parse(row.payload) as Record<string, JsonValue>,
   }));
-  return parseLocalPacket({ format: 'tessera-local-sync', version: 1, dataset_id: datasetId,
+  return parseLocalPacket({ format: 'tessera-local-sync', version: 1, packet_id: events[0]!.id, dataset_id: datasetId,
     sender_id: senderId, after_seq: after.seq, through_seq: events.at(-1)!.seq, events });
 }
 export function parseLocalReceipt(input: unknown): SyncReceipt {
   if (!object(input) || input.format !== 'tessera-local-receipt' || input.version !== 1 ||
-      !id(input.dataset_id) || !id(input.sender_id) || !id(input.receiver_id) ||
+      !id(input.packet_id) || !id(input.dataset_id) || !id(input.sender_id) || !id(input.receiver_id) ||
       input.sender_id === input.receiver_id || !number(input.through_seq) ||
-      Object.keys(input).some(key => !['format','version','dataset_id','sender_id','receiver_id','through_seq'].includes(key))) fail();
+      Object.keys(input).some(key => !['format','version','packet_id','dataset_id','sender_id','receiver_id','through_seq'].includes(key))) fail();
   return input as unknown as SyncReceipt;
 }
 export function encodeLocalPacket(packet: LocalSyncPacket): Uint8Array {

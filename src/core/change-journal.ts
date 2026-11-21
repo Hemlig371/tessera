@@ -86,7 +86,10 @@ export async function detachJournal(s: SqlSession): Promise<string> {
   const datasetId = crypto.randomUUID();
   await set(s, modeKey, 'detached');
   await compactInactiveChanges(s);
-  await s.execute("DELETE FROM local_settings WHERE key LIKE 'sync_peer:%' OR key LIKE 'sync_rx:%'");
+  await s.execute("DELETE FROM local_settings WHERE key LIKE 'sync_peer:%' OR key LIKE 'sync_rx:%' OR key LIKE 'sync_guard:%'");
+  // A detached dataset has no peer cursors: its fresh baseline restarts at sequence 1.
+  await s.execute("DELETE FROM sqlite_sequence WHERE name='change_log'");
+  await set(s, floorKey, '0');
   await s.execute("UPDATE app_meta SET value=? WHERE key='dataset_id'", [datasetId]);
   return datasetId;
 }

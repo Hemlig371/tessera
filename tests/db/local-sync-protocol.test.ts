@@ -34,7 +34,7 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect(b.datasetId).toBe(a.datasetId);
     expect(b.deviceId).not.toBe(a.deviceId);
     await b.startLocalSync();
-    return { left, right, a,b,library,collection,entry,file };
+    return { left, right, a,b,library,collection,entry,file,archiveBytes:bytes };
   }
   const zero = (api: Repository): JournalCheckpoint => ({ dataset_id: api.datasetId,seq:0 });
   async function deliver(sender: Repository,receiver: Repository,after: JournalCheckpoint,folder: string,limit = 20) {
@@ -106,6 +106,51 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     });
     await a.saveNewEntry(collection.id,{[collection.primary_field_id]:'Large file',[file.id]:[bigStage.id]},bigOwner);
     await expect(a.readLocalSyncAttachmentChunk(bigStage.id,bigOwner,0,1)).rejects.toThrow('fileAboveSyncLimit');
+  });
+  it('converges across three independent databases, with out-of-order relay and deterministic Top-20', async () => {
+    const { a,b,left,collection,entry,archiveBytes } = await nodes();
+    const third = await fixture(kind,false); opened.push(third);
+    await importDatabaseArchive({name:'baseline.zip',mime:'application/zip',size:archiveBytes.length,
+      read:async (offset,length)=>archiveBytes.slice(offset,offset+length)},third.db,third.files);
+    const c = await Repository.open(third.db,third.files);
+    await c.startLocalSync();
+    let checkpoint = await deliver(a,b,zero(a),left.directory,10);
+    await deliver(a,c,zero(a),left.directory,10);
+    let current = entry;
+    for (let n=0;n<26;n++) current = await a.saveEntry(collection.id,{[collection.primary_field_id]: 'Revision '+n},current.id,current.hlc);
+    checkpoint = await deliver(a,b,checkpoint,left.directory,20);
+    await deliver(a,c,{dataset_id:a.datasetId,seq:checkpoint.seq-52},left.directory,20);
+    const updated = await b.getEntry(entry.id);
+    const newer = await b.saveEntry(collection.id,{[collection.primary_field_id]:'B latest'},entry.id,updated!.hlc);
+    await deliver(b,c,zero(b),left.directory,20);
+    await deliver(b,a,zero(b),left.directory,20);
+    expect((await a.getEntry(entry.id))?.hlc).toBe(newer.hlc);
+    expect((await c.getEntry(entry.id))?.hlc).toBe(newer.hlc);
+    for (const api of [a,b,c]) {
+      expect((await api.getHistory(entry.id)).versions).toHaveLength(20);
+      expect((await api.getHistory(entry.id)).versions.map(v => v.id).sort()).toEqual(
+        (await a.getHistory(entry.id)).versions.map(v => v.id).sort());
+    }
+  });
+  it('pauses after 90 days without a complete two-way exchange, without clock-skew inference', async () => {
+    const { a,b,left } = await nodes();
+    const state = await a.localSyncSafety();
+    expect(state.mode).toBe('active');
+    const future = new Date(Date.parse(state.enabled_at!) + 91*24*3600*1000);
+    const past = new Date(Date.parse(state.enabled_at!) - 20*24*3600*1000);
+    expect((await a.localSyncSafety(past)).mode).toBe('active');
+    await expect(a.completeLocalSyncExchange(b.deviceId)).rejects.toThrow('invalidSyncState');
+    await deliver(a,b,zero(a),left.directory,20);
+    await deliver(b,a,zero(b),left.directory,20);
+    await a.completeLocalSyncExchange(b.deviceId);
+    expect((await a.localSyncSafety()).last_success_at).toBeTruthy();
+    expect((await a.localSyncSafety(future)).reason).toBe('stale');
+    expect(await a.getSyncMode()).toBe('paused');
+    await expect(a.exportLocalSyncPacket(zero(a))).rejects.toThrow('invalidSyncState');
+    await a.detachLocalSync();
+    expect((await a.localSyncSafety()).mode).toBe('detached');
+    expect((await a.startLocalSync()).seq).toBeGreaterThan(0);
+    expect((await a.localSyncSafety()).reason).toBeNull();
   });
   it('rejects a missing page, wrong dataset and malicious replay without changing cursor or records', async () => {
     const { a,b,entry } = await nodes();

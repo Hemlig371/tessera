@@ -4,6 +4,8 @@ import { externalUrl } from '../core/markdown';
 import { UUID_RE } from '../core/model';
 const native = registerPlugin<{
   openUrl(options: { url: string }): Promise<void>;
+  createCalendarEvent(options: { title: string; start: number; end: number; allDay: boolean; description?: string; location?: string }): Promise<void>;
+  createReminder(options: { title: string; description?: string }): Promise<void>;
   shortcutSupported(): Promise<{ supported: boolean }>;
   pinLibraryShortcut(options: { id: string; name: string }): Promise<{ requested: boolean }>;
   addListener(name: 'openLibrary', listener: (event: { id: string }) => void): Promise<PluginListenerHandle>;
@@ -31,4 +33,17 @@ export async function openExternalUrl(input: string): Promise<void> {
   else if ('__TAURI_INTERNALS__' in window) {
     const { invoke } = await import('@tauri-apps/api/core'); await invoke('external_open_url', { url });
   } else throw new AppError('nativeRequired');
+}
+
+/** The OS editor owns the final save; opening it does not mutate the Tessera record. */
+export async function openAndroidCalendarEvent(options: { title: string; start: number; end: number; allDay: boolean; description?: string; location?: string }): Promise<void> {
+  if (Capacitor.getPlatform() !== 'android') throw new AppError('nativeRequired');
+  if (!options.title.trim() || !Number.isSafeInteger(options.start) || !Number.isSafeInteger(options.end) ||
+      options.start < 0 || options.end <= options.start) throw new AppError('invalidCalendarEvent');
+  await native.createCalendarEvent(options);
+}
+export async function openAndroidReminder(title: string, description?: string): Promise<void> {
+  if (Capacitor.getPlatform() !== 'android') throw new AppError('nativeRequired');
+  if (!title.trim()) throw new AppError('invalidCalendarEvent');
+  await native.createReminder({ title, description });
 }

@@ -72,7 +72,7 @@ mod platform {
         fn SecKeychainAddGenericPassword(keychain: *const c_void, service_len: u32,
             service: *const u8, account_len: u32, account: *const u8,
             password_len: u32, password: *const u8, item: *mut *mut c_void) -> Status;
-        fn SecKeychainItemModifyContent(item: *mut c_void, attrs: *const c_void,
+        fn SecKeychainItemModifyAttributesAndData(item: *mut c_void, attrs: *const c_void,
             len: u32, password: *const u8) -> Status;
         fn SecKeychainItemDelete(item: *mut c_void) -> Status;
         fn SecKeychainItemFreeContent(attrs: *mut c_void, data: *mut c_void) -> Status;
@@ -90,7 +90,7 @@ mod platform {
             &mut length,&mut existing,&mut item) };
         if !existing.is_null() { unsafe { SecKeychainItemFreeContent(null_mut(),existing); } }
         let status = if result == 0 {
-            let result = unsafe { SecKeychainItemModifyContent(item,null(),value.len() as u32,value.as_ptr()) };
+            let result = unsafe { SecKeychainItemModifyAttributesAndData(item,null(),value.len() as u32,value.as_ptr()) };
             unsafe { CFRelease(item); }
             result
         } else if result == NOT_FOUND {

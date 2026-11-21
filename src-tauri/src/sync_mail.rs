@@ -12,7 +12,7 @@ fn field<'a>(v:&'a Value,k:&str,max:usize)->Result<&'a str,String>{
 fn account(v:&Value,kind:&str)->Result<Account,String>{
     let host=field(v,&format!("{kind}Host"),253)?;
     if !host.bytes().all(|b|b.is_ascii_alphanumeric()||b==b'.'||b==b'-'){return Err("mailTransportFailed".into());}
-    let port=v.get(format!("{kind}Port")).and_then(Value::as_u64).and_then(|x|u16::try_from(x).ok())
+    let port=v.get(format!("{kind}Port").as_str()).and_then(Value::as_u64).and_then(|x|u16::try_from(x).ok())
         .filter(|p|*p>0).ok_or("mailTransportFailed")?;
     Ok(Account{host:host.into(),port,user:field(v,"user",254)?.into(),password:field(v,"password",1024)?.into()})
 }

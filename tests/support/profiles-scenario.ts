@@ -2,8 +2,7 @@ import type { Repository } from '../../src/core/repository';
 import { createNotesLibrary } from '../fixtures/notes';
 
 /** Generic Notes/profile acceptance on the real platform Repository. */
-export async function profilesScenario(api: Repository) {
-  const name = 'Заметки: профили (dev/CI)';
+export async function profilesScenario(api: Repository, name = 'Заметки: профили (dev/CI)') {
   const existing = (await api.listLibraries()).find(library => library.name === name);
   if (existing) return existing.id;
   const fixture = await createNotesLibrary(api, name);

@@ -727,5 +727,6 @@
   "largeAttachmentsEmpty": "No large attachments",
   "largeAttachmentsError": "Could not read attachments",
   "largeAttachmentsExport": "Export selected",
-  "largeAttachmentsExported": "Files exported: {{count}}"
+  "largeAttachmentsExported": "Files exported: {{count}}",
+  "calendarOpenFailed": "The .ics file was saved, but the calendar app could not open. Open the file from your file manager."
 }

@@ -1,0 +1,38 @@
+name: Report main CI result
+on:
+  workflow_run:
+    workflows: ["Tessera checks and native builds"]
+    types: [completed]
+
+permissions:
+  statuses: write
+
+jobs:
+  report:
+    if: >-
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish completed main run status with run URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RESULT: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          case "$RESULT" in
+            success) state=success ;;
+            failure) state=failure ;;
+            *) state=error ;;
+          esac
+          printf -v body '{"state":"%s","context":"tessera-main-actions","description":"Main push workflow result: %s","target_url":"https://github.com/%s/actions/runs/%s"}' \
+            "$state" "$RESULT" "$REPO" "$RUN_ID"
+          curl --fail --silent --show-error --retry 3 \
+            -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/statuses/$HEAD_SHA" \
+            -d "$body"

@@ -86,19 +86,26 @@ jobs:
       - run: npx playwright install --with-deps chromium
         if: runner.os != 'Windows'
       - run: npm run test:e2e:smoke
+        if: ${{ !contains(github.event.head_commit.message, '[m7 ci]') }}
         env:
           PLAYWRIGHT_CHANNEL: ${{ runner.os == 'Windows' && 'msedge' || '' }}
       # M6.5 existing UI contracts: responsive 390px/150%, themes, desktop 1280px,
       # navigation restoration and loading/error states; no duplicate UI tests.
       - name: M6.5 UI viewport and state checkpoint
+        if: ${{ !contains(github.event.head_commit.message, '[m7 ci]') }}
         run: npx playwright test tests/e2e/ui-appearance.spec.ts tests/e2e/ui-pages.spec.ts tests/e2e/ui-settings-states.spec.ts
+        env:
+          PLAYWRIGHT_CHANNEL: ${{ runner.os == 'Windows' && 'msedge' || '' }}
+      - name: M7 full browser UI acceptance (existing scenarios, no duplicate smoke)
+        if: ${{ contains(github.event.head_commit.message, '[m7 ci]') }}
+        run: npm run test:e2e
         env:
           PLAYWRIGHT_CHANNEL: ${{ runner.os == 'Windows' && 'msedge' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: m65-ui-screenshots-${{ matrix.os }}
-          path: test-results/m65-*.png
+          name: ui-acceptance-screenshots-${{ matrix.os }}
+          path: test-results/**/*.png
           if-no-files-found: ignore
       - run: npm run build
       - uses: actions/upload-artifact@v4
@@ -282,6 +289,10 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: npm run test:android
+        env:
+          # M7 only: run all non-LargeTest instrumentation instead of the shortened data subset.
+          # The eight force-stop acceptance phases still execute in run-android-tests.mjs.
+          TESSERA_ANDROID_FULL_UI: ${{ contains(github.event.head_commit.message, '[m7 ci]') && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

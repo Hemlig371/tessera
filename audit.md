@@ -73,3 +73,10 @@
 - `safeDiagnosticReport` выполняет только read-only allowlist (версия SQLite, schema_id, WAL, FK, страницы, full integrity + foreign_key_check). Экспорт JSON через OS picker, без строк/имён полей/контента/ключей/путей; экран открыт из настроек. DB-контракт проверяет отсутствие пользовательских строк в отчёте.
 - **Ни один пункт выше не принят GitHub Actions на момент этой записи.** Не считать M4 закрытым. Остаются Android библиотечная системная авторизация и recent-apps, Android ACTION_SEND/ACTION_SEND_MULTIPLE с прямым безопасным сохранением в «Входящие», полноценный UX/fallback календаря, каталог крупных вложений/групповой экспорт/миниатюры, приёмочные тесты и bump версии. Не повторять сделанные исходники, если CI выявит дефект — чинить конкретно.
 - Приоритет Android → Windows → macOS; только GitHub Actions, no local tests, промежуточные commits [skip ci]. Финальная M4-приёмка — fresh priority на одном функциональном SHA; M3 baseline не переиспользовать. `target-specification-v4.0.md` не изменён.
+
+### M4 checkpoint 2 (21.11)
+
+- Android: добавлен DeviceAuthPlugin с ОС-подтверждением, локальный переключатель блокировки библиотек (local_settings, без sync), скрытие содержимого в recent-apps через FLAG_SECURE; экран библиотеки блокируется до ОС-auth. Реальное поведение требует эмуляторного/телефонного подтверждения.
+- ACTION_SEND text/plain: ограниченная нативная очередь с UUID, SQLite saveNewEntry и ACK только после подтверждённой записи; намерение очищается после ACK. **Файловый Share и ACTION_SEND_MULTIPLE пока не сделаны**, нельзя считать M4 закрытым.
+- Первый fresh run [44910698862](https://github.com/Hemlig371/tessera/actions/runs/44910698862): scope/sync success, Windows fast failure на двух ESLint замечаниях; native/Android/desktop skipped. Правки ESLint внесены последующими коммитами. Этот run красный и не является приёмкой.
+- Отдельный checkpoint [priority ci] запускает проверку актуального общего кода и Kotlin/Windows/macOS без старых baseline. Отдельную приёмку всего M4 до завершения оставшихся задач не заявлять.

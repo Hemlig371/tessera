@@ -58,10 +58,16 @@ export async function readSummaryWidget(session: SqlSession, libraryId: string, 
   const safe = new Set(publicFields.map(field => field.id));
   const allowed = new Set([...widget.field_ids, ...(actions?.map(action => action.field_id) ?? [])].filter(id => safe.has(id)));
   // Widget previews must never expose secret values, even in non-rendered object keys.
-  const entries = page.items.map(entry => ({
-    ...entry,
-    data: Object.fromEntries(Object.entries(entry.data).filter(([id]) => allowed.has(id))),
-    ...(entry.relation_previews ? { relation_previews: Object.fromEntries(Object.entries(entry.relation_previews).filter(([id]) => allowed.has(id))) } : {}),
-  }));
+  const entries = page.items.map(entry => {
+    const projected = {
+      ...entry,
+      data: Object.fromEntries(Object.entries(entry.data).filter(([id]) => allowed.has(id))),
+      ...(entry.relation_previews ? { relation_previews: Object.fromEntries(Object.entries(entry.relation_previews).filter(([id]) => allowed.has(id))) } : {}),
+    };
+    if (entry.computed) Object.defineProperty(projected, 'computed', {
+      value: Object.fromEntries(Object.entries(entry.computed).filter(([id]) => allowed.has(id))),
+    });
+    return projected;
+  });
   return { kind: widget.kind, entries, fields: publicFields, ...(actions ? { actions } : {}) };
 }

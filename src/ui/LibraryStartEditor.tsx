@@ -52,7 +52,7 @@ export function LibraryStartEditor({ api, libraryId, busy, save, cancel }: {
     <label>{t('libraryStart')}<select disabled={busy} value={value.start.kind} onChange={event => {
       const kind = event.target.value as LibraryNavigation['start']['kind'];
       setValue({ ...value, start: kind === 'collection' ? { kind, collection_id: collectionId } : { kind } });
-    }}><option value="collections">{t('collections')}</option><option value="collection" disabled={!collections.length}>{t('startCollection')}</option><option value="last">{t('startLast')}</option></select></label>
+    }}><option value="collections">{t('collections')}</option><option value="summary">{t('librarySummary')}</option><option value="collection" disabled={!collections.length}>{t('startCollection')}</option><option value="last">{t('startLast')}</option></select></label>
     {value.start.kind === 'collection' && <>
       <label>{t('startCollection')}<select required disabled={busy} value={collectionId} onChange={event => {
         if (event.target.value !== collectionId) { setCollectionId(event.target.value); setProfileId(''); }

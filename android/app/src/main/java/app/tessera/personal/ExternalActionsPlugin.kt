@@ -7,6 +7,7 @@ import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.net.Uri
+import android.provider.CalendarContract
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
@@ -61,6 +62,40 @@ class ExternalActionsPlugin : Plugin() {
         activity.runOnUiThread {
             try { activity.startActivity(Intent(Intent.ACTION_VIEW, uri)); call.resolve() }
             catch (_: Exception) { call.reject("externalOpenFailed") }
+        }
+    }
+    @PluginMethod fun createCalendarEvent(call: PluginCall) {
+        val title = call.getString("title")?.trim() ?: return call.reject("invalidCalendarEvent")
+        val start = call.getLong("start") ?: return call.reject("invalidDate")
+        val end = call.getLong("end") ?: return call.reject("invalidDate")
+        val allDay = call.getBoolean("allDay") == true
+        if (title.isEmpty() || title.length > 4096 || start < 0 || end <= start) { call.reject("invalidCalendarEvent"); return }
+        activity.runOnUiThread {
+            try {
+                val intent = Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
+                    .putExtra(CalendarContract.Events.TITLE, title)
+                    .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+                    .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, end)
+                    .putExtra(CalendarContract.Events.ALL_DAY, allDay)
+                call.getString("description")?.let { intent.putExtra(CalendarContract.Events.DESCRIPTION, it) }
+                call.getString("location")?.let { intent.putExtra(CalendarContract.Events.EVENT_LOCATION, it) }
+                if (intent.resolveActivity(context.packageManager) == null) call.reject("calendarUnavailable")
+                else { activity.startActivity(intent); call.resolve() }
+            } catch (_: Exception) { call.reject("calendarUnavailable") }
+        }
+    }
+
+    @PluginMethod fun createReminder(call: PluginCall) {
+        val title = call.getString("title")?.trim() ?: return call.reject("invalidCalendarEvent")
+        if (title.isEmpty() || title.length > 4096) { call.reject("invalidCalendarEvent"); return }
+        activity.runOnUiThread {
+            try {
+                val intent = Intent("android.intent.action.CREATE_REMINDER")
+                    .putExtra(Intent.EXTRA_TITLE, title)
+                    .putExtra(Intent.EXTRA_TEXT, call.getString("description") ?: "")
+                if (intent.resolveActivity(context.packageManager) == null) call.reject("reminderUnavailable")
+                else { activity.startActivity(intent); call.resolve() }
+            } catch (_: Exception) { call.reject("reminderUnavailable") }
         }
     }
 }

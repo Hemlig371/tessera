@@ -13,7 +13,7 @@ export function validateIncomingShare(value: unknown): IncomingSharedText {
   const files = item.files ?? [];
   if (!Array.isArray(files) || files.length > 16 ||
       files.some((file, index) => !file || typeof file !== 'object' || file.index !== index ||
-        typeof file.name !== 'string' || !file.name.trim() || file.name === '.' || file.name === '..' || /[/\\\\]/.test(file.name) || file.name.length > 240 ||
+        typeof file.name !== 'string' || !file.name.trim() || file.name === '.' || file.name === '..' || (file.name.includes('/') || file.name.includes('\\\\')) || file.name.length > 240 ||
         // eslint-disable-next-line no-control-regex
         /[\u0000-\u001f\u007f]/.test(file.name) || typeof file.mime !== 'string' ||
         !/^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/.test(file.mime) ||

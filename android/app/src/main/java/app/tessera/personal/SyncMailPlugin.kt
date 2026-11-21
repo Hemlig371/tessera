@@ -63,7 +63,7 @@ class SyncMailPlugin : Plugin() {
         override fun close()=socket.close()
     }
     private fun connect(account:Account):Channel {
-        val plain=javax.net.Socket()
+        val plain=java.net.Socket()
         plain.connect(InetSocketAddress(account.host,account.port),12000)
         plain.soTimeout=18000
         try {

@@ -672,7 +672,14 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     if (busy || ui.editor) return;
     if (ui.searchOrigin && ui.scope === 'all') return;
     const origin = selected ? { token: queryToken, id: selected.id, trail: [...trail] } : null;
-    rememberBrowse(); clearRecordContext(); searchRecordOrigin.current = origin; ui.globalSearch();
+    const proceed = () => { rememberBrowse(); clearRecordContext(); searchRecordOrigin.current = origin; ui.globalSearch(); };
+    if (!androidDeviceLock()) { proceed(); return; }
+    setBusy(true); setError(null);
+    void api.listLibraries().then(async items => {
+      const locked = await Promise.all(items.map(library => api.isLibraryLocked(library.id)));
+      if (locked.some(Boolean)) setError('globalSearchLocked');
+      else proceed();
+    }).catch(e => setError(errorKey(e))).finally(() => setBusy(false));
   }
   function beginCreate(choice?: CreationChoice) {
     if (busy || !collection) return;

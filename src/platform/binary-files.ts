@@ -1,6 +1,8 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { BinaryFileAdapter, FileFacts } from '../core/ports';
 import { AppError } from '../core/errors';
+import { exportFileName } from '../core/attachments';
+import type { Repository } from '../core/repository';
 interface NativeBinary {
   begin(options: { id: string }): Promise<void>;
   write(options: { id: string; offset: number; data: string }): Promise<void>;
@@ -10,6 +12,7 @@ interface NativeBinary {
   read(options: { id: string; offset: number; length: number }): Promise<{ data: string }>;
   remove(options: { id: string; staged: boolean }): Promise<void>;
   export(options: { id: string; name: string; mime: string; size: number; sha256: string }): Promise<{ saved: boolean }>;
+  exportGroup(options: { files: ExportGroupFile[] }): Promise<{ saved: boolean; count?: number }>;
 }
 const android = registerPlugin<NativeBinary>('BinaryFiles');
 export function openBinaryFiles(): BinaryFileAdapter {
@@ -43,6 +46,42 @@ export function openBinaryFiles(): BinaryFileAdapter {
         await invoke('export', { id, path, ...expected }); return true;
       },
     };
+  }
+  throw new AppError('nativeRequired');
+}
+
+interface ExportGroupFile { id: string; name: string; mime: string; size: number; sha256: string; folders: string[] }
+export interface LargeExportItem { id: string; record_id: string; library_name: string; collection_name: string; record_title: string }
+/** Verify bytes and hashes before asking the OS for one destination folder. */
+export async function exportAttachmentGroup(api: Repository, selected: readonly LargeExportItem[]): Promise<number | null> {
+  if (selected.length < 1 || selected.length > 100 || new Set(selected.map(item => item.id)).size !== selected.length)
+    throw new AppError('invalidAttachment');
+  const files: ExportGroupFile[] = [];
+  for (const item of selected) {
+    const view = await api.getAttachmentView(item.id, item.record_id, true);
+    if (view.status !== 'present') throw new AppError(view.status === 'corrupt' ? 'fileCorrupt' : 'fileMissing');
+    const safeName = exportFileName(view.name);
+    const dot = safeName.lastIndexOf('.');
+    const suffix = '-' + item.id.slice(0, 8);
+    const name = dot > 0 ? safeName.slice(0, Math.min(dot, 120)) + suffix + safeName.slice(dot) :
+      safeName.slice(0, 120) + suffix;
+    files.push({
+      id: item.id, size: view.size, sha256: view.sha256, mime: view.mime, name,
+      folders: [
+        exportFileName(item.library_name).slice(0, 100),
+        exportFileName(item.collection_name).slice(0, 100),
+        exportFileName(item.record_title || 'record').slice(0, 80) + '-' + item.record_id.slice(0, 8),
+      ],
+    });
+  }
+  if (Capacitor.getPlatform() === 'android') {
+    const result = await android.exportGroup({ files });
+    return result.saved ? result.count ?? files.length : null;
+  }
+  if ('__TAURI_INTERNALS__' in window) {
+    const folder = await (await import('@tauri-apps/plugin-dialog')).open({ directory: true, multiple: false });
+    if (!folder || typeof folder !== 'string') return null;
+    return (await import('@tauri-apps/api/core')).invoke<number>('binary_export_batch', { folder, files });
   }
   throw new AppError('nativeRequired');
 }

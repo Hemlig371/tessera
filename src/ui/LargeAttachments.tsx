@@ -4,6 +4,7 @@ import type { Repository } from '../core/repository';
 import { errorKey } from './common';
 import { useFileSize } from './AttachmentList';
 import { exportAttachmentGroup } from '../platform/binary-files';
+import { AttachmentThumbnail } from './AttachmentThumbnail';
 
 type Catalog = Awaited<ReturnType<Repository['listLargeAttachments']>>;
 export function LargeAttachments({ api, busy }: { api: Repository; busy: boolean }) {
@@ -73,6 +74,7 @@ export function LargeAttachments({ api, busy }: { api: Repository; busy: boolean
       <button type="button" disabled={disabled} onClick={() => setConfirm(false)}>{t('cancel')}</button>
     </div>}
     <ul className="attachment-list">{items.map(item => <li key={item.id}>
+      {item.status === 'present' && item.size <= 24 * 1024 * 1024 && item.mime.startsWith('image/') && <AttachmentThumbnail api={api} id={item.id} ownerId={item.record_id} />}
       <label><input type="checkbox" checked={selection.includes(item.id)} disabled={disabled}
         onChange={e => setSelection(current => e.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))} />
         <strong>{item.name}</strong> · {formatSize(item.size)}</label>

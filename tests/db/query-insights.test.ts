@@ -25,8 +25,9 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     const collection = await api.createCollection(library.id, 'Задачи', 'Название');
     const amount = await api.createField(collection.id, 'Стоимость', 'decimal');
     const status = await api.createField(collection.id, 'Этап', 'select', { options: [{ id: 'todo', label: 'План' }] });
+    const secret = await api.createField(collection.id, 'Пароль', 'secret');
     await api.importEntries(collection.id, Array.from({ length: 211 }, (_, index) => ({
-      [collection.primary_field_id]: String(index), [amount.id]: '0.1', [status.id]: 'todo',
+      [collection.primary_field_id]: String(index), [amount.id]: '0.1', [status.id]: 'todo', [secret.id]: 'hidden',
     })));
     await api.saveUiConfig(collection.id, 'list', {
       fields: [], list: { mode: 'kanban', mode_field: status.id },
@@ -43,6 +44,7 @@ describe.each(adapters)('%s M3 all-query insights', kind => {
     if (projection.mode !== 'kanban') throw new Error('wrong projection');
     expect(projection.columns.find(column => column.value === 'todo')?.count).toBe(211);
     expect(projection.columns.find(column => column.value === 'todo')?.entries.length).toBe(20);
+    expect(projection.columns.find(column => column.value === 'todo')?.entries.every(entry => !Object.hasOwn(entry.data, secret.id))).toBe(true);
     const widget = { id: crypto.randomUUID(), title: ' Последние ', width: 1 as const,
       collection_id: collection.id, kind: 'table' as const, field_ids: [amount.id], limit: 3 };
     await api.saveLibrarySummary(library.id, { widgets: [widget] });

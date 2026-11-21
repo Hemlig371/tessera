@@ -5,7 +5,7 @@ import type {MailSyncConfig} from '../core/mail-config';
 import { createAndroidSyncGroup, invitationForDevice, joinAndroidSyncGroup,
   readMailSyncConfig, configureAndroidMailSync, confirmImportedPeer,
   executeAndroidMailCycle, stopAndroidMailGroup, saveMailCycleError } from '../platform/mail-sync-setup';
-import {renderSyncQr,scanSyncQr} from '../platform/sync-qr';
+import {renderSyncQr,scanSyncQr,scanDesktopSyncQrImage} from '../platform/sync-qr';
 import {syncSecretStore} from '../platform/sync-secrets';
 import type {LocalSyncSafety} from '../core/sync-safety';
 import type {LocalSyncCycleResult} from '../core/local-sync-engine';
@@ -74,8 +74,15 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
           const seq=await joinAndroidSyncGroup(api,value);
           setMessage(t('mailSyncJoined')+' '+seq);
         });}}>{t('mailSyncJoin')}</button>
-        {'__TAURI_INTERNALS__' in window && <textarea aria-label={t('mailSyncJoin')} rows={4}
-           placeholder={t('mailSyncJoin')} value={joinText} onChange={e=>setJoinText(e.target.value)} />}
+        {'__TAURI_INTERNALS__' in window && <>
+          <textarea aria-label={t('mailSyncJoin')} rows={4} placeholder={t('mailSyncJoin')}
+             value={joinText} onChange={e=>setJoinText(e.target.value)}/>
+          <input type="file" accept="image/png,image/jpeg,image/webp" aria-label={t('mailSyncScan')}
+             onChange={event=>{
+               const file=event.currentTarget.files?.[0];
+               if(file)void act(async()=>{setJoinText(await scanDesktopSyncQrImage(file));});
+             }}/>
+        </>}
       </div>}
     {keyPresent && <>
       <div className="form-actions"><button disabled={working} onClick={()=>{void act(async()=>{await displayInvite(await invitationForDevice(api));});}}>{t('mailSyncInvite')}</button></div>

@@ -29,3 +29,22 @@ export async function scanSyncQr():Promise<string|null> {
   parseSyncInvitation(result.value ?? '');
   return result.value!;
 }
+
+/** Scan a user-selected local QR image when the desktop WebView exposes BarcodeDetector.
+ * Never uploads group secrets or grants a remote camera service access.
+ */
+export async function scanDesktopSyncQrImage(file:File):Promise<string> {
+  if(!nativeMailSyncSupported() || Capacitor.getPlatform()==='android' ||
+      !file.type.startsWith('image/') || file.size>8*1024*1024)throw new AppError('qrScanFailed');
+  type Detection={rawValue:string};
+  type Scanner=new(options:{formats:string[]})=>{detect(input:ImageBitmap):Promise<Detection[]>};
+  const supported=(globalThis as typeof globalThis & {BarcodeDetector?:Scanner}).BarcodeDetector;
+  if(!supported)throw new AppError('qrUnavailable');
+  const bitmap=await createImageBitmap(file);
+  try {
+    const matches=await new supported({formats:['qr_code']}).detect(bitmap);
+    if(matches.length!==1)throw new AppError('qrScanFailed');
+    parseSyncInvitation(matches[0]!.rawValue);
+    return matches[0]!.rawValue;
+  } finally {bitmap.close();}
+}

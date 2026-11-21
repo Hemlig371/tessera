@@ -120,12 +120,14 @@ async function fetchMail(after:number):Promise<Fetched>{
       if(line.startsWith('a2 ')){expect(line).toMatch(/^a2 OK/i);break;}
     }
     if(!validity||next<1)throw Error('IMAP SELECT did not provide UIDVALIDITY and UIDNEXT');
-    c.write('a3 UID SEARCH UID '+(after+1)+':'+(next-1)+' HEADER X-Tessera-Wire 1\r\n');
     let ids:number[]=[];
-    for(let i=0;i<80;i++){
-      const line=await c.line();
-      if(line.startsWith('* SEARCH'))ids.push(...line.split(' ').slice(2).map(Number).filter(n=>Number.isSafeInteger(n)&&n>after));
-      if(line.startsWith('a3 ')){expect(line).toMatch(/^a3 OK/i);break;}
+    if(next>after+1){
+      c.write('a3 UID SEARCH UID '+(after+1)+':'+(next-1)+' HEADER X-Tessera-Wire 1\r\n');
+      for(let i=0;i<80;i++){
+        const line=await c.line();
+        if(line.startsWith('* SEARCH'))ids.push(...line.trim().split(/\s+/).slice(2).map(Number).filter(n=>Number.isSafeInteger(n)&&n>after));
+        if(line.startsWith('a3 ')){expect(line).toMatch(/^a3 OK/i);break;}
+      }
     }
     ids=Array.from(new Set(ids)).sort((a,b)=>a-b);
     for(const id of ids){

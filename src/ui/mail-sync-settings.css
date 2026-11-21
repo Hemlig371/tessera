@@ -28,3 +28,13 @@
   .mail-sync-settings .mail-sync-panel,
   .mail-sync-invitation { padding: var(--space-3); }
 }
+
+/* Scale and keyboard ergonomics: long credentials never push the viewport wider. */
+.mail-sync-settings fieldset { min-inline-size: 0; }
+.mail-sync-settings .settings-grid > label { overflow-wrap: anywhere; }
+.mail-sync-settings .settings-grid input { width: 100%; }
+.mail-sync-settings button:focus-visible,
+.mail-sync-settings textarea:focus-visible { outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .mail-sync-settings * { scroll-behavior: auto; }
+}

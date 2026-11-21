@@ -28,6 +28,7 @@ import { activeCollection, activeRecords, decodeEntry, type StoredEntry } from '
 import { queryEntries } from './queries';
 import { AppError } from './errors';
 import { safeDiagnosticReport } from './diagnostics';
+import type { ArchiveManifest } from './database-archive';
 import { applySyncEvent } from './sync-apply';
 import { checkLocalSyncSafety, markLocalExchangeComplete, suspendLocalSyncForGap } from './sync-safety';
 import { buildLocalPacket, parseLocalPacket, parseLocalReceipt, type LocalSyncPacket, type SyncReceipt } from './sync-protocol';
@@ -533,8 +534,23 @@ export class Repository {
   async exportLocalSyncPacket(after: JournalCheckpoint, limit = 100): Promise<LocalSyncPacket | null> {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
     if ((await this.localSyncSafety()).mode !== 'active') throw new AppError('invalidSyncState');
-    const changes = await this.readLocalChanges(after, limit);
-    return changes.length ? buildLocalPacket(this.datasetId, this.deviceId, after, changes) : null;
+    // Keep a newly-created collection, its primary field and default profile in one
+    // SQLite commit on the receiver: the collection's deferred FKs must be valid at COMMIT.
+    // A requested page may grow beyond limit but never past the protocol bound (200).
+    const changes = await this.readLocalChanges(after, 200);
+    let count = Math.min(limit, changes.length);
+    for (let i = 0; i < count; i++) {
+      const row = changes[i]!;
+      if (row.entity_type !== 'collection') continue;
+      const payload = JSON.parse(row.payload) as { primary_field_id?: string; incoming_field_id?: string; default_profile_id?: string };
+      for (const field of [payload.primary_field_id, payload.incoming_field_id, payload.default_profile_id]) {
+        if (!field) continue;
+        const offset = changes.findIndex(candidate =>
+          candidate.entity_id === field && (candidate.entity_type === 'field' || candidate.entity_type === 'display_profile'));
+        if (offset >= 0) count = Math.max(count, offset + 1);
+      }
+    }
+    return count ? buildLocalPacket(this.datasetId, this.deviceId, after, changes.slice(0, count)) : null;
   }
   /** Apply a contiguous page atomically; an event failure leaves the cursor untouched. */
   async applyLocalSyncPacket(input: unknown): Promise<SyncReceipt> {
@@ -568,6 +584,48 @@ export class Repository {
     if (receipt.dataset_id !== this.datasetId) throw new AppError('datasetMismatch');
     if (receipt.sender_id !== this.deviceId) throw new AppError('invalidSyncPacket');
     await this.acknowledgeLocalChanges(receipt.receiver_id, { dataset_id: receipt.dataset_id, seq: receipt.through_seq });
+  }
+  /** The user supplies a manifest returned by a VERIFIED local archive import. Never
+   * infer peer identity from the mail address or connect independent datasets.
+   */
+  private archiveSyncCheckpoint(manifest: ArchiveManifest): JournalCheckpoint {
+    if (!manifest || manifest.format !== 'tessera-db' || manifest.version !== 1 ||
+        manifest.model_version !== 1 || manifest.dataset_id !== this.datasetId ||
+        manifest.checkpoint?.dataset_id !== this.datasetId ||
+        !Number.isSafeInteger(manifest.checkpoint.seq) || manifest.checkpoint.seq < 0)
+      throw new AppError('invalidArchive');
+    return manifest.checkpoint;
+  }
+  async registerLocalArchiveBaseline(sourcePeer: string, verifiedManifest: ArchiveManifest): Promise<void> {
+    requireId(sourcePeer);
+    if (sourcePeer === this.deviceId) throw new AppError('invalidSyncState');
+    const checkpoint = this.archiveSyncCheckpoint(verifiedManifest);
+    await this.db.transaction(async s => {
+      const mode = await syncMode(s);
+      if (mode === 'paused' || mode === 'detached') throw new AppError('invalidSyncState');
+      const key = 'sync_rx:' + sourcePeer;
+      if ((await s.query('SELECT value FROM local_settings WHERE key=?',[key])).length)
+        throw new AppError('invalidSyncState');
+      await s.execute('INSERT INTO local_settings(key,value) VALUES(?,?)',[key,String(checkpoint.seq)]);
+    });
+  }
+  /** Call only after a trusted peer confirms the exact imported snapshot. */
+  acknowledgeLocalArchiveBaseline(receiverPeer: string, verifiedManifest: ArchiveManifest): Promise<void> {
+    requireId(receiverPeer);
+    if (receiverPeer === this.deviceId) throw new AppError('invalidSyncState');
+    const checkpoint = this.archiveSyncCheckpoint(verifiedManifest);
+    return this.acknowledgeLocalChanges(receiverPeer, checkpoint);
+  }
+  /** null means a peer is not yet registered; zero means waiting for its first ACK. */
+  async localSyncPeerAck(peerId: string): Promise<number | null> {
+    requireId(peerId);
+    return this.db.read(async s => {
+      const [row] = await s.query<{ value: string }>('SELECT value FROM local_settings WHERE key=?', ['sync_peer:' + peerId]);
+      if (!row) return null;
+      const value = Number(row.value);
+      if (!Number.isSafeInteger(value) || value < 0) throw new AppError('invalidSyncState');
+      return value;
+    });
   }
   async localSyncReceiveCursor(peerId: string): Promise<number> {
     requireId(peerId);

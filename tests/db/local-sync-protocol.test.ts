@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { adapters, fixture } from '../support/fixture';
 import { exportDatabaseArchive, importDatabaseArchive } from '../../src/core/database-archive';
@@ -7,6 +7,7 @@ import type { ArchiveWriter } from '../../src/core/archive-zip';
 import { Repository } from '../../src/core/repository';
 import { decodeLocalPacket, encodeLocalPacket, type LocalSyncPacket } from '../../src/core/sync-protocol';
 import type { JournalCheckpoint } from '../../src/core/change-journal';
+import { publishLocalAttachment, restoreLocalAttachment, type LocalAttachmentMailbox } from '../../src/core/local-sync-attachments';
 
 describe.each(adapters)('%s M5 independent SQLite replication over local files', kind => {
   const opened: Awaited<ReturnType<typeof fixture>>[] = [];
@@ -83,19 +84,25 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     await deliver(a,b,baseline,left.directory,15);
     expect((await b.getEntry(owner))?.data[file.id]).toEqual([staged.id]);
     expect((await b.getAttachmentView(staged.id,owner)).status).toBe('missing');
-    const remoteFile = join(left.directory,'small-share.bin');
-    await writeFile(remoteFile,Buffer.alloc(0));
-    const segments: Uint8Array[] = [];
-    for (let offset = 0; offset < data.length;offset+=256*1024) {
-      const count = Math.min(256*1024,data.length-offset);
-      segments.push(await a.readLocalSyncAttachmentChunk(staged.id,owner,offset,count));
-    }
-    await writeFile(remoteFile,Buffer.concat(segments));
-    const shared = new Uint8Array(await readFile(remoteFile));
-    await b.restoreAttachmentCopy(staged.id,owner,{
-      name:'small.bin',mime:'application/octet-stream',size:shared.length,
-      read:async (offset,length)=>shared.slice(offset,offset+length),
-    });
+    const directory = join(left.directory,'small-share');
+    await mkdir(directory,{recursive:true});
+    const chunk = (sourceId:string,id:string,offset:number) => join(directory,sourceId+'-'+id+'-'+offset+'.bin');
+    const mailbox: LocalAttachmentMailbox = {
+      writeChunk: async item => {
+        expect(item.bytes.length).toBeLessThanOrEqual(256*1024);
+        await writeFile(chunk(item.source_id,item.attachment_id,item.offset),item.bytes);
+      },
+      readChunk: async request => new Uint8Array(await readFile(chunk(request.source_id,request.attachment_id,request.offset))),
+    };
+    expect(await publishLocalAttachment(a,owner,staged.id,mailbox)).toBe('complete');
+    const first = chunk(a.deviceId,staged.id,0);
+    const originalChunk = await readFile(first);
+    await writeFile(first,Buffer.from(originalChunk.map(byte=>byte^1)));
+    await expect(restoreLocalAttachment(b,owner,staged.id,a.deviceId,mailbox)).rejects.toThrow('fileCorrupt');
+    expect((await b.getAttachmentView(staged.id,owner)).status).toBe('missing');
+    await writeFile(first,originalChunk);
+    expect(await restoreLocalAttachment(b,owner,staged.id,a.deviceId,mailbox)).toBe('complete');
+    expect(await restoreLocalAttachment(b,owner,staged.id,a.deviceId,mailbox)).toBe('already-present');
     expect((await b.getAttachmentView(staged.id,owner,true)).status).toBe('present');
     expect(await b.readLocalSyncAttachmentChunk(staged.id,owner,0,10)).toEqual(data.slice(0,10));
     await expect(a.readLocalSyncAttachmentChunk(staged.id,owner,data.length-2,10)).rejects.toThrow('invalidFileOffset');
@@ -106,6 +113,7 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     });
     await a.saveNewEntry(collection.id,{[collection.primary_field_id]:'Large file',[file.id]:[bigStage.id]},bigOwner);
     await expect(a.readLocalSyncAttachmentChunk(bigStage.id,bigOwner,0,1)).rejects.toThrow('fileAboveSyncLimit');
+    expect(await publishLocalAttachment(a,bigOwner,bigStage.id,mailbox)).toBe('metadata-only');
   });
   it('converges across three independent databases, with out-of-order relay and deterministic Top-20', async () => {
     const { a,b,left,collection,entry,archiveBytes } = await nodes();
@@ -166,6 +174,30 @@ describe.each(adapters)('%s M5 independent SQLite replication over local files',
     expect(await b.getEntry(entry.id)).toEqual(before);
     await expect(a.acceptLocalSyncReceipt({...receipt, sender_id:crypto.randomUUID()})).rejects.toThrow('invalidSyncPacket');
     await a.acceptLocalSyncReceipt(receipt);
+  });
+  it('sends a newly-created collection, primary field and default profile atomically even at page limit one', async () => {
+    const { a,b,left,library } = await nodes();
+    const baseline = await deliver(a,b,zero(a),left.directory,5);
+    const collection = await a.createCollection(library.id,'Created offline','Primary');
+    const packet = (await a.exportLocalSyncPacket(baseline,1))!;
+    expect(packet.events.map(event=>event.entity_type)).toEqual(['collection','field','display_profile']);
+    const receipt = await b.applyLocalSyncPacket(packet);
+    await a.acceptLocalSyncReceipt(receipt);
+    expect((await b.listCollections(library.id)).some(value=>value.id===collection.id)).toBe(true);
+    expect((await b.listFields(collection.id)).some(value=>value.id===collection.primary_field_id)).toBe(true);
+  });
+  it('prevents an offline gap from silently advancing a peer cursor', async () => {
+    const { a,b,left,entry } = await nodes();
+    const first = (await a.exportLocalSyncPacket(zero(a),1))!;
+    const missing = (await a.exportLocalSyncPacket({dataset_id:a.datasetId,seq:first.through_seq},1))!;
+    const before = await b.getEntry(entry.id);
+    await expect(b.applyLocalSyncPacket(missing)).rejects.toThrow('journalGap');
+    expect(await b.localSyncReceiveCursor(a.deviceId)).toBe(0);
+    await b.suspendUnrecoverableLocalSyncGap();
+    expect((await b.localSyncSafety()).reason).toBe('missingPackets');
+    await expect(b.applyLocalSyncPacket(first)).rejects.toThrow('invalidSyncState');
+    expect(await b.getEntry(entry.id)).toEqual(before);
+    expect(left.path).toBeTruthy();
   });
   it('rolls back the whole incoming page on SQLite failure, retries, and preserves pause/detach semantics', async () => {
     const { a,b,right,entry } = await nodes();

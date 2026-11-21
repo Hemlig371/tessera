@@ -81,7 +81,11 @@ export async function exportAttachmentGroup(api: Repository, selected: readonly 
   if ('__TAURI_INTERNALS__' in window) {
     const folder = await (await import('@tauri-apps/plugin-dialog')).open({ directory: true, multiple: false });
     if (!folder || typeof folder !== 'string') return null;
-    return (await import('@tauri-apps/api/core')).invoke<number>('binary_export_batch', { folder, files });
+    const { invoke } = await import('@tauri-apps/api/core');
+    const count = await invoke<number>('binary_export_batch', { folder, files });
+    try { await invoke('external_open_folder', { path: folder }); }
+    catch { /* The verified files are already saved; users can open the chosen folder manually. */ }
+    return count;
   }
   throw new AppError('nativeRequired');
 }

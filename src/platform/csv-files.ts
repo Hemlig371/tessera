@@ -61,3 +61,18 @@ export async function chooseDatabaseArchiveWriter(title: string): Promise<Archiv
   }
   throw new AppError('nativeRequired');
 }
+
+/** Desktop ICS uses the existing OS save dialog and atomic staged text writer. */
+export async function chooseIcsWriter(name: string, title: string): Promise<CsvWriter | null> {
+  if (!('__TAURI_INTERNALS__' in window)) throw new AppError('nativeRequired');
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const path = await save({ title, defaultPath: name, filters: [{ name: 'iCalendar', extensions: ['ics'] }] });
+  if (!path) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('csv_open', { path });
+  return {
+    write: text => invoke('csv_write', { text }),
+    finish: () => invoke('csv_finish'),
+    abort: () => invoke('csv_abort'),
+  };
+}

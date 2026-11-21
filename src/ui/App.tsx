@@ -1,6 +1,6 @@
 import { freezeDateSelection } from '../core/date-selection';
 import type { CollectionProjection } from '../core/collection-projection';
-import type { SummaryResult } from '../core/query-summary';
+import type { SummaryMeasure, SummaryResult } from '../core/query-summary';
 import { QueryTotals } from './QueryTotals';
 import { KanbanBoard } from './KanbanBoard';
 import { CalendarView } from './CalendarView';
@@ -69,6 +69,7 @@ const emptyLayouts = { form: { fields: [] }, card: { fields: [] }, list: { field
   UiKind,
   UiDefinition
 >;
+const emptyTotals: readonly SummaryMeasure[] = [];
 type Context = { collection: Collection; fields: Field[]; layouts: Record<UiKind, UiDefinition>; inboxOriginal?: string | null; unmappedAttachments: string[] };
 type BrowsePosition = { token: string; count: number; documentTop: number; listTop: number; focus: HTMLElement | null; focusId?: string };
 export function App({ api, drafts, suspended = false, openArchive }: { api: Repository; drafts: DraftStore; suspended?: boolean; openArchive?: () => void }) {
@@ -216,7 +217,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     return () => controller.abort();
     // Options and preview IDs are represented by the serialized token.
   }, [api, projectionToken, specialMode, queryToken, viewMode, viewField, calendarMonth, layouts.list.fields, layouts.list.quick_actions]);
-  const totalMeasures = ui.scope === 'collection' ? layouts.list.totals ?? [] : [];
+  const totalMeasures = ui.scope === 'collection' ? layouts.list.totals ?? emptyTotals : emptyTotals;
   const totalToken = JSON.stringify([queryToken, totalMeasures, revision]);
   useEffect(() => {
     if (!browsing || ui.scope !== 'collection' || !totalMeasures.length) { setTotals(null); setTotalsError(null); setTotalsLoading(false); return; }

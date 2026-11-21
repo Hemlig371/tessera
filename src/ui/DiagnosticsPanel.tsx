@@ -9,11 +9,10 @@ import { errorKey } from './common';
 export function DiagnosticsPanel({ api, busy }: { api: Repository; busy: boolean }) {
   const { t } = useTranslation();
   const [report, setReport] = useState<SafeDiagnosticReport | null>(null);
-  const [running, setRunning] = useState(false), [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(true), [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     let active = true;
-    setRunning(true); setError(null);
     void api.diagnosticReport().then(result => { if (active) setReport(result); })
       .catch(e => { if (active) setError(errorKey(e)); })
       .finally(() => { if (active) setRunning(false); });

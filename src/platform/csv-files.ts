@@ -76,3 +76,21 @@ export async function chooseIcsWriter(name: string, title: string): Promise<CsvW
     abort: () => invoke('csv_abort'),
   };
 }
+
+/** Explicit diagnostic export: JSON bytes via OS document picker, no implicit upload. */
+export async function chooseDiagnosticWriter(): Promise<CsvWriter | null> {
+  const name = 'Tessera-diagnostic.json';
+  if (Capacitor.getPlatform() === 'android') {
+    if ((await android.begin({ name, title: name, mime: 'application/json' })).cancelled) return null;
+    return { write: text => android.write({ text }), finish: () => android.finish(), abort: () => android.abort() };
+  }
+  if ('__TAURI_INTERNALS__' in window) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const path = await save({ title: name, defaultPath: name, filters: [{ name: 'JSON', extensions: ['json'] }] });
+    if (!path) return null;
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('csv_open', { path });
+    return { write: text => invoke('csv_write', { text }), finish: () => invoke('csv_finish'), abort: () => invoke('csv_abort') };
+  }
+  throw new AppError('nativeRequired');
+}

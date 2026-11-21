@@ -7,7 +7,7 @@ test('profile date conditions persist and change the common record query', async
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible({ timeout: 30000 });
-  const seed = await page.request.post('/__test-sqlite', { data: { op: 'profiles-seed' } });
+  const seed = await page.request.post('/__test-sqlite', { data: { op: 'profile-dates-seed' } });
   expect(seed.ok(), await seed.text()).toBe(true);
   const reopen = async () => {
     // Dispose the old test renderer before releasing its HTTP transaction lease.
@@ -19,7 +19,7 @@ test('profile date conditions persist and change the common record query', async
   };
   const navigate = async () => {
     await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
-    await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: профили (dev/CI)»', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: даты (dev/CI)»', exact: true }).click();
     await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   };
   await reopen(); await navigate();

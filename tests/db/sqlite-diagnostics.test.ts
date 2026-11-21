@@ -20,7 +20,7 @@ describe.each(adapters)('%s SQLite diagnostics', kind => {
     expect(text).not.toContain('private collection');
     expect(text).not.toContain('sensitive content token');
     expect(Object.keys(JSON.parse(text)).sort()).toEqual([
-      'app_schema', 'format', 'foreign_keys', 'freelist_count', 'generated_at',
+      'app_schema', 'foreign_keys', 'format', 'freelist_count', 'generated_at',
       'integrity', 'journal_mode', 'page_count', 'sqlite_version',
     ]);
   });

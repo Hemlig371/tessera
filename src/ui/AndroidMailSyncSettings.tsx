@@ -7,7 +7,6 @@ import { createAndroidSyncGroup, invitationForDevice, joinAndroidSyncGroup,
   executeAndroidMailCycle, stopAndroidMailGroup, saveMailCycleError } from '../platform/mail-sync-setup';
 import {renderSyncQr,scanSyncQr} from '../platform/sync-qr';
 import {syncSecretStore} from '../platform/sync-secrets';
-import {nativeMailSyncSupported} from '../platform/native-mail-sync';
 import type {LocalSyncSafety} from '../core/sync-safety';
 import type {LocalSyncCycleResult} from '../core/local-sync-engine';
 import {ErrorMessage,errorKey} from './common';
@@ -55,8 +54,7 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
   };
   const displayInvite=async(value:string)=>{
     setInvite(value);
-    if (nativeMailSyncSupported() && '__TAURI_INTERNALS__' in window) setQr('');
-    else setQr(await renderSyncQr(value));
+    setQr(await renderSyncQr(value));
   };
   const update=(key:keyof MailSyncConfig,value:string|number)=>{
     setConfig(old=>({...old,[key]:value}));

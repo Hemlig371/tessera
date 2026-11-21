@@ -1,14 +1,26 @@
 import {Capacitor,registerPlugin} from '@capacitor/core';
 import {AppError} from '../core/errors';
 import {parseSyncInvitation} from '../core/sync-pairing';
+import {qrcodegen} from '../vendor/qrcodegen';
+import {nativeMailSyncSupported} from './native-mail-sync';
 const native=registerPlugin<{
   render(options:{value:string}):Promise<{image:string}>;
   scan():Promise<{cancelled:boolean;value?:string}>;
 }>('SyncQr');
 export async function renderSyncQr(invitation:string):Promise<string> {
   parseSyncInvitation(invitation);
-  if(Capacitor.getPlatform()!=='android')throw new AppError('nativeRequired');
-  return (await native.render({value:invitation})).image;
+  if(Capacitor.getPlatform()==='android')return (await native.render({value:invitation})).image;
+  if(!nativeMailSyncSupported())throw new AppError('nativeRequired');
+  // Offline-only local QR rendering. The group key is never sent to a QR service.
+  const code=qrcodegen.QrCode.encodeText(invitation,qrcodegen.QrCode.Ecc.MEDIUM);
+  const margin=4,dimension=code.size+margin*2;
+  let path='';
+  for(let y=0;y<code.size;y++)for(let x=0;x<code.size;x++)
+    if(code.getModule(x,y))path+='M'+(x+margin)+' '+(y+margin)+'h1v1h-1z';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+dimension+' '+dimension+
+    '" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="white"/>'+
+    '<path fill="black" d="'+path+'"/></svg>';
+  return 'data:image/svg+xml;base64,'+btoa(svg);
 }
 export async function scanSyncQr():Promise<string|null> {
   if(Capacitor.getPlatform()!=='android')throw new AppError('nativeRequired');

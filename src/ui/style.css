@@ -1068,3 +1068,31 @@ input:not([type="checkbox"]):not([type="color"]), select, textarea { border-colo
 .quick-counter{display:flex;gap:.25rem}.quick-counter button{min-width:2.8rem}
 .quick-field>progress,.quick-field>input[type=range]{width:100%;min-width:8rem}
 .quick-action-setting{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;margin-bottom:.5rem}
+
+
+/* M6.5 — responsive controls and keyboard affordances shared by all screens. */
+:where(.app, .browse-screen, .editor-page, .detail, .settings-form) { min-width: 0; }
+:where(.browse-screen, .editor-page, .detail, .settings-form) :where(h1, h2, h3, p, legend, label) { overflow-wrap: anywhere; }
+:where(.toolbar, .topbar-tools, .form-actions, .actions) > button { min-height: 44px; }
+.toolbar button { min-height: 44px; }
+.split-button button:last-child { min-width: 44px; }
+:where(button, input, select, textarea, summary, a, [role="menuitem"]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+:where(input, select, textarea):disabled { cursor: not-allowed; }
+:where(.saved, .undo) { color: var(--text); }
+:where(.error, .saved, .undo, .empty) { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .topbar { padding-top: max(var(--space-2), env(safe-area-inset-top)); }
+  main { padding-bottom: max(28px, env(safe-area-inset-bottom)); }
+  .field-grid { grid-template-columns: minmax(0, 1fr); }
+  .field-grid > :is(.half, .full) { grid-column: 1 / -1; }
+  .entry-values { grid-template-columns: minmax(0, 1fr); }
+  .topbar-navigation, .topbar-tools { flex-wrap: wrap; }
+  .browse-screen > header { min-width: 0; }
+}
+@media (max-width: 420px) {
+  .catalog-cards { grid-template-columns: minmax(0, 1fr); }
+  .form-actions > button { flex: 1 1 auto; }
+}

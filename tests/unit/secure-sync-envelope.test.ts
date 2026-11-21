@@ -40,9 +40,9 @@ describe('M6 AES-GCM authenticated transport',()=>{
       list:async kind=>kind==='packet'?packets:receipts,
       send:async(kind,bytes)=>{(kind==='packet'?packets:receipts).push(bytes);},
       attachments:{
-        put:async(id,offset,bytes)=>{chunks.set(id+':'+offset,bytes);},
-        get:async(id,offset)=>chunks.get(id+':'+offset)!,
-        exists:async(id,offset)=>chunks.has(id+':'+offset),
+        put:async(source,id,offset,bytes)=>{chunks.set(source+':'+id+':'+offset,bytes);},
+        get:async(source,id,offset)=>chunks.get(source+':'+id+':'+offset)!,
+        exists:async(source,id,offset)=>chunks.has(source+':'+id+':'+offset),
       },
     };
     const a=encryptedSyncMailbox(transport,key,dataset,sender);
@@ -57,7 +57,7 @@ describe('M6 AES-GCM authenticated transport',()=>{
     expect(await a.listReceipts()).toEqual([receipt]);
     const chunk=new Uint8Array(512).fill(37);
     await a.attachments!.writeChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:0,bytes:chunk});
-    expect(chunks.get(change.id+':0')).not.toEqual(chunk);
+    expect(chunks.get(sender+':'+change.id+':0')).not.toEqual(chunk);
     expect(await b.attachments!.readChunk({dataset_id:dataset,source_id:sender,attachment_id:change.id,offset:0,length:512})).toEqual(chunk);
     await expect(b.attachments!.readChunk({dataset_id:dataset,source_id:receiver,attachment_id:change.id,offset:0,length:512}))
       .rejects.toThrow('invalidSyncPacket');

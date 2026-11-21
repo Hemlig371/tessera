@@ -9,9 +9,9 @@ export interface OpaqueSyncTransport {
   list(kind: 'packet' | 'receipt'): Promise<readonly Uint8Array[]>;
   send(kind: 'packet' | 'receipt', encrypted: Uint8Array): Promise<void>;
   attachments?: {
-    put(id: string, offset: number, encrypted: Uint8Array): Promise<void>;
-    get(id: string, offset: number): Promise<Uint8Array>;
-    exists?(id: string, offset: number): Promise<boolean>;
+    put(sourceId: string, id: string, offset: number, encrypted: Uint8Array): Promise<void>;
+    get(sourceId: string, id: string, offset: number): Promise<Uint8Array>;
+    exists?(sourceId: string, id: string, offset: number): Promise<boolean>;
   };
 }
 /** Shared-key trust is scoped to one dataset; M5 SQLite cursors remain replay authority. */
@@ -52,7 +52,7 @@ export function encryptedSyncMailbox(
             !UUID_RE.test(chunk.attachment_id) || !Number.isSafeInteger(chunk.offset) || chunk.offset < 0 ||
             chunk.bytes.length > 256*1024) throw new AppError('invalidSyncPacket');
         // Deterministic logical ID for transport lookup, never used as an IV.
-        await transport.attachments!.put(chunk.attachment_id,chunk.offset,
+        await transport.attachments!.put(deviceId,chunk.attachment_id,chunk.offset,
           await wrap('chunk',chunk.attachment_id,chunk.bytes));
       },
       async readChunk(req) {
@@ -60,7 +60,7 @@ export function encryptedSyncMailbox(
             !UUID_RE.test(req.attachment_id) || !Number.isSafeInteger(req.offset) ||
             req.offset < 0 || req.length < 1 || req.length > 256*1024) throw new AppError('invalidSyncPacket');
         const opened = await openSyncBytes(key,
-          await transport.attachments!.get(req.attachment_id,req.offset),{dataset_id:datasetId,kind:'chunk'});
+          await transport.attachments!.get(req.source_id,req.attachment_id,req.offset),{dataset_id:datasetId,kind:'chunk'});
         if (opened.header.sender_id !== req.source_id ||
             opened.header.message_id !== req.attachment_id ||
             opened.bytes.length !== req.length) throw new AppError('invalidSyncPacket');
@@ -68,7 +68,7 @@ export function encryptedSyncMailbox(
       },
       hasFirstChunk: transport.attachments.exists
         ? async req => req.dataset_id === datasetId &&
-          transport.attachments!.exists!(req.attachment_id,0)
+          transport.attachments!.exists!(req.source_id,req.attachment_id,0)
         : undefined,
     } : undefined,
   };

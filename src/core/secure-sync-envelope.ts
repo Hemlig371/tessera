@@ -77,7 +77,7 @@ export async function sealSyncBytes(
   key: CryptoKey, metadata: Omit<SecureHeader,'format'|'version'>, plain: Uint8Array
 ): Promise<Uint8Array> {
   if (!(plain instanceof Uint8Array) || plain.byteLength > MAX_PLAINTEXT ||
-      plain.byteLength === 0 || key.algorithm.name !== 'AES-GCM' || !key.usages.includes('encrypt')) return fail();
+      (plain.byteLength === 0 && metadata.kind !== 'chunk') || key.algorithm.name !== 'AES-GCM' || !key.usages.includes('encrypt')) return fail();
   const h: SecureHeader = {format:'tessera-secure-sync',version:1,...metadata};
   if (!uuid(h.dataset_id) || !uuid(h.sender_id) || !uuid(h.message_id) ||
       !['packet','receipt','chunk'].includes(h.kind)) return fail();

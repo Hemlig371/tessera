@@ -287,8 +287,9 @@ export class Repository {
          FROM attachments a JOIN records r ON r.id=a.record_id AND r.purged=0
          JOIN collections c ON c.id=r.collection_id JOIN libraries l ON l.id=c.library_id
          JOIN fields pf ON pf.id=c.primary_field_id
+         LEFT JOIN local_settings lock ON lock.key='library_lock:' || l.id
          LEFT JOIN attachment_local al ON al.id=a.id
-         WHERE a.purged=0 AND a.size>? AND
+         WHERE a.purged=0 AND (lock.value IS NULL OR lock.value<>'1') AND a.size>? AND
          (? IS NULL OR a.size<? OR (a.size=? AND a.id>?))
          ORDER BY a.size DESC,a.id LIMIT ?`,
         [threshold, cursor?.id ?? null, cursor?.size ?? null, cursor?.size ?? null, cursor?.id ?? null, limit + 1]);

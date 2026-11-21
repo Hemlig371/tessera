@@ -1,4 +1,5 @@
 import { AppError } from './errors';
+import { requireId } from './validation';
 import { validDate } from './field-values';
 import type { Field, FieldConfig } from './model';
 import type { SqlValue } from './ports';
@@ -27,4 +28,13 @@ export function dateSelectionCondition(field: Pick<Field, 'type' | 'config'>, ex
 export function freezeDateSelection(selection: DateSelection, now = new Date()): DateSelection {
   const interval = selectionInterval(selection,now);
   return { field_id: selection.field_id,period: 'range',start: interval.start,end: shiftLocalDate(interval.end,-1) };
+}
+
+/** Validate saved/query conditions without converting relative periods to absolute dates. */
+export function validateDateSelection(selection: DateSelection, fields: readonly Field[]): void {
+  if (!selection || typeof selection !== 'object') throw new AppError('invalidFilter');
+  requireId(selection.field_id);
+  const field = fields.find(field => field.id === selection.field_id);
+  if (!field || !['date','local_datetime','date_range'].includes(dateFieldType(field))) throw new AppError('invalidFilter');
+  selectionInterval(selection);
 }

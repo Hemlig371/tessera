@@ -5,7 +5,7 @@ import { normalizeLibrarySummary, type SummaryWidget } from './library-summary';
 import { readProfileQuery } from './query-insights';
 import { evaluateQueryFormula } from './query-formula';
 import { GroupedSummary, type SummaryGroup } from './grouped-summary';
-import { queryEntries } from './queries';
+import { freezeQueryDates, queryEntries } from './queries';
 import { projectCollection } from './collection-projection';
 import { localDateLiteral } from './relative-dates';
 import type { CalendarDay } from './calendar-projection';
@@ -24,8 +24,8 @@ export async function readSummaryWidget(session: SqlSession, libraryId: string, 
   const widget = (await normalizeLibrarySummary(session,libraryId,{ widgets: [input] })).widgets[0]!;
   signal?.throwIfAborted();
   if (widget.kind === 'create') return { kind: 'create' };
-  const base: EntryQuery = widget.profile_id ? await readProfileQuery(session,widget.collection_id,widget.profile_id) : { collection_id: widget.collection_id };
-  const query = { ...base, filters: [...base.filters ?? [], ...widget.filters ?? []] };
+  const base: EntryQuery = widget.profile_id ? await readProfileQuery(session,widget.collection_id,widget.profile_id) : { collection_id: widget.collection_id, date_selection: null };
+  const query = await freezeQueryDates(session,{ ...base, filters: [...base.filters ?? [], ...widget.filters ?? []] });
   if (widget.kind === 'metric' || widget.kind === 'progress') {
     const value = await evaluateQueryFormula(session,query,widget.formula,signal);
     if (widget.kind === 'progress' && value != null) { if (typeof value !== 'string') throw new AppError('formulaType'); Decimal.parse(value); }

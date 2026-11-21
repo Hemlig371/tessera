@@ -140,6 +140,7 @@ export interface EntryFilter {
   value?: JsonValue;
 }
 export interface ListOptions {
+  date_selection?: import('./date-selection').DateSelection | null;
   sort_field?: string;
   direction?: 'asc' | 'desc';
   filters?: EntryFilter[];

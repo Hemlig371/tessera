@@ -1849,7 +1849,7 @@ export class Repository {
     const profiles = await s.query<DisplayProfile>('SELECT * FROM display_profiles WHERE collection_id=? AND deleted_at IS NULL', [collectionId]);
     const automatic = new Set(profiles.flatMap(profile => {
       const list = (JSON.parse(profile.config) as UiDefinition).list;
-      return [list?.sort_field, list?.group_field, ...(list?.filters?.map(filter => filter.field_id) ?? [])];
+      return [list?.sort_field, list?.group_field, list?.date_selection?.field_id, ...(list?.filters?.map(filter => filter.field_id) ?? [])];
     }));
     if ([...dynamic].some(id => automatic.has(id))) throw new AppError('dynamicFormulaIndex');
     for (const field of fields) {

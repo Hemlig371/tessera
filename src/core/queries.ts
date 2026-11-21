@@ -1,3 +1,4 @@
+import { dateSelectionCondition, freezeDateSelection, selectionInterval, validateDateSelection } from './date-selection';
 import { requireFieldRelationsReady, relationPreviews } from './relations';
 import { AppError } from './errors';
 import type { EntryListItem, EntryQuery, Field, JsonValue, Page, UiDefinition } from './model';
@@ -9,11 +10,8 @@ import { ensureCalculated, isCalculated } from './calculated-fields';
 import { fieldConfig, isText, requireId, validateValue } from './validation';
 import { activeRecords, decodeEntry, type StoredEntry } from './entry-storage';
 
-/** Bounded keyset queries; all filtering and ordering happen in SQLite. */
-export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Page<EntryListItem>> {
+async function resolveQuery(s: SqlSession, input: EntryQuery): Promise<EntryQuery> {
   for (const id of [input.collection_id, input.library_id]) if (id) requireId(id);
-  const limit = input.limit ?? 100;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
   if (input.profile_id) { requireId(input.profile_id); if (!input.collection_id) throw new AppError('invalidFilter'); }
   const [saved] = input.collection_id
     ? await s.query<{ config: string }>(
@@ -23,7 +21,22 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
       )
     : [];
   if (input.profile_id && !saved) throw new AppError('notFound');
-  const q = { ...(saved ? (JSON.parse(saved.config) as UiDefinition).list : {}), ...input };
+  return { ...(saved ? (JSON.parse(saved.config) as UiDefinition).list : {}), ...input };
+}
+
+/** Resolve inherited profile dates once for an entire multi-page operation; do not persist the result. */
+export async function freezeQueryDates(s: SqlSession, input: EntryQuery, now = new Date()): Promise<EntryQuery> {
+  const query = await resolveQuery(s,input);
+  let selection = query.date_selection;
+  if (selection && !Object.hasOwn(input, 'date_selection') && !(await s.query('SELECT id FROM fields WHERE id=? AND collection_id=? AND deleted_at IS NULL', [selection.field_id, query.collection_id!])).length) selection = null;
+  return { ...input, date_selection: selection ? freezeDateSelection(selection,now) : null };
+}
+
+/** Bounded keyset queries; all filtering and ordering happen in SQLite. */
+export async function queryEntries(s: SqlSession, input: EntryQuery, now = new Date()): Promise<Page<EntryListItem>> {
+  const limit = input.limit ?? 100;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new AppError('invalidLimit');
+  const q = await resolveQuery(s,input);
   const dynamic = q.collection_id ? await ensureCalculated(s, q.collection_id) : new Set<string>();
   const params: SqlValue[] = [],
     where: string[] = [];
@@ -58,6 +71,14 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     if (!field || ['secret', 'relation', 'backlink', 'file', 'image'].includes(field.type)) throw new AppError('invalidFilter');
     if (dynamic.has(field.id)) throw new AppError('dynamicFormulaIndex');
     return fieldExpression(field, 'r.');
+  }
+  if (!Object.hasOwn(input, 'date_selection') && q.date_selection && !byId.has(q.date_selection.field_id)) q.date_selection = null;
+  let resolvedDate: { field_id: string; start: string; end: string } | null = null;
+  if (q.date_selection != null) {
+    validateDateSelection(q.date_selection,fields);
+    resolvedDate = { field_id: q.date_selection.field_id, ...selectionInterval(q.date_selection,now) };
+    const condition = dateSelectionCondition(byId.get(resolvedDate.field_id)!,expression(resolvedDate.field_id),resolvedDate);
+    where.push(condition.sql); params.push(...condition.params);
   }
   const terms = searchTerms(q.search ?? '');
   if (q.search?.trim() && !terms.length) where.push('0');
@@ -123,6 +144,7 @@ export async function queryEntries(s: SqlSession, input: EntryQuery): Promise<Pa
     library_id: q.library_id ?? null,
     search: terms,
     filters: q.filters ?? [],
+    date_selection: resolvedDate,
     ids,
     direction,
   } as unknown as JsonValue);

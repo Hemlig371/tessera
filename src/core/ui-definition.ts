@@ -1,3 +1,4 @@
+import { validateDateSelection } from './date-selection';
 import { AppError } from './errors';
 import type { Field, LayoutItem, LayoutRow, UiDefinition, UiKind } from './model';
 import { canonical } from './model';
@@ -123,6 +124,7 @@ export function validateUiDefinition(
         (!byId.has(id) || ['secret', 'relation', 'backlink'].includes(byId.get(id)!.type))
       )
         throw new AppError('invalidUiConfig');
+    if (list.date_selection != null) validateDateSelection(list.date_selection, fields);
     for (const filter of list.filters ?? []) {
       const field = byId.get(filter.field_id);
       if (!field || !['eq', 'ne', 'gt', 'lt', 'empty', 'filled'].includes(filter.op))

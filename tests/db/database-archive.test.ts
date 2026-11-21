@@ -65,6 +65,8 @@ describe.each(adapters)('%s portable database archive (logical WAL snapshot)', k
   });
   it('round-trips the complete dataset, versions, typed files/config and baseline point with a fresh device, no credentials/queues/cursors', async () => {
     const { f, api, collection, file, owner, staged } = await seed(), output = writer();
+    const date = await api.createField(collection.id, 'Дата архива', 'date');
+    const dateProfile = await api.createDisplayProfile(collection.id, 'Сегодня', { fields: [], list: { date_selection: { field_id: date.id, period: 'today' } } });
     const manifest = await exportDatabaseArchive(f.db, f.files, output.port);
     expect(output.state.finished).toBe(true); expect(output.state.aborted).toBe(false);
     expect(manifest.files).toEqual({ included: 1, large: 0, missing: 0 });
@@ -74,6 +76,7 @@ describe.each(adapters)('%s portable database archive (logical WAL snapshot)', k
     await checkDatabaseIntegrity(target.db, true);
     const restored = await Repository.open(target.db, target.files);
     expect(restored.datasetId).toBe(api.datasetId); expect(restored.deviceId).not.toBe(api.deviceId);
+    expect((await restored.listDisplayProfiles(collection.id)).find(profile => profile.id === dateProfile.id)?.config).toBe(dateProfile.config);
     expect(await restored.getEntry(owner)).toEqual(await api.getEntry(owner));
     expect(await restored.getHistory(owner)).toEqual(await api.getHistory(owner));
     expect((await restored.listFields(collection.id)).map(f => ({ ...f, config: JSON.parse(f.config) as unknown }))).toEqual((await api.listFields(collection.id)).map(f => ({ ...f, config: JSON.parse(f.config) as unknown })));

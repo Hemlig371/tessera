@@ -4,7 +4,7 @@ import { KanbanProjection, type KanbanColumn } from './kanban-projection';
 import { validateModeOptions, type ModeOptions } from './mode-options';
 import type { EntryListItem, EntryQuery, Field } from './model';
 import type { SqlSession } from './ports';
-import { queryEntries } from './queries';
+import { freezeQueryDates, queryEntries } from './queries';
 import { localDateLiteral } from './relative-dates';
 import { treeProjection, type TreeRow } from './tree-projection';
 import { requireId } from './validation';
@@ -12,6 +12,7 @@ import { requireId } from './validation';
 export type CollectionProjection = { mode: 'kanban'; columns: KanbanColumn[] } | { mode: 'calendar'; month: string; days: CalendarDay[] } | { mode: 'tree'; rows: TreeRow<EntryListItem>[] };
 /** Stream matching SQL pages in one transaction; bounded board/calendar previews, virtualized tree rows. */
 export async function projectCollection(session: SqlSession, query: EntryQuery, options: ModeOptions, month = localDateLiteral().slice(0, 7), signal?: AbortSignal, previewFields: readonly string[] = []): Promise<CollectionProjection> {
+  query = await freezeQueryDates(session,query);
   requireId(query.collection_id ?? '');
   const fields = await session.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [query.collection_id!]);
   validateModeOptions(options, fields, query.collection_id!);

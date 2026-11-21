@@ -1,3 +1,4 @@
+import { DateSelectionEditor } from './DateSelectionEditor';
 import { LayoutRowsEditor } from './LayoutRowsEditor';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -233,6 +234,7 @@ export function LayoutEditor({
                 ))}
             </select>
           </label>
+          <DateSelectionEditor fields={fields} value={list.date_selection} change={value => setList(old => ({ ...old, date_selection: value }))} />
           <h3>{t('filters')}</h3>
           {list.filters?.map((f, index) => (
             <div className="filter" key={index}>

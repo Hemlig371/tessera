@@ -1,3 +1,4 @@
+import { localDateLiteral } from '../core/relative-dates';
 import { quickLayout } from '../core/quick-forms';
 import { SecretValue } from './TypedFieldInput';
 import { CalculatedValue } from './CalculatedValue';
@@ -150,6 +151,21 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const collection = collections.find((c) => c.id === ui.collectionId),
     library = libraries.find((l) => l.id === ui.libraryId);
   const browsing = ui.screen === 'records' && (ui.scope === 'all' || (ui.scope === 'library' && !!library) || !!collection);
+  useEffect(() => {
+    if (!browsing) return;
+    let day = localDateLiteral(), timer: ReturnType<typeof setTimeout>;
+    const checkDay = () => {
+      const today = localDateLiteral();
+      if (today !== day) { day = today; refresh(value => value + 1); }
+      clearTimeout(timer);
+      const now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      timer = setTimeout(checkDay, Math.max(1000, midnight.getTime() - now.getTime() + 50));
+    };
+    checkDay();
+    window.addEventListener('focus', checkDay);
+    document.addEventListener('visibilitychange', checkDay);
+    return () => { clearTimeout(timer); window.removeEventListener('focus', checkDay); document.removeEventListener('visibilitychange', checkDay); };
+  }, [browsing]);
   const activeProfileId = ui.profileId ?? collection?.default_profile_id ?? undefined;
   const query: EntryQuery = {
     ...(ui.scope === 'collection'
@@ -940,6 +956,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </label>
           </div>
         )}
+        {browsing && ui.scope === 'collection' && layouts.list.list?.date_selection && <p className="screen-hint" role="status">
+          {t('dateSelection.active', { field: fields.find(field => field.id === layouts.list.list?.date_selection?.field_id)?.name ?? '', period: t(`dateSelection.${layouts.list.list.date_selection.period}`) })}
+          {layouts.list.list.date_selection.period === 'range' && ` · ${layouts.list.list.date_selection.start} — ${layouts.list.list.date_selection.end}`}
+        </p>}
         {ui.screen === 'libraries' ? (
           <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} />
         ) : ui.screen === 'library' && library ? (
@@ -962,9 +982,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </div> : !page.items.length ? readingEntries ? null : (
               <div className="empty">
                 <h2>
-                  {t(ui.search || layouts.list.list?.filters?.length ? 'noResults' : 'emptyCollection')}
+                  {t(ui.search || layouts.list.list?.filters?.length || layouts.list.list?.date_selection ? 'noResults' : 'emptyCollection')}
                 </h2>
-                <p>{t(ui.search || layouts.list.list?.filters?.length ? 'noResultsHint' : 'emptyCollectionHint')}</p>
+                <p>{t(ui.search || layouts.list.list?.filters?.length || layouts.list.list?.date_selection ? 'noResultsHint' : 'emptyCollectionHint')}</p>
               </div>
             ) : (
               <>

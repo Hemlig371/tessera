@@ -1,12 +1,13 @@
 import { AppError } from './errors';
 import type { EntryQuery, Field } from './model';
 import type { SqlSession } from './ports';
-import { queryEntries } from './queries';
+import { freezeQueryDates, queryEntries } from './queries';
 import { QuerySummary, type SummaryMeasure, type SummaryResult } from './query-summary';
 import { requireId } from './validation';
 
 /** Caller supplies one transaction, including local formula cache updates, for a consistent whole-query result. */
 export async function summarizeEntries(session: SqlSession, query: EntryQuery, measures: readonly SummaryMeasure[], signal?: AbortSignal): Promise<SummaryResult[]> {
+  query = await freezeQueryDates(session,query);
   requireId(query.collection_id ?? '');
   const fields = await session.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [query.collection_id!]);
   const summaries = measures.map(measure => new QuerySummary(measure, fields));

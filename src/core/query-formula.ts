@@ -4,7 +4,7 @@ import { decimalTypes } from './field-values';
 import { evaluateFormula, formulaReferences, parseFormula, type FormulaValue } from './formula';
 import type { Entry, EntryQuery, Field, FieldConfig, JsonValue } from './model';
 import type { SqlSession } from './ports';
-import { queryEntries } from './queries';
+import { freezeQueryDates, queryEntries } from './queries';
 import { requireId } from './validation';
 
 function fieldValue(field: Field, entry: Pick<Entry, 'data' | 'computed'>): FormulaValue {
@@ -23,6 +23,7 @@ function fieldValue(field: Field, entry: Pick<Entry, 'data' | 'computed'>): Form
 }
 /** Widget formula references resolve to complete filtered columns, never a renderer's visible page. */
 export async function evaluateQueryFormula(session: SqlSession, query: EntryQuery, source: string, signal?: AbortSignal): Promise<JsonValue> {
+  query = await freezeQueryDates(session,query);
   requireId(query.collection_id ?? '');
   const expression = parseFormula(source), now = new Date();
   const fields = await session.query<Field>('SELECT * FROM fields WHERE collection_id=? AND deleted_at IS NULL', [query.collection_id!]);

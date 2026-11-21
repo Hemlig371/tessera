@@ -36,7 +36,12 @@ export function AndroidMailSyncSettings({api,cancel}:{api:Repository;cancel:()=>
   };
   useEffect(()=>{
     let alive=true;
-    void reload().catch(e=>{if(alive)setError(errorKey(e));});
+    void Promise.all([readMailSyncConfig(api),api.localSyncSafety(),syncSecretStore().load('group-key')])
+      .then(([value,safety,secret])=>{
+        if(!alive)return;
+        if(value){setConfig(value);setPeersText(value.peers.join(', '));}
+        setMode(safety);setKeyPresent(!!secret);
+      }).catch(e=>{if(alive)setError(errorKey(e));});
     return()=>{alive=false;};
   },[api]);
   const act=async(task:()=>Promise<void>)=>{

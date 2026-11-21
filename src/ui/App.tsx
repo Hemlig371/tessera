@@ -1066,7 +1066,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
-          {ui.constructorOpen && ui.screen === 'libraries' && <><button disabled={disabled} onClick={() => open('mail-sync')}>{t('mailSyncTitle')}</button><button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
+          {ui.constructorOpen && ui.screen === 'libraries' && <>{androidDeviceLock() && <button disabled={disabled} onClick={() => open('mail-sync')}>{t('mailSyncTitle')}</button>}<button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}

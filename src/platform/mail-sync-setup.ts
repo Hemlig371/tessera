@@ -1,6 +1,7 @@
 import { AppError } from '../core/errors';
 import type { Repository } from '../core/repository';
 import { UUID_RE } from '../core/model';
+import { journalCheckpoint } from '../core/change-journal';
 import { createSyncInvitation, parseSyncInvitation } from '../core/sync-pairing';
 import { type MailSyncConfig, validateMailSyncConfig } from '../core/mail-config';
 import { syncSecretStore } from './sync-secrets';
@@ -80,11 +81,8 @@ export async function confirmImportedPeer(
 ):Promise<void> {
   if(!UUID_RE.test(peerId) || peerId===api.deviceId ||
       !Number.isSafeInteger(checkpoint) || checkpoint<0)throw new AppError('invalidSyncState');
-  const head=await api.db.read(async s=>{
-    const rows=await s.query<{seq:number}>('SELECT COALESCE(MAX(seq),0) AS seq FROM change_log');
-    return rows[0]?.seq ?? 0;
-  });
-  if(checkpoint>head)throw new AppError('invalidSyncState');
+  const head=await api.db.read(s=>journalCheckpoint(s));
+  if(checkpoint>head.seq)throw new AppError('invalidSyncState');
   await api.acknowledgeLocalChanges(peerId,{dataset_id:api.datasetId,seq:checkpoint});
   const existing=await readMailSyncConfig(api);
   if(existing && !existing.peers.includes(peerId))

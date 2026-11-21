@@ -24,7 +24,6 @@ mod platform {
         fn CredReadW(target: *const u16, kind: Dword, flags: Dword, result: *mut *mut Credential) -> i32;
         fn CredDeleteW(target: *const u16, kind: Dword, flags: Dword) -> i32;
         fn CredFree(value: *mut c_void);
-        fn GetLastError() -> Dword;
     }
     fn utf16(text: &str) -> Vec<u16> { text.encode_utf16().chain(Some(0)).collect() }
     pub fn store(target: &str, value: &str) -> Result<(), String> {
@@ -43,7 +42,7 @@ mod platform {
         let label = utf16(target);
         let mut item: *mut Credential = null_mut();
         if unsafe { CredReadW(label.as_ptr(),CRED_TYPE_GENERIC,0,&mut item) } == 0 {
-            return if unsafe { GetLastError() } == 1168 { Ok(None) } else { Err("secureStorageUnavailable".into()) };
+            return if std::io::Error::last_os_error().raw_os_error() == Some(1168) { Ok(None) } else { Err("secureStorageUnavailable".into()) };
         }
         let result = unsafe {
             let cred = &*item;
@@ -77,8 +76,9 @@ mod platform {
             len: u32, password: *const u8) -> Status;
         fn SecKeychainItemDelete(item: *mut c_void) -> Status;
         fn SecKeychainItemFreeContent(attrs: *mut c_void, data: *mut c_void) -> Status;
-        fn CFRelease(obj: *const c_void);
     }
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" { fn CFRelease(obj: *const c_void); }
     const NOT_FOUND: Status = -25300;
     const ACCOUNT: &[u8] = b"tessera";
     pub fn store(target: &str, value: &str) -> Result<(), String> {

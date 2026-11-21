@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 interface UiState {
-  screen: 'libraries' | 'library' | 'records';
+  screen: 'libraries' | 'library' | 'summary' | 'records';
   libraryId: string | null;
   collectionId: string | null;
   profileId: string | null;
-  editor: 'file-settings' | 'trash' | 'history' | 'history-clear' | 'appearance' | 'library-start' | 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | 'presets' | null;
+  editor: 'file-settings' | 'trash' | 'history' | 'history-clear' | 'appearance' | 'library-start' | 'library-summary' | 'library' | 'collection' | 'entry' | 'quick-entry' | 'quick' | 'move' | 'fields' | 'form' | 'card' | 'list' | 'csv' | 'profiles' | 'presets' | null;
   editingId: string | null;
   text: string;
   search: string;
@@ -13,6 +13,7 @@ interface UiState {
   constructorOpen: boolean;
   searchOrigin: Pick<UiState, 'screen' | 'libraryId' | 'collectionId' | 'profileId' | 'scope' | 'search'> | null;
   select: (libraryId: string, collectionId?: string, profileId?: string) => void;
+  selectSummary: (libraryId: string) => void;
   home: () => void;
   globalSearch: () => void;
   leaveSearch: () => void;
@@ -51,6 +52,7 @@ export const useUi = create<UiState>((set) => ({
       searchOrigin: null,
       ...(collectionId ? { navOpen: false } : {}),
     }),
+  selectSummary: (libraryId) => set({ screen: 'summary', libraryId, collectionId: null, profileId: null, scope: 'collection', search: '', searchOrigin: null, navOpen: false }),
   openEditor: (editor, text = '', id) => set({ editor, text, editingId: id ?? null }),
   setText: (text) => set({ text }),
   searchFor: (search, scope) => set({ search, ...(scope ? { scope, screen: 'records' } : {}) }),

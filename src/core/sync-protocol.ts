@@ -6,7 +6,7 @@ import type { JournalChange, JournalCheckpoint } from './change-journal';
 export const localProtocolVersion = 1;
 export type SyncEntity = 'library' | 'collection' | 'field' | 'record' | 'record_version' |
   'ui_config' | 'quick_form' | 'display_profile' | 'creation_preset' |
-  'attachment' | 'attachment_location' | 'history_marker' | 'app_setting';
+  'attachment' | 'attachment_location' | 'history_marker' | 'history_clear' | 'app_setting';
 
 export interface SyncEvent {
   seq: number;
@@ -39,7 +39,7 @@ export interface SyncReceipt {
 const kinds = new Set<SyncEntity>([
   'library', 'collection', 'field', 'record', 'record_version', 'ui_config',
   'quick_form', 'display_profile', 'creation_preset', 'attachment',
-  'attachment_location', 'history_marker', 'app_setting',
+  'attachment_location', 'history_marker', 'history_clear', 'app_setting',
 ]);
 const fail = (): never => { throw new AppError('invalidSyncPacket'); };
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -72,6 +72,12 @@ export function parseLocalPacket(input: unknown): LocalSyncPacket {
       if (['app_setting', 'history_marker'].includes(event.entity_type)) {
         if (event.entity_id.length < 4 || event.payload.key !== event.entity_id ||
             typeof event.payload.value !== 'string') fail();
+      } else if (event.entity_type === 'history_clear') {
+        const recordId = event.payload.record_id;
+        if (!(recordId === null || (typeof recordId === 'string' && id(recordId) &&
+              recordId === event.entity_id)) ||
+            event.payload.hlc !== event.hlc ||
+            Object.keys(event.payload).some(key => key !== 'record_id' && key !== 'hlc')) fail();
       } else if (event.payload.id !== event.entity_id ||
         event.payload.hlc !== event.hlc || event.payload.device_id !== event.device_id) fail();
       if (canonical(event.payload) !== canonical(JSON.parse(JSON.stringify(event.payload)) as Record<string, JsonValue>)) fail();

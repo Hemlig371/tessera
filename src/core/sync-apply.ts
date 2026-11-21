@@ -96,7 +96,17 @@ export async function applySyncEvent(s: SqlSession, event: SyncEvent,
   mergeRecord: (entry: Entry) => Promise<boolean>, relay: (event: SyncEvent) => Promise<void>): Promise<void> {
   let changed: boolean;
   if (event.entity_type === 'record') changed = await mergeRecord(event.payload as unknown as Entry);
-  else if (event.entity_type === 'record_version') {
+  else if (event.entity_type === 'history_clear') {
+    const recordId = event.payload.record_id;
+    if (!(recordId === null || (typeof recordId === 'string' && UUID_RE.test(recordId) &&
+          recordId === event.entity_id)) || event.payload.hlc !== event.hlc) throw invalid();
+    const key = 'history:clear:' + (recordId ?? 'all');
+    const [previous] = await s.query<{ value: string }>('SELECT value FROM app_meta WHERE key=?', [key]);
+    if (!previous || previous.value < event.hlc) {
+      await applyHistoryClear(s, { record_id: recordId, hlc: event.hlc });
+      changed = true;
+    }
+  } else if (event.entity_type === 'record_version') {
     const version = event.payload as unknown as RecordVersion;
     if (version.id !== event.entity_id || !UUID_RE.test(version.record_id) ||
         !version.snapshot || version.snapshot.id !== version.record_id) throw invalid();

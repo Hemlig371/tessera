@@ -22,6 +22,17 @@ describe('M5 local protocol envelope', () => {
     ]) expect(() => parseLocalPacket(invalid)).toThrow('invalidSyncPacket');
     expect(() => decodeLocalPacket(new Uint8Array([255]))).toThrow('invalidSyncPacket');
   });
+  it('accepts explicit clear-history events but rejects forged marker payloads', () => {
+    const event: JournalChange = { ...row, entity_type: 'history_clear', entity_id: a,
+      payload: JSON.stringify({ record_id: a, hlc }) };
+    const packet = buildLocalPacket(a,b,{ dataset_id:a,seq:0 },[event]);
+    expect(decodeLocalPacket(encodeLocalPacket(packet)).events[0]?.entity_type).toBe('history_clear');
+    expect(() => parseLocalPacket({ ...packet, events: [{
+      ...packet.events[0],payload: { record_id: b, hlc },
+    }] })).toThrow('invalidSyncPacket');
+    const all: JournalChange = { ...event, entity_id:b, payload: JSON.stringify({ record_id: null, hlc }) };
+    expect(buildLocalPacket(a,b,{dataset_id:a,seq:0},[all]).events[0]?.payload.record_id).toBeNull();
+  });
   it('rejects an ACK claiming the wrong identity or field shape', () => {
     expect(() => parseLocalReceipt({ format:'tessera-local-receipt',version:1,dataset_id:a,sender_id:a,receiver_id:a,through_seq:1 })).toThrow();
     expect(() => parseLocalReceipt({ format:'tessera-local-receipt',version:1,dataset_id:a,sender_id:b,receiver_id:a,through_seq:-1 })).toThrow();

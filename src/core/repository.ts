@@ -1,4 +1,5 @@
 import { projectCollection, type CollectionProjection } from './collection-projection';
+import type { ModeOptions } from './mode-options';
 import { QuerySummary, type SummaryMeasure, type SummaryResult } from './query-summary';
 import { freezeQueryDates } from './queries';
 import { attachmentLimit, attachmentRow, bindAttachments, mediaReferences, encodeAttachmentSetting, exportFileName, fileChunkSize, fileIds, isFile, purgeAttachments, validateFileFacts, validateFileSource, type Attachment, type AttachmentView, type ByteSource, type StagedAttachment } from './attachments';
@@ -1118,8 +1119,8 @@ export class Repository {
     return this.db.transaction((s) => queryEntries(s, query));
   }
   /** Whole-query projections, including records beyond the current UI page. */
-  projectCollection(query: EntryQuery, month?: string, signal?: AbortSignal, previewFields: readonly string[] = []): Promise<CollectionProjection> {
-    return this.db.transaction(s => projectCollection(s, query, query, month, signal, previewFields));
+  projectCollection(query: EntryQuery, options: ModeOptions, month?: string, signal?: AbortSignal, previewFields: readonly string[] = []): Promise<CollectionProjection> {
+    return this.db.transaction(s => projectCollection(s, query, options, month, signal, previewFields));
   }
   /** Exact totals over one frozen query and one SQLite snapshot; never a page subtotal. */
   queryTotals(query: EntryQuery, measures: readonly SummaryMeasure[], signal?: AbortSignal): Promise<SummaryResult[]> {

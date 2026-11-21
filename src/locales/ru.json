@@ -727,5 +727,6 @@
   "largeAttachmentsEmpty": "Крупных вложений нет",
   "largeAttachmentsError": "Не удалось прочитать вложения",
   "largeAttachmentsExport": "Экспортировать выбранные",
-  "largeAttachmentsExported": "Экспортировано файлов: {{count}}"
+  "largeAttachmentsExported": "Экспортировано файлов: {{count}}",
+  "calendarOpenFailed": "Файл .ics сохранён, но приложение календаря не открылось. Откройте файл из проводника."
 }

@@ -1,3 +1,4 @@
+import { queryPathReader } from './calculated-fields';
 import { AppError } from './errors';
 import { canonical, type Collection, type EntryFilter, type Field, type FieldConfig, type JsonValue, type Library } from './model';
 import { Decimal, normalizeDecimal } from './decimal';
@@ -31,6 +32,7 @@ export async function normalizeLibrarySummary(session: SqlSession, libraryId: st
   if (!input || !Array.isArray(input.widgets)) throw new AppError('invalidUiConfig');
   canonical(input as unknown as JsonValue);
   const seen = new Set<string>(), widgets: SummaryWidget[] = [];
+  const paths = await queryPathReader(session);
   for (const widget of input.widgets) {
     if (!widget || typeof widget !== 'object' || typeof widget.title !== 'string' || !widget.title.trim() || widget.title.length > 200 || ![1,2].includes(widget.width)) throw new AppError('invalidUiConfig');
     requireId(widget.id); requireId(widget.collection_id);
@@ -44,8 +46,7 @@ export async function normalizeLibrarySummary(session: SqlSession, libraryId: st
     if (normalized.kind === 'metric' || normalized.kind === 'progress') {
       const expression = parseFormula(normalized.formula);
       for (const path of formulaReferences(expression)) {
-        const field = fields.find(field => field.id === path[0]);
-        if (path.length !== 1 || !field || field.type === 'secret') throw new AppError('formulaReference');
+        const field = paths.field(collection.id, path);
         if (['file','image','json','coordinates','date_range','relation','backlink','multiselect'].includes(field.type)) throw new AppError('formulaType');
       }
       normalized.formula = printFormula(expression);

@@ -57,7 +57,11 @@ class ExternalActionsPlugin : Plugin() {
             return
         }
         array.put(JSONObject().put("id", id).put("text", text))
-        check(sharePrefs.edit().putString(shareKey, array.toString()).commit())
+        if (!sharePrefs.edit().putString(shareKey, array.toString()).commit()) {
+            sharePrefs.edit().putString("error", "shareUnavailable").apply()
+            notifyListeners("shareReceived", JSObject(), true)
+            return
+        }
         notifyListeners("shareReceived", JSObject(), true)
     }
 
@@ -90,11 +94,15 @@ class ExternalActionsPlugin : Plugin() {
             if (!sharePrefs.edit().putString(shareKey, remaining.toString()).remove("error").commit())
                 return call.reject("shareUnavailable")
             if (activity.intent?.getStringExtra(shareIdKey) == id) {
-                activity.intent?.removeExtra(shareIdKey)
+                activity.intent?.apply {
+                    removeExtra(shareIdKey)
+                    removeExtra(Intent.EXTRA_TEXT)
+                    action = Intent.ACTION_MAIN
+                }
             }
             call.resolve()
             // Return to the sending app only after the SQLite save has completed.
-            if (activity.intent?.action == Intent.ACTION_SEND && remaining.length() == 0)
+            if (remaining.length() == 0)
                 activity.runOnUiThread { activity.finish() }
         } catch (_: Exception) { call.reject("shareUnavailable") }
     }

@@ -27,7 +27,8 @@ export async function checkLocalSyncSafety(s: SqlSession, now: Date): Promise<Lo
   if (!Number.isFinite(now.getTime())) throw new AppError('invalidDate');
   let mode = await syncMode(s);
   if (mode !== 'active' && mode !== 'paused') return { mode, reason:null, enabled_at:null, last_success_at:null };
-  let enabled = await get(s,'enabled_at'), last = await get(s,'last_success_at');
+  let enabled = await get(s,'enabled_at');
+  const last = await get(s,'last_success_at');
   if (enabled === null) {
     enabled = now.toISOString(); await set(s,'enabled_at',enabled);
   }
@@ -40,6 +41,10 @@ export async function checkLocalSyncSafety(s: SqlSession, now: Date): Promise<Lo
     await pauseJournal(s,true);
     await set(s,'reason','stale');
     mode = 'paused'; reason = 'stale';
+  }
+  if (reason !== null && mode === 'active') {
+    await pauseJournal(s,true);
+    mode = 'paused';
   }
   return { mode, reason:reason as LocalSyncSafety['reason'], enabled_at: enabled, last_success_at:last };
 }

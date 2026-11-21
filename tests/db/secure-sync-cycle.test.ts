@@ -26,7 +26,7 @@ describe.each(adapters)('%s M6 encrypted independent SQLite replay',kind=>{
     await importDatabaseArchive({name:'snapshot.zip',mime:'application/zip',size:archive.length,
       read:async(offset,length)=>archive.slice(offset,offset+length)},right.db,right.files);
     const b=await Repository.open(right.db,right.files);
-    await b.registerLocalArchiveBaseline(a.deviceId,manifest);
+    await expect(b.registerImportedArchivePeer(a.deviceId)).resolves.toBe(manifest.checkpoint.seq);
     await a.acknowledgeLocalArchiveBaseline(b.deviceId,manifest);
     await b.startLocalSync();
     const changed=await a.saveEntry(collection.id,{[collection.primary_field_id]:'After'},initial.id,initial.hlc);

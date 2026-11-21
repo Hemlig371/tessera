@@ -617,6 +617,30 @@ export class Repository {
       await s.execute('INSERT INTO local_settings(key,value) VALUES(?,?)',[key,String(checkpoint.seq)]);
     });
   }
+  /** Join a trusted QR source using the checkpoint written by verified staged archive import.
+   * Never imports an unrelated dataset or silently merges two independent databases.
+   */
+  async registerImportedArchivePeer(sourcePeer: string): Promise<number> {
+    requireId(sourcePeer);
+    if (sourcePeer === this.deviceId) throw new AppError('invalidSyncState');
+    return this.db.transaction(async s => {
+      if (await syncMode(s) !== 'never_configured') throw new AppError('invalidSyncState');
+      const [row] = await s.query<{value:string}>("SELECT value FROM app_meta WHERE key='archive:checkpoint'");
+      let checkpoint: {dataset_id?:string;seq?:number;hlc?:string;exported_at?:string;sync_mode?:string};
+      try { checkpoint = JSON.parse(row?.value ?? '') as typeof checkpoint; }
+      catch { throw new AppError('invalidArchive'); }
+      if (checkpoint.dataset_id !== this.datasetId ||
+          !Number.isSafeInteger(checkpoint.seq) || checkpoint.seq! < 0 ||
+          typeof checkpoint.hlc !== 'string' || typeof checkpoint.exported_at !== 'string' ||
+          !['active','paused','never_configured','detached'].includes(checkpoint.sync_mode ?? ''))
+        throw new AppError('invalidArchive');
+      const key = 'sync_rx:' + sourcePeer;
+      if ((await s.query('SELECT value FROM local_settings WHERE key=?',[key])).length)
+        throw new AppError('invalidSyncState');
+      await s.execute('INSERT INTO local_settings(key,value) VALUES(?,?)',[key,String(checkpoint.seq)]);
+      return checkpoint.seq!;
+    });
+  }
   /** Call only after a trusted peer confirms the exact imported snapshot. */
   acknowledgeLocalArchiveBaseline(receiverPeer: string, verifiedManifest: ArchiveManifest): Promise<void> {
     requireId(receiverPeer);

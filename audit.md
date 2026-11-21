@@ -96,3 +96,7 @@
 - Крупные вложения: bounded курсор по размеру, группировка библиотека/коллекция/запись, непередача данных локально заблокированных библиотек в глобальном каталоге, статусы/копии, мультивыбор, подтверждаемое удаление локальных копий; SHA-verified batch export через один SAF folder picker или Tauri directory dialog, папки открываются в desktop file manager; картинки до 24 MiB проходят verified bounded thumbnail source и in-memory lazy cache. Нет повторной сериализации originals в SQLite/sync. При отсутствии локальных байтов действует placeholder и возможна ручная restore-copy.
 - Ограничения приёмки: реальная ОС-биометрия и OEM-поведение календаря/SAF, физический телефон и визуальная полировка — M7; Linux optional. Нет подмены старого baseline, нет карантина ядра или данных. Все новые тесты запускаются только в GitHub Actions. `target-specification-v4.0.md` не менялся.
 - Checkpoint [44911704809](https://github.com/Hemlig371/tessera/actions/runs/44911704809) содержит только раннюю интеграцию M4, поэтому **не** является финальной приёмкой версии 0.22.0; настоящая приёмка будет на последнем functional SHA новым run без resume и baseline.
+
+### M4 fresh priority — correction #1
+
+- Run [44912682382](https://github.com/Hemlig371/tessera/actions/runs/44912682382) на `bbb050f`: scope/sync success, Windows typecheck остановился на незакрытом JSX в новом LargeAttachments.tsx; остальные jobs не считать успешными (skipped). JSX исправлен коммитом `fd417c9` [skip ci]; следующий **свежий полный priority** проверяет текущие исходники без baseline.

@@ -2,6 +2,7 @@ package app.tessera.personal;
 
 import android.os.Bundle;
 import android.view.WindowManager;
+import androidx.activity.EdgeToEdge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -17,5 +18,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SyncQrPlugin.class);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); // Hide sensitive previews in recent apps.
         super.onCreate(savedInstanceState);
+        // Capacitor 8 SystemBars CSS insets require edge-to-edge to be enabled.
+        // Allow the WebView to read the same camera/status/navigation safe areas.
+        EdgeToEdge.enable(this);
     }
 }

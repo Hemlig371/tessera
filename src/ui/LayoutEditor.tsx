@@ -4,7 +4,7 @@ import { modeFields } from '../core/mode-options';
 import type { SummaryMeasure } from '../core/query-summary';
 import { LayoutRowsEditor } from './LayoutRowsEditor';
 import { LayoutRowsView } from './LayoutRowsView';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EntryFilter, Field, LayoutItem, LayoutRow, ListOptions, UiDefinition, UiKind } from '../core/model';
 import { layoutItems, layoutRows } from '../core/ui-definition';
@@ -41,6 +41,58 @@ export function LayoutEditor({
   const [list, setList] = useState<ListOptions>(definition.list ?? {});
   const [actions, setActions] = useState<QuickActionDefinition[]>(definition.quick_actions ?? []);
   const [totals, setTotals] = useState<SummaryMeasure[]>(definition.totals ?? []);
+  const [selectedId, selectField] = useState<string>(fields[0]?.id ?? '');
+  const [viewport, setViewport] = useState<'phone' | 'tablet' | 'desktop'>('desktop');
+  const [previewDark, setPreviewDark] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  type Snapshot = { items: LayoutItem[]; rows: LayoutRow[]; list: ListOptions; actions: QuickActionDefinition[]; totals: SummaryMeasure[] };
+  const history = useRef<{ past: Snapshot[]; future: Snapshot[]; current: Snapshot }>({
+    past: [], future: [], current: { items: storedItems, rows, list, actions, totals },
+  });
+  const restoring = useRef(false);
+  const [historyStatus, setHistoryStatus] = useState({ undo: 0, redo: 0 });
+  useEffect(() => {
+    const next = { items: storedItems, rows, list, actions, totals };
+    const h = history.current;
+    if (restoring.current) {
+      restoring.current = false;
+      h.current = next;
+      return;
+    }
+    if (JSON.stringify(next) === JSON.stringify(h.current)) return;
+    h.past.push(h.current);
+    if (h.past.length > 60) h.past.shift();
+    h.current = next;
+    h.future = [];
+    setHistoryStatus({ undo: h.past.length, redo: 0 });
+  }, [storedItems, rows, list, actions, totals]);
+  function restore(direction: 'undo' | 'redo') {
+    const h = history.current;
+    const source = direction === 'undo' ? h.past : h.future;
+    const snapshot = source.pop();
+    if (!snapshot) return;
+    (direction === 'undo' ? h.future : h.past).push(h.current);
+    restoring.current = true;
+    setItems(snapshot.items);
+    setRows(snapshot.rows);
+    setList(snapshot.list);
+    setActions(snapshot.actions);
+    setTotals(snapshot.totals);
+    setHistoryStatus({ undo: h.past.length, redo: h.future.length });
+  }
+  const changed = JSON.stringify({ items: storedItems, rows, list, actions, totals }) !==
+    JSON.stringify({ items: layoutItems(definition, fields), rows: kind === 'list' ? [] : layoutRows(definition, fields, true),
+      list: definition.list ?? {}, actions: definition.quick_actions ?? [], totals: definition.totals ?? [] });
+  const previewValue = (field: Field) => {
+    if (field.type === 'secret') return '••••••';
+    if (field.type === 'boolean') return t('hybridPreviewBoolean');
+    if (field.type === 'markdown' || field.type === 'multiline') return t('hybridPreviewParagraph');
+    if (['integer', 'decimal', 'money', 'formula', 'aggregate'].includes(field.type)) return '128';
+    if (field.type === 'date') return '22.11.2026';
+    if (field.type === 'image' || field.type === 'file') return t('hybridPreviewAttachment');
+    if (field.type === 'relation' || field.type === 'backlink') return t('hybridPreviewRelation');
+    return field.name;
+  };
   function patch(id: string, value: Partial<LayoutItem>) {
     setItems((old) => old.map((item) => (item.field_id === id ? { ...item, ...value } : item)));
   }
@@ -68,20 +120,62 @@ export function LayoutEditor({
         save({ ...definition, fields: items, ...(allowQuickActions && kind !== 'form' ? { quick_actions: actions } : {}), ...(kind === 'list' ? { list, totals } : { rows: rows.filter(row => row.field_ids.length) }) });
       }}
     >
-      <p className="screen-hint">{t('independentLayouts')}</p>
-      {kind !== 'list' && <>
-        <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows} />
-        <section className="layout-live-preview" aria-label={t('layoutLivePreview')}>
-          <h3>{t('layoutLivePreview')}</h3>
-          <p className="screen-hint">{t('layoutPreviewHint')}</p>
-          <LayoutRowsView definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
-            render={item => <div className="layout-preview-field">{fields.find(field => field.id === item.field_id)?.name}</div>} />
-        </section>
-      </>}
-      {items.map((item, index) => {
+      <div className="hybrid-designer">
+        <aside className="hybrid-palette" aria-label={t('hybridFieldsPanel')}>
+          <div className="hybrid-panel-heading"><h2>{t('hybridFieldsPanel')}</h2><small>{fields.length}</small></div>
+          <p>{t('hybridFieldsHint')}</p>
+          <div className="hybrid-field-palette">
+            {fields.map(field => <button type="button" key={field.id} aria-pressed={selectedId === field.id}
+              className={selectedId === field.id ? 'chosen' : ''} disabled={busy} onClick={() => selectField(field.id)}>
+              <span className="hybrid-field-symbol" aria-hidden="true">{['image','file'].includes(field.type) ? '▧' : ['formula','aggregate'].includes(field.type) ? '∑' : '≡'}</span>
+              <span>{field.name}<small>{t(`types.${field.type}`)}</small></span>
+            </button>)}
+          </div>
+        </aside>
+        <div className="hybrid-canvas-column">
+          <div className="hybrid-canvas-toolbar">
+            <div><h2>{t('layoutLivePreview')}</h2><span>{t('layoutPreviewHint')}</span></div>
+            <div className="hybrid-viewports" role="group" aria-label={t('hybridViewport')}>
+              {(['phone','tablet','desktop'] as const).map(size => <button type="button" key={size}
+                aria-pressed={viewport === size} onClick={() => setViewport(size)}>{t(`hybridViewport_${size}`)}</button>)}
+            </div>
+            <label className="hybrid-theme-toggle"><input type="checkbox" checked={previewDark} onChange={event => setPreviewDark(event.target.checked)}/>{t('hybridDarkPreview')}</label>
+          </div>
+          <div className="hybrid-preview-stage" data-preview-theme={previewDark ? 'dark' : 'light'}>
+            <div className={`hybrid-preview-frame hybrid-preview-${viewport}`}>
+              <div className="hybrid-record-banner"><small>{t('hybridSampleRecord')}</small><strong>{fields[0]?.name ?? t('brand')}</strong><span>{t('hybridRecordSubtitle')}</span></div>
+              {kind !== 'list'
+                ? <LayoutRowsView definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
+                    render={item => {
+                      const field = fields.find(f => f.id === item.field_id)!;
+                      return <button type="button" className={selectedId === field.id ? 'hybrid-preview-field chosen' : 'hybrid-preview-field'}
+                        onClick={() => selectField(field.id)} aria-label={t('hybridEditField', { name: field.name })}>
+                        <small>{field.name}</small><span>{previewValue(field)}</span>
+                      </button>;
+                    }} />
+                : <div className="hybrid-preview-list">
+                    {items.filter(item => item.visible).map(item => {
+                      const field = fields.find(f => f.id === item.field_id)!;
+                      return <button type="button" key={field.id} className={selectedId === field.id ? 'hybrid-preview-field chosen' : 'hybrid-preview-field'}
+                        onClick={() => selectField(field.id)}><small>{field.name}</small><span>{previewValue(field)}</span></button>;
+                    })}
+                  </div>}
+            </div>
+          </div>
+          {kind !== 'list' && <details className="hybrid-structure"><summary>{t('hybridStructure')}</summary>
+            <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows}/>
+          </details>}
+          <div className="hybrid-history">
+            <button type="button" disabled={busy || !historyStatus.undo} onClick={() => restore('undo')}>{t('hybridUndo')}</button>
+            <button type="button" disabled={busy || !historyStatus.redo} onClick={() => restore('redo')}>{t('hybridRedo')}</button>
+          </div>
+        </div>
+        <aside className="hybrid-inspector" aria-label={t('hybridPropertiesPanel')}>
+          <div className="hybrid-panel-heading"><h2>{t('hybridPropertiesPanel')}</h2></div>
+          {items.map((item, index) => {
         const field = fields.find((f) => f.id === item.field_id)!;
-        return (
-          <fieldset key={field.id} disabled={busy}>
+        return selectedId === field.id ? (
+          <fieldset key={field.id} disabled={busy} className="hybrid-field-properties">
             <legend>{field.name}</legend>
             <div className="layout-heading">
               <label className="check">
@@ -189,7 +283,10 @@ export function LayoutEditor({
           </fieldset>
         );
       })}
-      {kind === 'list' && (
+        </aside>
+      </div>
+      {kind === 'list' && <button type="button" className="hybrid-more-options" onClick={() => setShowOptions(!showOptions)} aria-expanded={showOptions}>{t('listSettings')} {showOptions ? '−' : '+'}</button>}
+      {kind === 'list' && showOptions && (
         <fieldset disabled={busy}>
           <legend>{t('listSettings')}</legend>
           <label>
@@ -338,8 +435,9 @@ export function LayoutEditor({
         </fieldset>
       )}
       {allowQuickActions && kind !== 'form' && <QuickActionsEditor fields={fields} actions={actions} change={setActions} busy={busy} />}
-      <div className="actions">
-        <button type="button" disabled={busy} onClick={cancel}>
+      <div className="actions hybrid-designer-actions">
+        <span className="hybrid-unsaved" role="status">{changed ? t('hybridUnsaved') : t('hybridNoChanges')}</span>
+        <button type="button" disabled={busy} onClick={() => { if (!changed || window.confirm(t('hybridDiscardWarning'))) cancel(); }}>
           {t('cancel')}
         </button>
         <button className="primary" disabled={busy}>

@@ -27,6 +27,7 @@ test('profile date conditions persist and change the common record query', async
   const edit = async () => {
     await openConstructor(page);
     await page.getByRole('button', { name: 'Список', exact: true }).click();
+    await page.getByRole('button', { name: 'Настройки списка', exact: true }).click();
     await expect(page.getByRole('combobox', { name: 'Период', exact: true })).toBeVisible();
   };
   const save = async () => {

@@ -54,6 +54,7 @@ test('history and Trash distinguish a failed read from empty data, retry safely 
   await page.keyboard.press('Escape');
   await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click();
   await expect(page.locator('.detail')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.getByRole('button', { name: 'Корзина', exact: true }).click();
   await expect(page.locator(`[data-trash-id="${scope.record_id}"]`)).toHaveCount(1);
   await expect(page.getByRole('combobox', { name: 'Библиотека в корзине', exact: true })).toBeEnabled();

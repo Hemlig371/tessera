@@ -11,6 +11,7 @@ async function openRecord(page: Page, scope: Scope) {
   await page.locator('.entry').filter({ hasText: 'Вторая редакция' }).click();
 }
 async function trash(page: Page) {
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.getByRole('button', { name: 'Корзина', exact: true }).click();
   await expect(page.locator('[data-trash]')).toBeVisible();
   // A transient zero count is not enough: cleanTrash()/revision can start another

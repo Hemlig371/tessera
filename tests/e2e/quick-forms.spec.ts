@@ -36,6 +36,7 @@ test('mobile quick form inherits hidden defaults, cancels without writes and has
   expect(await rows('SELECT * FROM record_versions WHERE record_id=?', [String(record!.id)])).toHaveLength(1);
   const form = await rows("SELECT * FROM ui_configs WHERE collection_id=? AND kind='form'", [collectionId]);
   await openConstructor(page); await page.getByRole('button', { name: 'Быстрая форма', exact: true }).click();
+  await page.locator('.hybrid-field-palette').getByRole('button', { name: /^Заметка/ }).click();
   await page.locator('fieldset').filter({ has: page.locator('legend', { hasText: /^Заметка$/ }) }).getByLabel('Показывать', { exact: true }).check();
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);

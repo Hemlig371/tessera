@@ -1,4 +1,4 @@
-import { showList } from '../support/ui-actions';
+import { showList, captureToInbox, expectInboxCaptureReachable } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('global capture and inbox move preserve one record; cancel never writes', async ({ page }) => {
@@ -9,11 +9,11 @@ test('global capture and inbox move preserve one record; cancel never writes', a
     return (await response.json()).value as Record<string, string | number | null>[];
   };
   const before = await rows('SELECT * FROM records ORDER BY id');
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Отменённый ввод');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   expect(await rows('SELECT * FROM records ORDER BY id')).toEqual(before);
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Ссылка https://example.org/ 🦔');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('.entry')).toContainText('Ссылка https://example.org/ 🦔');
@@ -61,7 +61,7 @@ test('global capture and inbox move preserve one record; cancel never writes', a
     for (const width of [320, 360, 390, 760]) {
       await page.setViewportSize({ width, height: 844 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await expect(page.getByRole('button', { name: language === 'ru' ? '+ Во входящие' : '+ Capture to inbox', exact: true })).toBeInViewport();
+      await expectInboxCaptureReachable(page, language);
     }
   }
 });

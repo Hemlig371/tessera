@@ -1,11 +1,11 @@
-import { openConstructor, openQuickCreation, showList } from '../support/ui-actions';
+import { openConstructor, openQuickCreation, showList, expectInboxCaptureReachable } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('mobile quick form inherits hidden defaults, cancels without writes and has its own field selection', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.locator('aside')).not.toBeVisible();
-  await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible();
+  await expectInboxCaptureReachable(page);
   const seed = await page.request.post('/__test-sqlite', { data: { op: 'quick-seed' } });
   expect(seed.ok()).toBe(true);
   const libraryId = (await seed.json()).value as string;
@@ -14,9 +14,8 @@ test('mobile quick form inherits hidden defaults, cancels without writes and has
     return (await response.json()).value as Record<string, string | number | null>[];
   };
   await page.reload();
-  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-  await page.getByRole('button', { name: 'acceptance.quick', exact: true }).click();
-  await page.getByRole('button', { name: 'Быстрые записи', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть библиотеку «acceptance.quick»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Быстрые записи»', exact: true }).click();
   const [collection] = await rows('SELECT id FROM collections WHERE library_id=?', [libraryId]);
   const collectionId = String(collection!.id);
   const before = await rows('SELECT * FROM change_log ORDER BY seq');

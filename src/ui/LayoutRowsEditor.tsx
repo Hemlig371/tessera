@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Field, LayoutRow } from '../core/model';
 
@@ -6,6 +6,8 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
   rows: LayoutRow[]; fields: Field[]; busy: boolean; change: (rows: LayoutRow[]) => void;
 }) {
   const { t } = useTranslation();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [targetId, setTargetId] = useState<string | null>(null);
   function columns(index: number, count: LayoutRow['columns']) {
     const current = rows[index]!, chunks: LayoutRow[] = [];
     for (let offset = 0; offset < Math.max(current.field_ids.length, 1); offset += count)
@@ -25,11 +27,25 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
   function move(index: number, offset: number) {
     const next = [...rows], [row] = next.splice(index, 1); next.splice(index + offset, 0, row!); change(next);
   }
+  function dropOn(target: string) {
+    const from = rows.findIndex(row => row.id === draggedId);
+    const to = rows.findIndex(row => row.id === target);
+    if (from !== -1 && to !== -1 && from !== to && !busy) move(from, to - from);
+    setDraggedId(null);
+    setTargetId(null);
+  }
   return <section className="layout-designer" aria-label={t('rowDesigner')}>
     <h3>{t('rowDesigner')}</h3><p>{t('rowDesignerHint')}</p>
-    {rows.map((row, index) => <fieldset key={row.id} disabled={busy} className="row-designer" data-row-id={row.id}>
+    {rows.map((row, index) => <fieldset key={row.id} disabled={busy} className={'row-designer' + (targetId === row.id && draggedId !== row.id ? ' drop-target' : '')} data-row-id={row.id}
+      onDragOver={event => { if (!busy && draggedId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setTargetId(row.id); } }}
+      onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setTargetId(null); }}
+      onDrop={event => { event.preventDefault(); dropOn(row.id); }}>
       <legend>{t('layoutRow', { count: index + 1 })}</legend>
       <div className="row-designer-tools">
+        <button type="button" className="row-drag-handle" draggable={!busy} disabled={busy} title={t('dragLayoutRow')}
+          aria-label={t('dragLayoutRow')}
+          onDragStart={event => { setDraggedId(row.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', row.id); }}
+          onDragEnd={() => { setDraggedId(null); setTargetId(null); }}>⠿</button>
         <label>{t('columnCount')}<select value={row.columns} onChange={event => columns(index, Number(event.target.value) as LayoutRow['columns'])}>
           {[1,2,3].map(value => <option key={value} value={value}>{value}</option>)}
         </select></label>

@@ -3,6 +3,7 @@ import { QueryTotalsEditor } from './QueryTotalsEditor';
 import { modeFields } from '../core/mode-options';
 import type { SummaryMeasure } from '../core/query-summary';
 import { LayoutRowsEditor } from './LayoutRowsEditor';
+import { LayoutRowsView } from './LayoutRowsView';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EntryFilter, Field, LayoutItem, LayoutRow, ListOptions, UiDefinition, UiKind } from '../core/model';
@@ -68,7 +69,15 @@ export function LayoutEditor({
       }}
     >
       <p className="screen-hint">{t('independentLayouts')}</p>
-      {kind !== 'list' && <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows} />}
+      {kind !== 'list' && <>
+        <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows} />
+        <section className="layout-live-preview" aria-label={t('layoutLivePreview')}>
+          <h3>{t('layoutLivePreview')}</h3>
+          <p className="screen-hint">{t('layoutPreviewHint')}</p>
+          <LayoutRowsView definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
+            render={item => <div className="layout-preview-field">{fields.find(field => field.id === item.field_id)?.name}</div>} />
+        </section>
+      </>}
       {items.map((item, index) => {
         const field = fields.find((f) => f.id === item.field_id)!;
         return (

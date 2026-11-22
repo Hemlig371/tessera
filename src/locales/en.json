@@ -457,6 +457,7 @@
   "globalSearch": "Global search",
   "openInbox": "Open inbox",
   "collections": "Collections",
+  "attachmentOptions": "File actions",
   "recentRecords": "Recent",
   "collectionCount_one": "{{count}} collection",
   "collectionCount_other": "{{count}} collections",

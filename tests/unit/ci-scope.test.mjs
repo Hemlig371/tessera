@@ -60,7 +60,7 @@ describe('native continuation baseline', () => {
     head_repository: { full_name: 'Hemlig371/tessera' }, workflow_id: 123, path: '.github/workflows/ci.yml', head_sha: sha, conclusion: 'failure' };
   const jobs = ['scope', 'checks (ubuntu-24.04)', 'checks (windows-latest)', 'sync-foundation'].map(name => ({ name, status: 'completed', conclusion: 'success' }));
   const context = { repository: 'Hemlig371/tessera', workflowId: 123, head, ancestor: true,
-    files: ['src-tauri/src/replacement_store.rs', 'audit.md', 'README.md', 'tests/fixtures/README.md', '.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs'] };
+    files: ['src-tauri/src/replacement_store.rs', 'implementation.md', 'README.md', 'tests/fixtures/README.md', '.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs'] };
   it('reuses successful fast jobs from a failed run while rerunning every native job', () => {
     expect(validateNativeBaseline(run, [...jobs, { name: 'native-checks (windows-latest)', status: 'completed', conclusion: 'failure' }], context)).toBe(sha);
   });
@@ -105,7 +105,7 @@ describe('Android continuation requires separate desktop/native evidence', () =>
     'desktop (ubuntu-24.04, x86_64-unknown-linux-gnu, linux-x64, appimage)'].map(name => ({ name, status: 'completed', conclusion: 'success' }));
   const context = { repository: 'Hemlig371/tessera', workflowId: 123, head, ancestor: true,
     files: ['android/app/src/main/java/app/tessera/personal/ImportFilesPlugin.kt', 'android/app/src/main/java/app/tessera/personal/ReplacementStore.kt',
-      '.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'audit.md', 'README.md'] };
+      '.github/workflows/ci.yml', 'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'implementation.md', 'README.md'] };
   it('accepts a failed Android run only if every desktop/native job passed', () => {
     expect(validateAndroidContinuation(run, [...jobs, { name: 'android-apk', status: 'completed', conclusion: 'failure' }], context)).toBe(sha);
   });
@@ -147,7 +147,7 @@ describe('user-directed priority native continuation', () => {
   const passed = name => ({ name,status: 'completed',conclusion: 'success' });
   const steps = ['typecheck','check:platforms','lint','licenses','test:unit','test:db','test:e2e','build'].map(command => passed('Run npm run '+command));
   const jobs = [passed('scope'),{ ...passed('checks (windows-latest)'),steps: [...steps,passed('Windows smoke cleanup regression')] },{ ...passed('sync-foundation'),steps: [passed('Run npm run test:sync')] },{ name: 'checks (ubuntu-24.04)',status: 'completed',conclusion: 'failure' }];
-  const context = { repository,workflowId: 123,head,ancestor: true,files: ['AGENTS.md','audit.md','tests/support/e2e-test.ts'] };
+  const context = { repository,workflowId: 123,head,ancestor: true,files: ['AGENTS.md','implementation.md','tests/support/e2e-test.ts'] };
   it('selects Android, Windows native and Windows/macOS desktop without Linux application jobs', () => {
     const scope = ciScope({ name: 'workflow_dispatch',target: 'priority',ref: 'refs/heads/main',resume: true });
     expect(scope).toMatchObject({ native: true,bridge: true,desktop: true,checkMatrix: ['windows-latest'],bridgeMatrix: ['windows-latest'] });

@@ -50,7 +50,7 @@ export function validateNativeBaseline(run, jobs, { repository, workflowId, head
   // must match the baseline. Native/storage and the reviewed resume gate alone
   // may differ; all native jobs run again, including both bridge platforms.
   const allowed = new Set(['src-tauri/src/replacement_store.rs', '.github/workflows/ci.yml',
-    'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'AGENTS.md', 'audit.md', 'README.md', 'tests/fixtures/README.md']);
+    'scripts/ci-scope.mjs', 'tests/unit/ci-scope.test.mjs', 'AGENTS.md', 'implementation.md', 'README.md', 'tests/fixtures/README.md']);
   if (target === 'android' || target === 'linux_android') for (const path of androidImportPaths) allowed.add(path);
   if (target === 'linux_android') allowed.add('scripts/desktop-e2e.mjs');
   const changed = files.filter(path => !allowed.has(path));
@@ -95,7 +95,7 @@ export function validatePriorityBaseline(run, jobs, { repository, workflowId, he
 }
 
 function validatePriorityInputs(files, contents, androidContinuation = false) {
-  const allowed = new Set(['.github/workflows/ci.yml','scripts/ci-scope.mjs','tests/unit/ci-scope.test.mjs','AGENTS.md','audit.md',
+  const allowed = new Set(['.github/workflows/ci.yml','scripts/ci-scope.mjs','tests/unit/ci-scope.test.mjs','AGENTS.md','implementation.md',
     'tests/support/e2e-plugin.ts','tests/support/open-e2e.ts','tests/support/http-sqlite-session.ts','tests/support/e2e-test.ts','tests/db/http-sqlite-session.test.ts','README.md']);
   if (androidContinuation) for (const path of [
     'android/app/build.gradle','android/app/tessera-debug.keystore',
@@ -163,7 +163,7 @@ export function validateAndroidContinuation(run, jobs, { repository, workflowId,
     if (matches.length !== 1 || matches[0].status !== 'completed' || matches[0].conclusion !== 'success') throw new Error(`Native baseline check is not successful: ${name}`);
   }
   const allowed = new Set([...androidImportPaths, '.github/workflows/ci.yml', 'scripts/ci-scope.mjs',
-    'tests/unit/ci-scope.test.mjs', 'audit.md', 'README.md']);
+    'tests/unit/ci-scope.test.mjs', 'implementation.md', 'README.md']);
   if (target === 'linux_android') allowed.add('scripts/desktop-e2e.mjs');
   if (files.some(path => !allowed.has(path))) throw new Error('Desktop/native inputs changed after the native baseline');
   return run.head_sha;

@@ -270,3 +270,33 @@
   .tessera-v4 .entry:not(.table) .attachment-thumbnail img { width:75px; height:75px; }
   .tessera-v4 .entry:not(.table):has(.attachment-thumbnail img) { grid-template-columns:75px minmax(0,1fr); }
 }
+
+/* Existing creation presets and menu stay functional behind a single contextual FAB. */
+@media(max-width:760px) {
+  .tessera-v4[data-workspace="records"] .hybrid-browse > header .create-button {
+    position:fixed; right:max(20px,env(safe-area-inset-right));
+    bottom:calc(26px + env(safe-area-inset-bottom));
+    z-index:5; margin:0;
+  }
+  .tessera-v4[data-workspace="records"] .create-button .split-button {
+    display:flex; align-items:stretch; border-radius:19px;
+    background:var(--accent); box-shadow:0 8px 20px #173c2140;
+  }
+  .tessera-v4[data-workspace="records"] .create-button .split-button > button {
+    color:var(--on-accent); border:0; border-radius:18px;
+    background:transparent; min-width:36px;
+  }
+  .tessera-v4[data-workspace="records"] .create-button .split-button > button:first-child {
+    min-height:60px; min-width:59px; padding:12px;
+  }
+  .tessera-v4[data-workspace="records"] .create-button .create-button-label { display:none; }
+  .tessera-v4[data-workspace="records"] .create-button .ui-icon { width:30px; height:30px; }
+  .tessera-v4[data-workspace="records"] .create-button .creation-menu {
+    position:absolute; bottom:calc(100% + 12px); right:0;
+    min-width:210px; max-width:min(90vw,320px);
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; box-shadow:0 12px 30px #0002; z-index:7;
+  }
+  .tessera-v4[data-workspace="records"] .hybrid-browse { padding-bottom:88px; }
+  .tessera-v4[data-workspace="records"]:has(input:focus,textarea:focus) .create-button { visibility:hidden; }
+}

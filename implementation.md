@@ -32,6 +32,8 @@
 
 Обычный CI ограничивает браузерную проверку smoke; полный browser E2E и полный non-LargeTest Android UI были включены в указанном итоговом run специальным маркером. Набор GreenMail использует изолированный тестовый SMTP/IMAP transport поверх общих интерфейсов, **не** проверяет Kotlin/Tauri mail-adapter на внешнем провайдере. GitHub Actions сохраняет APK/NSIS/DMG и отчёты как временные artifacts, а не как релиз.
 
+Для ручной проверки можно собирать **отдельные QA Android APK и Windows NSIS** с автоматически созданными тестовыми библиотеками: [инструкция](tests/manual-acceptance.md). QA-приложения имеют отдельные идентификаторы и базы; обычные установщики не содержат тестовый набор. QA-пакеты не подписаны для публичного релиза.
+
 ## Эксплуатационные условия
 
 - Для разработки — Node.js **24.x**, Rust stable и нативные зависимости Tauri; для Android — JDK **21**, Android SDK/API **36** и Gradle wrapper. Сборки и команды подробно описаны в [README.md](README.md); фактические шаги CI — в [`.github/workflows/ci.yml`](.github/workflows/ci.yml).

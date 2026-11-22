@@ -11,7 +11,7 @@
 - [implementation.md](implementation.md) — фактическая реализация, CI-доказательства, ограничения и ручная приёмка.
 - [AGENTS.md](AGENTS.md) — инварианты и правила сопровождения.
 
-Тестовые библиотеки — в [tests/fixtures/README.md](tests/fixtures/README.md); лицензии — [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
+Отдельные тестовые установщики Android/Windows и чек-лист — [tests/manual-acceptance.md](tests/manual-acceptance.md). Тестовые библиотеки — в [tests/fixtures/README.md](tests/fixtures/README.md); лицензии — [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt).
 
 ## Репозиторий
 

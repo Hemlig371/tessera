@@ -61,7 +61,7 @@ jobs:
         run: |
           $installers = @(Get-ChildItem 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe')
           if ($installers.Count -ne 1) { throw "Expected one QA NSIS installer, got $($installers.Count)" }
-          if ($installers[0].Name -notmatch 'Tessera QA') { throw "Unexpected Windows installer name: $($installers[0].Name)" }
+          if ($installers[0].Name -notmatch 'Tessera[ _-]+QA') { throw "Unexpected Windows installer name: $($installers[0].Name)" }
           New-Item -ItemType Directory -Force work | Out-Null
           Copy-Item $installers[0].FullName 'work/Tessera-QA-Windows-Setup.exe'
       - uses: actions/upload-artifact@v4

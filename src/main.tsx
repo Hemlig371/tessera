@@ -39,6 +39,27 @@ async function bootstrap() {
 const boot = bootstrap();
 function Root() {
   const { t } = useTranslation();
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const syncViewport = () => {
+      // The IME can resize the WebView or merely occlude its visual viewport.
+      const covered = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+      document.documentElement.style.setProperty('--tessera-keyboard-occlusion', covered + 'px');
+      document.documentElement.toggleAttribute('data-tessera-keyboard-open', covered > 100);
+    };
+    syncViewport();
+    viewport.addEventListener('resize', syncViewport);
+    viewport.addEventListener('scroll', syncViewport);
+    window.addEventListener('orientationchange', syncViewport);
+    return () => {
+      viewport.removeEventListener('resize', syncViewport);
+      viewport.removeEventListener('scroll', syncViewport);
+      window.removeEventListener('orientationchange', syncViewport);
+      document.documentElement.style.removeProperty('--tessera-keyboard-occlusion');
+      document.documentElement.removeAttribute('data-tessera-keyboard-open');
+    };
+  }, []);
   const [state, setState] = useState<{ db: DatabaseAdapter; files: BinaryFileAdapter; api: Repository | null; drafts: DraftStore } | null>(null);
   const archiveOrigin = useRef<{ top: number; focus: HTMLElement | null }>({ top: 0, focus: null });
   const [archive, setArchive] = useState(false), [creating, setCreating] = useState(false);

@@ -675,3 +675,11 @@
     padding-right:max(24px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
   }
 }
+
+/* List-first phone layout regardless of the optional desktop card preference. */
+@media(max-width:760px) {
+  .tessera-v4 .catalog-cards,
+  .tessera-v4 .catalog-list { grid-template-columns:minmax(0,1fr); }
+  .tessera-v4 .catalog-cards .catalog-item { min-height:80px; }
+  .tessera-v4 .catalog-cards .catalog-item > .ui-icon { position:static; }
+}

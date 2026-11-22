@@ -1,8 +1,8 @@
 import type { Repository } from '../../src/core/repository';
 
 /** Universal user-defined fields; no nutrition rules belong to production Core. */
-export async function createNutritionFixture(api: Repository) {
-  const library = await api.createLibrary('Питание (dev/CI)');
+export async function createNutritionFixture(api: Repository, name = 'Питание (dev/CI)') {
+  const library = await api.createLibrary(name);
   const products = await api.createCollection(library.id, 'Продукты', 'Название');
   const meals = await api.createCollection(library.id, 'Приёмы пищи', 'Название');
   const portions = await api.createCollection(library.id, 'Позиции приёма', 'Название');

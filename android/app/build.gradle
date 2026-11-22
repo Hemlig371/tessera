@@ -8,6 +8,7 @@ android {
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "app.tessera.personal"
+        manifestPlaceholders = [tesseraAppLabel: "Tessera"]
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 25
@@ -33,6 +34,10 @@ android {
         debug {
             // Only the dedicated instrumentation build includes acceptance JS.
             if (project.hasProperty('acceptance')) applicationIdSuffix '.acceptance'
+            else if (project.hasProperty('qa')) {
+                applicationIdSuffix '.qa'
+                manifestPlaceholders.tesseraAppLabel = 'Tessera QA'
+            }
         }
         release {
             minifyEnabled false

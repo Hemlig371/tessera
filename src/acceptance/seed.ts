@@ -9,7 +9,7 @@ import { createNotesLibrary } from '../../tests/fixtures/notes';
 // Only reachable from import.meta.env.MODE === 'qa' on an uninitialized, isolated database.
 // Never seed a regular install, an imported database, or a previously initialized QA database.
 export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
-  const nutrition = await createNutritionFixture(api);
+  const nutrition = await createNutritionFixture(api, '01 · Питание (QA)');
   const extraProduct = await api.saveEntry(nutrition.products.id, {
     [nutrition.products.primary_field_id]: 'Яблоко',
     ...Object.fromEntries(nutrition.nutrients.map(n => [n.source.id, n.source.name.startsWith('Ккал') ? '52' : '0.2'])),

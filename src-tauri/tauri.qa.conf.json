@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tessera QA",
+  "identifier": "app.tessera.personal.qa",
+  "build": {
+    "beforeBuildCommand": "npm run build:qa:web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Tessera QA",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 500
+      }
+    ]
+  },
+  "bundle": {
+    "shortDescription": "Isolated Tessera manual acceptance build"
+  }
+}

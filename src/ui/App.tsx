@@ -25,6 +25,7 @@ import { LargeAttachments } from './LargeAttachments';
 import { androidDeviceLock, confirmDeviceIdentity, deviceAuthAvailable } from '../platform/device-auth';
 import { ExternalCalendarActions } from './ExternalCalendarActions';
 import { AttachmentList } from './AttachmentList';
+import { AttachmentThumbnail } from './AttachmentThumbnail';
 import { fileIds, isFile } from '../core/attachments';
 import { Trash } from './Trash';
 import { RecordHistory } from './RecordHistory';
@@ -906,7 +907,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     </main>;
   }
   return (
-    <div className={'app hybrid-shell tessera-v4' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '') + (selected ? ' record-open' : '')} data-workspace={ui.editor ? 'editor' : selected ? 'record' : ui.screen}>
+    <div className={'app hybrid-shell tessera-v4' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '') + (selected ? ' record-open' : '')} data-workspace={ui.editor ? 'editor' : selected ? 'record' : ui.constructorOpen ? 'constructor' : ui.screen}>
       <aside className="sidebar">
         <button className="sidebar-close" onClick={() => useUi.setState({ navOpen: false })}>{t('closeNavigation')}</button>
         <div className="brand">
@@ -978,6 +979,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           + {t('newLibrary')}
         </button>
         <footer>
+          <button type="button" className="hybrid-sidebar-settings tessera-constructor-link" disabled={disabled} aria-pressed={ui.constructorOpen} onClick={toggleConstructor}><Icon name="tools" />{ui.constructorOpen ? t('finishConstructor') : t('constructor')}</button>
           <div className="hybrid-local-status"><span className="local-dot" aria-hidden="true" />{t('local')}</div>
           <small>{t('offline')}</small>
           <button type="button" className="hybrid-sidebar-settings" aria-label={t('hybridSidebarSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" />{t('globalSettings')}</button>
@@ -1058,13 +1060,13 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             {ui.screen !== 'libraries' && <button className="section-back" disabled={disabled} onClick={backSection} aria-label={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}>← {t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}</button>}
             <small>{library?.name ?? t('brand')}</small>
             <h1>
-              {ui.screen === 'libraries' ? t('libraries') : ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? library?.name ?? t('collections') : ui.scope === 'all'
+              {ui.constructorOpen ? t('constructor') : ui.screen === 'libraries' ? t('libraries') : ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? library?.name ?? t('collections') : ui.scope === 'all'
                 ? t('allEntries')
                 : ui.scope === 'library'
                   ? library?.name
                   : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
             </h1>
-            {ui.screen === 'libraries' && <span className="tessera-library-count" aria-label={String(libraries.length)}>{libraries.length}</span>}
+            {ui.screen === 'libraries' && !ui.constructorOpen && <span className="tessera-library-count" aria-label={String(libraries.length)}>{libraries.length}</span>}
           </div>
           {(ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
             + {t(ui.screen === 'libraries' ? 'newLibrary' : 'newCollection')}
@@ -1240,6 +1242,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                             void selectEntry(row.id);
                           }}
                         >
+                          {collectionMode && fields.find(field => field.type === 'image' && fileIds(row.data[field.id]).length > 0) && <AttachmentThumbnail api={api} id={fileIds(row.data[fields.find(field => field.type === 'image' && fileIds(row.data[field.id]).length > 0)!.id])[0]!} ownerId={row.id} />}
                           {collectionMode && groupField && (
                             <small className="list-group">
                               {groupField.name}: {isCalculated(groupField.type) ? <CalculatedValue field={groupField} value={row.computed?.[groupField.id]} /> : format(groupField, row.data[groupField.id])}

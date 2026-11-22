@@ -1,11 +1,11 @@
-import { openConstructor, showList } from '../support/ui-actions';
+import { openConstructor, showList, captureToInbox, expectInboxCaptureReachable } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('safe Markdown capture, preview, configured move and editing retain the exact original', async ({ page }) => {
   const network: string[] = [];
   page.on('request', request => { if (/^https?:/.test(request.url()) && !request.url().startsWith('http://127.0.0.1:1420/')) network.push(request.url()); });
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
-  await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible();
+  await expectInboxCaptureReachable(page);
   const seed = await page.request.post('/__test-sqlite', { data: { op: 'markdown-seed' } }); expect(seed.ok(), await seed.text()).toBe(true);
   const scope = (await seed.json()).value as { collection_id: string; primary_field_id: string; body_field_id: string };
   const navigate = async () => {
@@ -20,7 +20,7 @@ test('safe Markdown capture, preview, configured move and editing retain the exa
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
   const original = '# Привет **ёж** &amp; мир\n\n- [x] Готово\n- Второй пункт\n\nРусский поиск иголкаёж\n\n[ссылка](https://example.org/?a=1&amp;b=2)\n\n[опасно](javascript:alert(1))\n\n![пиксель](https://example.org/pixel.png)\n\n<img src=x onerror="window.markdownXss=true">\n<script>window.markdownXss=true</script>';
   await page.evaluate(() => { Reflect.set(window, 'markdownXss', false); });
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill(original);
   await page.getByRole('button', { name: 'Предпросмотр Markdown', exact: true }).click();
   await expect(page.locator('.markdown h1')).toHaveText('Привет ёж & мир');

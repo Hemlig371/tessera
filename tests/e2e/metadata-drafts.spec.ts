@@ -1,3 +1,4 @@
+import { captureToInbox } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('capture waits for its own field metadata before constructing a draft session', async ({ page }) => {
@@ -18,13 +19,13 @@ test('capture waits for its own field metadata before constructing a draft sessi
       const result = await route.fetch(); delayed++; await new Promise(resolve => setTimeout(resolve, 400)); await route.fulfill({ response: result });
     } else await route.continue();
   });
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await expect(page.getByRole('button', { name: 'Сохранить', exact: true })).toBeEnabled();
   expect(delayed).toBeGreaterThan(0);
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill('Capture metadata draft 🦔');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0); await page.unrouteAll({ behavior: 'wait' });
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await expect(page.getByRole('textbox', { name: 'Содержимое', exact: true })).toHaveValue('Capture metadata draft 🦔');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await expect(page.locator('[data-editor]')).toHaveCount(0);
 });

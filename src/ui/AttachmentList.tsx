@@ -4,6 +4,7 @@ import type { Repository } from '../core/repository';
 import type { AttachmentView, ByteSource } from '../core/attachments';
 import { ErrorMessage, errorKey } from './common';
 import { Icon } from './Icon';
+import { AttachmentThumbnail } from './AttachmentThumbnail';
 export const fileSource = (file: File): ByteSource => ({ name: file.name, mime: file.type, size: file.size,
   read: async (offset, length) => new Uint8Array(await file.slice(offset, offset + length).arrayBuffer()) });
 export function useFileSize() {
@@ -44,7 +45,7 @@ function AttachmentItem({ api, ownerId, id, busy, removeReference, compact }: {
   }
   const disabled = busy || working;
   return <li data-attachment-id={id}>
-    <div className="attachment-heading"><strong>{view?.name ?? t('attachment')}</strong>{view && <small>{format(view.size)}</small>}</div>
+    <div className="attachment-heading">{compact && <AttachmentThumbnail api={api} id={id} ownerId={ownerId} />}<strong>{view?.name ?? t('attachment')}</strong>{view && <small>{format(view.size)}</small>}</div>
     {error && <ErrorMessage code={error} />}
     {!view && !error && <small role="status">{t('attachmentLoading')}</small>}
     {!view && removeReference && <button type="button" disabled={disabled} onClick={removeReference}>{t('unlinkAttachment')}</button>}

@@ -53,8 +53,9 @@ test('global capture and inbox move preserve one record; cancel never writes', a
   await page.getByRole('button', { name: 'Ссылки', exact: true }).click();
   await expect(page.locator('.entry')).toContainText('Ссылка https://example.org/ 🦔');
   for (const language of ['ru', 'en']) {
-    await page.getByRole('button', { name: language === 'ru' ? 'Настройки' : 'Settings', exact: true }).click();
-    await page.getByRole('combobox', { name: language === 'ru' ? 'Язык' : 'Language' }).selectOption(language);
+    // The locale is still Russian until this iteration's selection is applied.
+    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Язык' }).selectOption(language);
     await page.locator('[data-editor] .editor-heading button').click();
     await expect(page.locator('[data-editor]')).toHaveCount(0);
     for (const width of [320, 360, 390, 760]) {

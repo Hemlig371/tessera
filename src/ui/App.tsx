@@ -1430,6 +1430,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <button disabled={busy} onClick={() => open('large-attachments')}><Icon name="archive" /><span>{t('largeAttachmentsTitle')}</span><Icon name="arrow" /></button>
                 <button disabled={busy} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span>{t('trash')}</span><Icon name="arrow" /></button>
                 <button disabled={busy} onClick={() => open('diagnostics')}><Icon name="tools" /><span>{t('diagnosticsTitle')}</span><Icon name="arrow" /></button>
+                <button disabled={busy} onClick={() => open('history-clear')}><Icon name="clock" /><span>{t('clearAllHistory')}</span><Icon name="arrow" /></button>
               </div>
             </section>
           </section>}

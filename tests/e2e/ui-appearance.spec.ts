@@ -1,4 +1,4 @@
-import { showList } from '../support/ui-actions';
+import { showList, openApplicationAction } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('system/light/dark themes and local density/text size persist without record writes or draft loss', async ({ page }) => {
@@ -19,7 +19,7 @@ test('system/light/dark themes and local density/text size persist without recor
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Важный черновик');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
-  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   const query = async () => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql: "SELECT (SELECT count(*) FROM records) AS records,(SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log) AS changes,(SELECT value FROM local_settings WHERE key='hlc') AS hlc" } })).json()).value as unknown;
   const before = await query();
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('light');
@@ -27,7 +27,7 @@ test('system/light/dark themes and local density/text size persist without recor
   // Closing without saving changes no preference.
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
   await expect(root).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('light');
   await expect(page.getByRole('combobox', { name: 'Каталог библиотек', exact: true })).toHaveValue('cards');
   await page.getByRole('combobox', { name: 'Каталог библиотек', exact: true }).selectOption('list');
@@ -43,16 +43,16 @@ test('system/light/dark themes and local density/text size persist without recor
   await page.reload(); await expect(root).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('[data-catalog=libraries] .catalog-list')).toBeVisible();
   await expect.poll(() => root.evaluate(element => getComputedStyle(element).fontSize)).toBe('22.5px');
-  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('system');
   await page.getByRole('button', { name: 'Сохранить оформление' }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0); await expect(root).toHaveAttribute('data-theme', 'dark');
   await page.emulateMedia({ colorScheme: 'light' }); await expect(root).toHaveAttribute('data-theme', 'light');
-  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Все библиотеки', exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Навигация', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Все библиотеки', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Закрыть навигацию', exact: true }).click();
   await expect(page.locator('aside')).toBeHidden();
-  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
+  await page.getByRole('button', { name: 'Навигация', exact: true }).click();
   await page.getByRole('navigation', { name: 'Библиотеки' }).getByRole('button', { name: 'Оформление', exact: true }).click();
   await page.getByRole('button', { name: 'Текст', exact: true }).click();
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();

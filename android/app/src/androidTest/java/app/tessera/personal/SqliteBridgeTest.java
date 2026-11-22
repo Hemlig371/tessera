@@ -433,6 +433,16 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Shortcut preserves creation draft'");
             js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]')");
+            // Two in-process shortcut re-entries may leave a sibling MainActivity on top
+            // of the ActivityScenario-owned instance. End the entire test task before
+            // leaving the scenario so no PAUSED Activity or its database survives into
+            // the separate cold-launch assertion.
+            scenario.onActivity(android.app.Activity::finishAffinity);
+            long stopDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+            while (scenario.getState() != androidx.lifecycle.Lifecycle.State.DESTROYED &&
+                   System.nanoTime() < stopDeadline) Thread.sleep(100);
+            assertEquals("Shortcut re-entry task must finish cleanly",
+                androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.getState());
         }
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id")))) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);

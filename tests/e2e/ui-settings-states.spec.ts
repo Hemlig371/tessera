@@ -1,3 +1,4 @@
+import { openApplicationAction, goToLibraries } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 
 async function holdFailure(page: Page, matches: (sql: string, params: unknown[]) => boolean) {
@@ -24,12 +25,12 @@ test('settings retry unread metadata, keep a loading profile distinct from a mis
   const scope = (await response.json()).value as { library_id: string; collection_id: string; profile_id: string };
   await page.goto('/');
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
   await page.getByRole('button', { name: 'Открыть библиотеку «Загрузка настроек (dev/CI)»', exact: true }).click();
-  await page.locator('#constructor-toggle').click();
+  await openApplicationAction(page, 'Конструктор');
   const openStart = () => page.getByRole('button', { name: 'Стартовый экран библиотеки', exact: true }).click();
   await openStart();
   await page.getByRole('combobox', { name: 'Стартовый экран библиотеки', exact: true }).selectOption('collection');
@@ -75,6 +76,8 @@ test('settings retry unread metadata, keep a loading profile distinct from a mis
     await expect(page.getByRole('combobox', { name: 'Каталог коллекций', exact: true })).toHaveValue('list');
     await expect(page.getByRole('button', { name: 'Сохранить', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+    await expect(page.locator('[data-editor]')).toBeVisible();
+    await page.locator('[data-editor] .editor-heading button').click();
     await expect(page.locator('[data-editor]')).toHaveCount(0); expect(await snapshot()).toEqual(before);
   } finally { profiles.release(); }
   await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();

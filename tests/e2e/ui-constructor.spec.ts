@@ -1,12 +1,11 @@
 import { test, expect } from '../support/e2e-test';
-import { openConstructor, showList } from '../support/ui-actions';
+import { openConstructor, openApplicationAction, showList } from '../support/ui-actions';
 
 test('builder isolates schema tools, preserves collection context and uses back without touching records or drafts', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
-  const mode = page.getByRole('button', { name: 'Конструктор', exact: true });
+  const mode = page.locator('#constructor-toggle');
   await expect(mode).toHaveAttribute('aria-pressed', 'false');
-  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
   await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Конструктор dev');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
@@ -52,7 +51,7 @@ test('field properties replace the phone list, cancel without writes and return 
   const seeded = await page.request.post('/__test-sqlite', { data: { op: 'knowledge-seed', params: ['Свойства полей (dev/CI)'] } });
   expect(seeded.ok(), await seeded.text()).toBe(true);
   await page.reload();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
@@ -89,5 +88,5 @@ test('field properties replace the phone list, cancel without writes and return 
   expect(await snapshot()).toEqual(before);
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
   await expect(page.locator('[data-editor]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Конструктор', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#constructor-toggle')).toHaveAttribute('aria-pressed', 'true');
 });

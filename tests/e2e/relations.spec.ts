@@ -1,4 +1,4 @@
-import { openConstructor, showList } from '../support/ui-actions';
+import { openConstructor, showList, goToLibraries } from '../support/ui-actions';
 import { expect, test } from '../support/e2e-test';
 
 test('mobile single/multiple relations, reverse card, linked creation, cancel and deleted targets', async ({
@@ -7,13 +7,12 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
   await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Связи');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   async function navigate(name: string) {
-    await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-    await page.getByRole('button', { name, exact: true }).click();
+    await goToLibraries(page);
+    await page.getByRole('button', { name: `Открыть библиотеку «${name}»`, exact: true }).click();
   }
   async function newCollection(name: string) {
     await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
@@ -24,7 +23,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Проект Tessera');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
-  await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
+  await page.getByRole('button', { name: 'К коллекциям', exact: true }).click();
   await newCollection('Задачи');
   async function field(name: string, type: string, selectLabel: string, option: string, multiple = false) {
     await openConstructor(page); await page.getByRole('button', { name: 'Поля', exact: true }).click();

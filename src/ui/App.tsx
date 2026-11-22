@@ -1376,7 +1376,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                               void createRelated(f.id);
                             }}
                           />
-                        ) : isFile(f.type) ? <AttachmentList api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
+                        ) : isFile(f.type) ? <AttachmentList compact api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
                           <MarkdownView key={selected.id + f.id} source={String(selected.data[f.id])} />
                         ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <span className="tessera-readonly-boolean"><input type="checkbox" checked={selected.data[f.id] === true} readOnly disabled aria-label={f.name} /><span>{format(f, selected.data[f.id])}</span></span> : ['select', 'multiselect'].includes(f.type) ? <span className="tessera-select-value">{format(f, selected.data[f.id])}</span> : format(f, selected.data[f.id])}
                       </dd>
@@ -1386,7 +1386,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <QuickActions entry={selected} fields={context.fields} actions={context.layouts.card.quick_actions} busy={busy} execute={(fieldId, mutation) => run(async () => { await api.quickAction(selected.id, fieldId, mutation, selected.hlc); }, false)} />
             {context.fields.find(field => field.id === context.collection.primary_field_id)?.type !== 'secret' && <ExternalCalendarActions entry={selected} fields={context.fields} title={String(selected.data[context.collection.primary_field_id] ?? context.collection.name)} busy={busy} />}
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
-            {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
+            {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList compact api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
             <div className="actions">
               {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
               <button className="tessera-record-edit" disabled={busy} onClick={() => open('entry', selected.id)}><Icon name="edit" />

@@ -310,3 +310,24 @@
 @media(max-width:760px) {
   .tessera-v4 .tessera-record-cover { aspect-ratio:16 / 6; max-height:240px; border-radius:15px; }
 }
+
+/* Android edge-to-edge and cutout-safe composition. No fixed device dimensions. */
+@media(max-width:760px) {
+  .tessera-v4 .topbar {
+    min-height:calc(62px + env(safe-area-inset-top, 0px));
+    padding-top:max(10px,env(safe-area-inset-top, 0px));
+    padding-bottom:10px;
+  }
+  .tessera-v4 .editor-page {
+    padding-top:max(12px,env(safe-area-inset-top, 0px));
+    padding-bottom:max(28px,env(safe-area-inset-bottom, 0px));
+  }
+  .tessera-v4 .hybrid-record-form > .actions {
+    bottom:var(--tessera-keyboard-occlusion,0px);
+  }
+  :root[data-tessera-keyboard-open] .tessera-v4 .tessera-bottom-nav,
+  :root[data-tessera-keyboard-open] .tessera-v4 .catalog-create,
+  :root[data-tessera-keyboard-open] .tessera-v4 .create-button {
+    display:none !important;
+  }
+}

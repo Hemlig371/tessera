@@ -10,10 +10,10 @@ test('system/light/dark themes and local density/text size persist without recor
   await expect(root).toHaveAttribute('data-theme', 'dark');
   const darkBackground = await root.evaluate(element => getComputedStyle(element).backgroundColor);
   await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Оформление');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Текст');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();

@@ -701,7 +701,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     if (busy || !collection) return;
     selectionRequest.current++;
     rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
-    useUi.setState({ navOpen: false });
+    // Creating a record edits values, not the library structure: leave the
+    // constructor before opening the form and return to the data list on Save.
+    useUi.setState({ navOpen: false, constructorOpen: false });
     setLinked(null); setOpeningDraft(null); setCreationInitial({}); setStaleEdit(null); setError(null); setSaved(false); setBusy(true);
     void (async () => {
       const draft = await loadCreationDraft(collection);

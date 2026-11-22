@@ -1,3 +1,4 @@
+import { openApplicationAction, goToLibraries } from '../support/ui-actions';
 import { expect, test } from '../support/e2e-test';
 
 test('catalog creation and global actions stay reachable with large text and after scrolling', async ({ page }) => {
@@ -15,13 +16,13 @@ test('catalog creation and global actions stay reachable with large text and aft
   await page.getByRole('textbox', { name: 'Название коллекции', exact: true }).fill('Материалы каталога');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+  await goToLibraries(page);
   for (let i = 0; i < 6; i++) {
     const result = await page.request.post('/__test-sqlite', { data: { op: 'attachment-seed' } });
     expect(result.ok(), await result.text()).toBe(true);
   }
   await page.reload();
-  await page.getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
@@ -31,8 +32,11 @@ test('catalog creation and global actions stay reachable with large text and aft
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width <= 760) {
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-      await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeInViewport();
+      await expect(page.getByRole('button', { name: 'Ещё', exact: true })).toBeInViewport();
       await expect(page.getByRole('button', { name: 'Глобальный поиск', exact: true })).toBeInViewport();
+      await page.getByRole('button', { name: 'Ещё', exact: true }).click();
+      await expect(page.getByRole('menuitem', { name: '+ Во входящие', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Ещё', exact: true }).click();
     }
   }
   await page.evaluate(() => window.scrollTo(0, 0));

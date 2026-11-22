@@ -114,7 +114,7 @@ export function RecordForm({
     change?.(next);
   }
   return (
-    <form
+    <form className="hybrid-record-form"
       onInvalidCapture={event => {
         let element = event.target as HTMLElement | null;
         while (element) { if (element instanceof HTMLDetailsElement) element.open = true; element = element.parentElement; }

@@ -15,7 +15,7 @@ export function Catalog({ kind, items, layout = 'cards', busy, open, metadata = 
         const appearance = JSON.parse(item.config) as { icon?: string; color?: string };
         return <button className="catalog-item" key={item.id} disabled={busy} aria-label={t(kind === 'libraries' ? 'openLibrary' : 'openCollection', { name: item.name })} onClick={() => open(item.id)}>
           <span className="catalog-icon" aria-hidden="true" style={{ backgroundColor: appearance.color ? `color-mix(in srgb, ${appearance.color} 20%, var(--surface))` : undefined }}>{appearance.icon && appearance.icon !== '◇' ? appearance.icon : <Icon name={kind === 'libraries' ? 'collection' : 'libraries'} />}</span>
-          <span className="tessera-catalog-copy"><strong>{item.name}</strong><small>{metadata[item.id] ?? (kind === 'libraries' ? t('collections') : t('entries'))}</small></span><Icon name="chevron" />
+          <span className="tessera-catalog-copy"><strong>{item.name}</strong>{(metadata[item.id] || kind === 'libraries') && <small>{metadata[item.id] ?? t('collections')}</small>}</span><Icon name="chevron" />
         </button>;
       })}
     </div>

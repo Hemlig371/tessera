@@ -21,12 +21,19 @@ export async function openApplicationAction(page: Page, label: string) {
   await page.getByRole('menuitem', { name: label, exact: true }).click();
 }
 export async function goToLibraries(page: Page) {
+  // Constructor is an independent destination. Exit it before navigating
+  // across libraries, as a person does via "Done, back to data".
+  const builder = page.locator('#constructor-toggle');
+  if (await builder.count() && await builder.getAttribute('aria-pressed') === 'true') {
+    await expect(page.locator('[data-editor]')).toHaveCount(0);
+    await page.locator('.constructor-banner').getByRole('button', { name: 'Готово, к данным', exact: true }).click();
+  }
   const direct = page.getByRole('button', { name: 'Все библиотеки', exact: true }).filter({ visible: true }).first();
   if (await direct.isVisible()) { await direct.click(); return; }
   const back = page.getByRole('button', { name: 'К списку', exact: true }).filter({ visible: true }).first();
   if (await back.isVisible()) await back.click();
-  await page.getByRole('button', { name: 'Навигация', exact: true }).click();
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+  await page.locator('.nav-toggle').filter({ visible: true }).first().click();
+  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).filter({ visible: true }).first().click();
 }
 export async function openConstructor(page: Page) {
   const toggle = page.locator('#constructor-toggle');

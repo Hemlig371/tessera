@@ -1,12 +1,12 @@
 import { test, expect } from '../support/e2e-test';
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, goToLibraries, expectInboxCaptureReachable, finishConstructor } from '../support/ui-actions';
 
 // M7: verify the previously quarantined date-filter path using current catalog labels.
 test('profile date conditions persist and change the common record query', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible({ timeout: 30000 });
+  await expectInboxCaptureReachable(page);
   const seed = await page.request.post('/__test-sqlite', { data: { op: 'profile-dates-seed' } });
   expect(seed.ok(), await seed.text()).toBe(true);
   const reopen = async () => {
@@ -15,10 +15,10 @@ test('profile date conditions persist and change the common record query', async
     const cleanup = await page.request.post('/__test-sqlite', { data: { op: 'renderer-cleanup' } });
     expect(cleanup.ok(), await cleanup.text()).toBe(true);
     await page.goto('/');
-    await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible({ timeout: 30000 });
+    await expectInboxCaptureReachable(page);
   };
   const navigate = async () => {
-    await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+    await goToLibraries(page);
     await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: даты (dev/CI)»', exact: true }).click();
     await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   };
@@ -33,6 +33,7 @@ test('profile date conditions persist and change the common record query', async
   const save = async () => {
     await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
     await expect(page.locator('[data-editor]')).toHaveCount(0);
+    await finishConstructor(page);
   };
   await edit();
   await page.getByRole('combobox', { name: 'Период', exact: true }).selectOption('range');

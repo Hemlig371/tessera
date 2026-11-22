@@ -41,6 +41,11 @@ export function layoutRows(definition: UiDefinition, fields: readonly Field[], i
   }
   return rows;
 }
+/** A missing or deleted named layout never changes record values or the legacy card. */
+export function resolveCardLayout(defaultCard: UiDefinition, layoutId?: string | null): UiDefinition {
+  return defaultCard.named_cards?.find(layout => layout.id === layoutId)?.definition ?? defaultCard;
+}
+
 export function formConfig(field: Field, item?: LayoutItem) {
   const config = fieldConfig(field);
   return {
@@ -57,6 +62,24 @@ export function validateUiDefinition(
   primary: string
 ): void {
   if (!definition || !Array.isArray(definition.fields)) throw new AppError('invalidUiConfig');
+  if (definition.detail_layout_id != null &&
+      (kind !== 'list' || typeof definition.detail_layout_id !== 'string')) throw new AppError('invalidUiConfig');
+  if (definition.detail_layout_id) requireId(definition.detail_layout_id);
+  if (definition.named_cards != null) {
+    if (kind !== 'card' || !Array.isArray(definition.named_cards) || definition.named_cards.length > 16)
+      throw new AppError('invalidUiConfig');
+    const names = new Set<string>(), ids = new Set<string>();
+    for (const named of definition.named_cards) {
+      if (!named || typeof named.name !== 'string' || !named.name.trim() || named.name.length > 200)
+        throw new AppError('invalidUiConfig');
+      requireId(named.id);
+      if (ids.has(named.id) || names.has(named.name.trim().toLocaleLowerCase()) || !named.definition ||
+          named.definition.named_cards != null || named.definition.detail_layout_id != null)
+        throw new AppError('invalidUiConfig');
+      ids.add(named.id); names.add(named.name.trim().toLocaleLowerCase());
+      validateUiDefinition(named.definition, 'card', fields, primary);
+    }
+  }
   const byId = new Map(fields.map((field) => [field.id, field])),
     seen = new Set<string>();
   if (definition.quick_actions != null) {

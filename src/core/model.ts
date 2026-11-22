@@ -148,7 +148,16 @@ export interface ListOptions {
   mode_field?: string;
   group_field?: string;
 }
+export interface NamedCardLayout {
+  id: string;
+  name: string;
+  definition: UiDefinition;
+}
 export interface UiDefinition {
+  /** Named read-only card arrangements; stored with the legacy default card config. */
+  named_cards?: NamedCardLayout[];
+  /** Optional view-specific link to a named card arrangement; missing IDs fall back to default. */
+  detail_layout_id?: string;
   fields: LayoutItem[];
   rows?: LayoutRow[];
   list?: ListOptions;

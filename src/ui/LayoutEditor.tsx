@@ -462,7 +462,7 @@ export function LayoutEditor({
       {allowQuickActions && kind !== 'form' && <QuickActionsEditor fields={fields} actions={actions} change={setActions} busy={busy} />}
       <div className="actions hybrid-designer-actions">
         <span className="hybrid-unsaved" role="status">{changed ? t('hybridUnsaved') : t('hybridNoChanges')}</span>
-        <button type="button" disabled={busy} onClick={() => { if (!changed || window.confirm(t('hybridDiscardWarning'))) cancel(); }}>
+        <button type="button" disabled={busy} onClick={() => { if (!changed || window.confirm(t('hybridDiscardWarning'))) { onDirtyChange?.(false); cancel(); } }}>
           {t('cancel')}
         </button>
         <button className="primary" disabled={busy}>

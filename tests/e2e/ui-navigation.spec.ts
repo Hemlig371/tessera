@@ -1,3 +1,4 @@
+import { openApplicationAction, goToLibraries } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 
 async function seed(page: Page, name: string) {
@@ -12,14 +13,14 @@ async function openLibrary(page: Page, name: string) {
 }
 async function settings(page: Page) {
   const toggle = page.locator('#constructor-toggle');
-  if (await toggle.getAttribute('aria-pressed') !== 'true') await toggle.click();
+  if (await toggle.getAttribute('aria-pressed') !== 'true') await openApplicationAction(page, 'Конструктор');
   await page.getByRole('button', { name: 'Стартовый экран библиотеки', exact: true }).click();
   await expect(page.locator('[data-editor]')).toBeVisible();
 }
 async function finishSettings(page: Page) {
   await page.locator('[data-editor]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
-  await page.locator('#constructor-toggle').click();
+  await page.getByRole('button', { name: 'Готово, к данным', exact: true }).click();
   await expect(page.locator('#constructor-toggle')).toHaveAttribute('aria-pressed', 'false');
 }
 test('mobile catalogs, record Back, configured profile and deleted start fallback work without the drawer', async ({ page }) => {
@@ -46,21 +47,21 @@ test('mobile catalogs, record Back, configured profile and deleted start fallbac
   await page.getByRole('combobox', { name: 'Каталог коллекций', exact: true }).selectOption('list');
   await finishSettings(page);
   await expect(page.locator('[data-catalog=collections] .catalog-list')).toBeVisible();
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+  await goToLibraries(page);
   await openLibrary(page, name);
   await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);
   await page.reload(); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await openLibrary(page, name);
   await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+  await goToLibraries(page);
   const deleted = await page.request.post('/__test-sqlite', { data: { op: 'navigation-delete-profile', params: [scope.profile_id] } });
   expect(deleted.ok(), await deleted.text()).toBe(true);
   await openLibrary(page, name);
   await expect(page.locator('[data-catalog=collections] .catalog-list')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
-  await page.getByRole('button', { name: 'Открыть входящие', exact: true }).click();
+  await openApplicationAction(page, 'Входящие');
   await expect(page.getByRole('heading', { name: 'Входящие', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'К библиотекам', exact: true })).toBeEnabled();
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
@@ -108,7 +109,7 @@ test('global search returns to the deep profile; last section and creation draft
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.locator('[data-editor]').getByRole('textbox', { name: 'Название', exact: true }).fill('Черновик навигации');
   await page.getByRole('button', { name: 'Назад', exact: true }).click();
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click(); await page.reload();
+  await goToLibraries(page); await page.reload();
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await openLibrary(page, name);
   await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);

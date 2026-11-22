@@ -18,7 +18,7 @@ export function CreateButton({ disabled, create, options, registerMenuClose }: {
     if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); }
   }}>
     <div className="split-button">
-      <button className="primary" title={'+ ' + t('newEntry')} disabled={disabled} onClick={event => { if (event.detail === 0 || !held.current) { held.current = false; setOpen(false); create(); } }}
+      <button className="primary" title={'+ ' + t('newEntry')} aria-label={'+ ' + t('newEntry')} disabled={disabled} onClick={event => { if (event.detail === 0 || !held.current) { held.current = false; setOpen(false); create(); } }}
         onPointerDown={event => { if (event.button !== 0) return; held.current = false; timer.current = setTimeout(() => { held.current = true; setOpen(true); }, 550); }}
         onPointerUp={stopHold} onPointerCancel={stopHold} onPointerLeave={stopHold}
         onContextMenu={event => { event.preventDefault(); stopHold(); setOpen(true); }}

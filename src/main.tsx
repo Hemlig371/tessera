@@ -19,7 +19,19 @@ import type { DraftStore } from './core/drafts';
 // One bootstrap per WebView, including React re-renders. No browser storage fallback.
 async function bootstrap() {
   const db = await openDatabase();
-  try { await checkSqlite(db); await migrate(db); const files = openBinaryFiles(); return { db, files, api: await databaseInitialized(db) ? await Repository.open(db, files) : null, drafts: await openDraftStore() }; }
+  try {
+    await checkSqlite(db);
+    await migrate(db);
+    const files = openBinaryFiles();
+    const initialized = await databaseInitialized(db);
+    // Vite removes this branch and its dynamic import from normal production builds.
+    const qa = import.meta.env.MODE === 'qa';
+    const api = initialized || qa ? await Repository.open(db, files) : null;
+    if (qa && !initialized && api) {
+      await (await import('./acceptance/seed')).seedAcceptanceLibraries(api);
+    }
+    return { db, files, api, drafts: await openDraftStore() };
+  }
   catch (e) { await db.close(); throw e; }
 }
 const boot = bootstrap();

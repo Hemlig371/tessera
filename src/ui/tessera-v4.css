@@ -485,3 +485,70 @@
   .tessera-v4 .topbar .tessera-secondary-nav { display:none; }
   .tessera-v4 .hybrid-main { padding-inline:24px; }
 }
+
+/* Reference task detail: media first, large title, quiet properties. */
+.tessera-v4 .tessera-record-topline {
+  display:flex; align-items:center; gap:10px;
+  min-height:55px; margin:0 0 12px;
+}
+.tessera-v4 .tessera-record-topline .tessera-record-back {
+  flex:0 0 44px; border:0; border-radius:12px; background:transparent;
+}
+.tessera-v4 .tessera-record-location {
+  min-width:0; overflow:hidden; text-overflow:ellipsis;
+  color:var(--muted); font-size:.9rem; font-weight:600;
+}
+.tessera-v4 .detail > .dialog-heading {
+  display:block; padding:0 0 17px; border:0; margin:0 0 16px;
+}
+.tessera-v4 .detail #record-title { font-size:clamp(1.9rem,1.3rem + 2.3vw,2.55rem); }
+.tessera-v4 .detail .layout-rows { gap:6px; }
+.tessera-v4 .detail .layout-cell:has(.tessera-readonly-boolean) > dl { align-items:center; }
+.tessera-v4 .tessera-readonly-boolean { display:inline-flex; align-items:center; gap:8px; }
+.tessera-v4 .tessera-readonly-boolean input[type="checkbox"] {
+  width:21px; height:21px; margin:0; accent-color:var(--accent); opacity:1;
+}
+.tessera-v4 .tessera-select-value {
+  display:inline-flex; align-items:center; max-width:100%; min-height:27px;
+  padding:3px 10px; border-radius:999px;
+  color:var(--accent); background:var(--accent-soft); font-weight:650;
+}
+.tessera-v4 .entry:not(.table) .tessera-select-field {
+  display:inline-flex; width:fit-content; max-width:100%;
+  background:var(--accent-soft); color:var(--accent); border-radius:999px;
+  padding:3px 9px; line-height:1.35; font-size:.76rem; font-weight:600;
+  text-overflow:ellipsis; align-self:start;
+}
+.tessera-v4 .entry:not(.table) .tessera-select-field .entry-field-label { display:none; }
+.tessera-v4 .detail > .actions .tessera-history-button {
+  display:inline-flex; align-items:center; gap:8px;
+}
+.tessera-v4 .detail > .actions .tessera-history-button .ui-icon { width:19px; height:19px; }
+@media(max-width:760px) {
+  .tessera-v4 .detail > .dialog-heading { display:block; padding:0 0 12px; margin:0 0 8px; }
+  .tessera-v4 .detail > .dialog-heading > div { width:100%; }
+  .tessera-v4 .detail .tessera-record-cover {
+    aspect-ratio:16 / 7; max-height:250px; margin-bottom:20px;
+  }
+  .tessera-v4 .detail #record-title { font-size:1.85rem; line-height:1.19; }
+  .tessera-v4 .detail .layout-cell > dl {
+    grid-template-columns:minmax(96px,35%) minmax(0,1fr); min-height:50px;
+    padding-block:11px;
+  }
+  .tessera-v4 .detail > .actions {
+    display:flex; align-items:center; gap:6px; flex-wrap:nowrap;
+    padding:12px 0 max(16px,env(safe-area-inset-bottom));
+  }
+  .tessera-v4 .detail > .actions .tessera-record-edit {
+    margin-left:auto; min-height:54px; border-radius:18px; padding:12px 18px;
+    box-shadow:0 7px 18px #18381b30;
+  }
+  .tessera-v4 .detail > .actions .tessera-history-button {
+    order:-1; min-height:46px; width:48px; justify-content:center; padding:10px;
+  }
+  .tessera-v4 .detail > .actions .tessera-history-button span { display:none; }
+  .tessera-v4 .detail > .actions .danger.tessera-record-secondary {
+    order:-1; color:var(--muted); padding:8px; border:0;
+    background:transparent; font-size:.77rem;
+  }
+}

@@ -6,10 +6,10 @@ test('builder isolates schema tools, preserves collection context and uses back 
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
   const mode = page.locator('#constructor-toggle');
   await expect(mode).toHaveAttribute('aria-pressed', 'false');
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Конструктор dev');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Записи');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await expect(mode).toHaveAttribute('aria-pressed', 'true');

@@ -4,10 +4,10 @@ import { test, expect } from '../support/e2e-test';
 test('CSV progress remains interactive; cancel rolls back, then the same checked file can be imported', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto('/'); await expect(page.locator('aside')).toBeVisible();
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('CSV cancellation');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Import');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   const query = async (sql: string) => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql } })).json()).value as unknown;

@@ -76,12 +76,10 @@ test('settings retry unread metadata, keep a loading profile distinct from a mis
     await expect(page.getByRole('combobox', { name: 'Каталог коллекций', exact: true })).toHaveValue('list');
     await expect(page.getByRole('button', { name: 'Сохранить', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Отмена', exact: true }).click();
-    await expect(page.locator('[data-editor]')).toBeVisible();
-    await page.locator('[data-editor] .editor-heading button').click();
     await expect(page.locator('[data-editor]')).toHaveCount(0); expect(await snapshot()).toEqual(before);
   } finally { profiles.release(); }
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
-  await page.locator('#constructor-toggle').click();
+  await goToLibraries(page);
+  await openApplicationAction(page, 'Настройки');
   const files = await holdFailure(page, sql => sql === "SELECT value FROM app_meta WHERE key='attachment:limit'");
   try {
     await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click(); await expect.poll(files.held).toBe(true);
@@ -98,6 +96,8 @@ test('settings retry unread metadata, keep a loading profile distinct from a mis
     await expect(page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true })).toBeDisabled();
     await limit.fill('2.5'); await expect(page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+    await expect(page.locator('[data-editor]').getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
+    await page.locator('[data-editor] .editor-heading button').click();
     await expect(page.locator('[data-editor]')).toHaveCount(0); expect(await snapshot()).toEqual(before);
   } finally { files.release(); }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

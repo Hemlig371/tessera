@@ -15,6 +15,7 @@ import { CalculatedValue } from './CalculatedValue';
 import { isCalculated } from '../core/calculated-fields';
 import { QuickActions } from './QuickActions';
 import { Catalog } from './Catalog';
+import { ConstructorOverview } from './ConstructorOverview';
 import { Icon } from './Icon';
 import { AttachmentSettings } from './AttachmentSettings';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
@@ -1097,7 +1098,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
-          {ui.constructorOpen && ui.screen === 'libraries' && <><button disabled={disabled} onClick={() => open('settings')}>{t('globalSettings')}</button><button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
+
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
@@ -1126,7 +1127,12 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </>
           )}
         </div>
-        {ui.constructorOpen && browsing && <h2 className="constructor-preview-heading">{t('constructorPreview')}</h2>}
+        {ui.constructorOpen && <ConstructorOverview
+          library={library} collection={collection} libraries={libraries} collections={collections}
+          fields={fields} entries={page.items} busy={disabled}
+          openLibrary={id => { void openLibrary(id, true); }}
+          openCollection={id => { if (library) { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); } }}
+        />}
         {browsing && (
           <div className="searchbar">
             <label>

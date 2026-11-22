@@ -15,6 +15,7 @@
   "layoutLivePreview": "Layout preview",
   "layoutPreviewHint": "Changes appear before saving; records and history are unaffected.",
   "dragLayoutRow": "Drag row",
+  "dragLayoutField": "Drag field “{{name}}”",
   "globalSettingsHint": "Application settings are available without selecting a library or opening the designer.",
   "libraries": "Libraries",
   "newLibrary": "New library",

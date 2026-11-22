@@ -1185,3 +1185,9 @@ button { min-height: var(--control-height); line-height: 1.35; overflow-wrap: an
 .named-card-editor { max-width: 72rem; min-width: 0; }
 .named-card-editor > form { border-top: 1px solid var(--border); margin-top: var(--space-6); padding-top: var(--space-4); }
 .named-card-editor > .actions { justify-content: flex-start; }
+
+.row-designer-cell { min-width: 0; border: 1px solid transparent; border-radius: var(--radius-sm); padding: var(--space-1); }
+.row-designer-cell label { margin: 0; min-width: 0; }
+.row-designer-cell.drop-target { border-color: var(--accent); background: var(--accent-soft); }
+.field-drag-handle { margin-top: var(--space-1); min-width: 44px; cursor: grab; }
+.field-drag-handle:active { cursor: grabbing; }

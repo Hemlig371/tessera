@@ -8,6 +8,7 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
   const { t } = useTranslation();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
+  const [targetCell, setTargetCell] = useState<string | null>(null);
   function columns(index: number, count: LayoutRow['columns']) {
     const current = rows[index]!, chunks: LayoutRow[] = [];
     for (let offset = 0; offset < Math.max(current.field_ids.length, 1); offset += count)
@@ -55,13 +56,38 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
         <button type="button" onClick={() => change(rows.filter((_, at) => at !== index))}>{t('removeLayoutRow')}</button>
       </div>
       <div className="layout-row row-designer-cells" style={{ '--layout-columns': row.columns } as CSSProperties}>
-        {Array.from({ length: Math.min(row.columns, row.field_ids.length + 1) }, (_, slot) => <label key={slot}>{t('layoutCell', { count: slot + 1 })}
-          <select value={row.field_ids[slot] ?? ''} onChange={event => assign(index, slot, event.target.value)}>
-            <option value="">{t('emptyLayoutCell')}</option>
-            {fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
-          </select>
-          <small>{row.field_ids[slot] ? t(`types.${fields.find(field => field.id === row.field_ids[slot])?.type}`) : ''}</small>
-        </label>)}
+        {Array.from({ length: Math.min(row.columns, row.field_ids.length + 1) }, (_, slot) => <div key={slot}
+          className={'row-designer-cell' + (targetCell === row.id + ':' + slot ? ' drop-target' : '')}
+          onDragOver={event => {
+            if (!busy && event.dataTransfer.types.includes('application/x-tessera-field')) {
+              event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move';
+              setTargetCell(row.id + ':' + slot);
+            }
+          }}
+          onDragLeave={() => setTargetCell(null)}
+          onDrop={event => {
+            const fieldId = event.dataTransfer.getData('application/x-tessera-field');
+            if (fieldId && !busy && fields.some(field => field.id === fieldId)) {
+              event.preventDefault(); event.stopPropagation(); assign(index, slot, fieldId);
+            }
+            setTargetCell(null);
+          }}>
+          <label>{t('layoutCell', { count: slot + 1 })}
+            <select value={row.field_ids[slot] ?? ''} onChange={event => assign(index, slot, event.target.value)}>
+              <option value="">{t('emptyLayoutCell')}</option>
+              {fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
+            </select>
+            <small>{row.field_ids[slot] ? t(`types.${fields.find(field => field.id === row.field_ids[slot])?.type}`) : ''}</small>
+          </label>
+          {row.field_ids[slot] && <button type="button" className="field-drag-handle" disabled={busy}
+            draggable={!busy} aria-label={t('dragLayoutField', { name: fields.find(field => field.id === row.field_ids[slot])?.name ?? '' })}
+            title={t('dragLayoutField', { name: fields.find(field => field.id === row.field_ids[slot])?.name ?? '' })}
+            onDragStart={event => {
+              event.stopPropagation(); event.dataTransfer.effectAllowed = 'move';
+              event.dataTransfer.setData('application/x-tessera-field', row.field_ids[slot]!);
+            }}
+            onDragEnd={() => setTargetCell(null)}>⠿</button>}
+        </div>)}
       </div>
     </fieldset>)}
     <button type="button" disabled={busy} onClick={() => change([...rows, { id: crypto.randomUUID(), columns: 1, field_ids: [] }])}>{t('addLayoutRow')}</button>

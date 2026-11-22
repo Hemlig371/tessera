@@ -14,12 +14,16 @@ async function holdFailure(page: Page, matches: (sql: string, params: unknown[])
 }
 
 test('settings retry unread metadata, keep a loading profile distinct from a missing one, and leave cancelled values unchanged', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
-  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  // Seed 250 navigation records before opening the renderer: its SQLite lease
+  // must not compete with the test-only fixture writer on the same connection.
+  // The normal UI/error/retry assertions below remain unchanged.
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.request.post('/__test-sqlite', { data: { op: 'navigation-seed', params: ['Загрузка настроек (dev/CI)'] } });
   expect(response.ok(), await response.text()).toBe(true);
   const scope = (await response.json()).value as { library_id: string; collection_id: string; profile_id: string };
-  await page.reload();
+  await page.goto('/');
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');

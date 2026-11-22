@@ -1,6 +1,7 @@
 {
   "brand": "Tessera",
   "tagline": "Your personal database, close at hand.",
+  "namedCards": "Record layouts",
   "namedCardHint": "Layouts change presentation only; records, values and history are shared.",
   "defaultCardLayout": "Default card",
   "cardLayoutToEdit": "Record detail layout",

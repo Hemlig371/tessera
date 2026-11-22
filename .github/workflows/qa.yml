@@ -1,0 +1,72 @@
+name: Tessera QA packages (isolated test data)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-qa:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[qa ci]')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android SDK prerequisites
+        shell: bash
+        run: |
+          mapfile -t sdkmanager_candidates < <(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f)
+          sdkmanager_bin="${sdkmanager_candidates[0]}"
+          test -x "$sdkmanager_bin"
+          "$sdkmanager_bin" 'platforms;android-36' 'build-tools;36.0.0'
+      - run: npm ci
+      - run: npm run build:android:qa
+      - name: Verify isolated QA package and name artifact
+        shell: bash
+        run: |
+          mkdir -p work
+          cp android/app/build/outputs/apk/debug/app-debug.apk work/Tessera-QA-Android.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging work/Tessera-QA-Android.apk | grep "package: name='app.tessera.personal.qa'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging work/Tessera-QA-Android.apk | grep "application-label:'Tessera QA'"
+          python3 scripts/check-android-manifest.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tessera-QA-Android
+          path: work/Tessera-QA-Android.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-qa:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[qa ci]')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24', cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: 'x86_64-pc-windows-msvc' }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: 'src-tauri -> target' }
+      - run: npm ci
+      - run: npm run build:desktop:qa
+      - name: Verify isolated QA installer and name artifact
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe')
+          if ($installers.Count -ne 1) { throw "Expected one QA NSIS installer, got $($installers.Count)" }
+          if ($installers[0].Name -notmatch 'Tessera QA') { throw "Unexpected Windows installer name: $($installers[0].Name)" }
+          New-Item -ItemType Directory -Force work | Out-Null
+          Copy-Item $installers[0].FullName 'work/Tessera-QA-Windows-Setup.exe'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tessera-QA-Windows
+          path: work/Tessera-QA-Windows-Setup.exe
+          if-no-files-found: error
+          retention-days: 14

@@ -412,14 +412,17 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
             var intent = ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id"));
             assertEquals(scope.getString("library_id"), intent.getStringExtra("tessera.library_id"));
-            // The Activity is singleTask. Starting another instance from this
-            // ActivityScenario transfers task ownership, leaving its tracked Activity
-            // PAUSED and impossible to close reliably. Deliver the OS re-entry
-            // callback directly to the tracked Activity instead; this exercises
-            // BridgeActivity.onNewIntent -> ExternalActionsPlugin.handleOnNewIntent.
-            // The separate scenario below exercises the real launcher Intent/flags.
-            scenario.onActivity(activity -> InstrumentationRegistry.getInstrumentation()
-                .callActivityOnNewIntent(activity, new android.content.Intent(intent)));
+            // Exercise the actual onNewIntent callback without launching another task.
+            // Keep the ActivityScenario's initial Intent: ExternalActionsPlugin sets a
+            // new OPEN_LIBRARY Intent on the Activity, but AndroidX ActivityScenario
+            // identifies lifecycle callbacks by matching action/data/categories.
+            // Restoring the original Intent at teardown lets it observe DESTROYED.
+            final AtomicReference<android.content.Intent> scenarioIntent = new AtomicReference<>();
+            scenario.onActivity(activity -> {
+                scenarioIntent.set(new android.content.Intent(activity.getIntent()));
+                InstrumentationRegistry.getInstrumentation()
+                    .callActivityOnNewIntent(activity, new android.content.Intent(intent));
+            });
             awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='+ Новая запись' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
@@ -435,7 +438,12 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Shortcut preserves creation draft'");
             js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]')");
-
+            scenario.onActivity(activity -> {
+                assertNotNull("ActivityScenario launcher Intent must be recorded", scenarioIntent.get());
+                assertEquals("Shortcut re-entry should update the Activity Intent",
+                    context.getPackageName() + ".OPEN_LIBRARY", activity.getIntent().getAction());
+                activity.setIntent(scenarioIntent.get());
+            });
         }
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id")))) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);

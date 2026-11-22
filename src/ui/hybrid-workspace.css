@@ -167,3 +167,42 @@
 .hybrid-shell .hybrid-record-form > .actions button { min-width:110px; }
 @media(max-width:1100px){.hybrid-record-form .layout-row { grid-template-columns:minmax(0,1fr); }}
 @media(max-width:760px){.hybrid-record-form .layout-cell:not(.collapsed-field) { padding:13px; }.hybrid-shell .hybrid-record-form > .actions { margin:0 -3px; }.hybrid-record-form .form-field textarea { min-height:160px; }}
+
+
+/* Visual review checkpoint: a large library set must not make the desktop shell thousands of pixels tall. */
+@media (min-width:761px) {
+  .hybrid-shell .sidebar {
+    position:sticky;
+    top:0;
+    align-self:flex-start;
+    height:100dvh;
+    max-height:100dvh;
+    overflow:hidden;
+    flex:0 0 252px;
+  }
+  .hybrid-shell .sidebar nav { flex:1 1 auto; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; }
+  .hybrid-shell .sidebar footer { flex:0 0 auto; }
+}
+@media (min-width:761px) and (max-width:1100px) { .hybrid-shell .sidebar { flex-basis:220px; } }
+@media(max-width:760px) {
+  .hybrid-shell .constructor-banner { padding:11px 13px; margin:7px 0 12px; gap:8px; }
+  .hybrid-shell .constructor-banner h2 { font-size:1rem; }
+  .hybrid-shell .constructor-banner p { display:none; }
+  .hybrid-shell .constructor-banner button { padding:8px 11px; }
+  .hybrid-shell .toolbar {
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scroll-snap-type:x proximity;
+    scroll-padding-inline:2px;
+    overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch;
+    padding-block:4px 9px;
+    margin-bottom:6px;
+    border-bottom:1px solid var(--hybrid-divider);
+  }
+  .hybrid-shell .toolbar button { white-space:nowrap; flex:0 0 auto; scroll-snap-align:start; padding-inline:12px; }
+  .hybrid-shell .profile-switcher { flex-wrap:wrap; gap:6px; }
+  .hybrid-shell .profile-switcher label { white-space:nowrap; overflow-wrap:normal; }
+  .hybrid-shell .profile-switcher select { min-width:0; max-width:100%; }
+}

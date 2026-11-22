@@ -1308,7 +1308,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               </button>
             </div>
             <LayoutRowsView definition={resolveCardLayout(context.layouts.card,
-              ui.scope === 'collection' && collection?.id === context.collection.id && selected.collection_id === context.collection.id
+              ui.scope === 'collection' && trail.length === 0 && collection?.id === context.collection.id && selected.collection_id === context.collection.id
                 ? (profiles.find(profile => profile.id === activeProfileId) ? (JSON.parse(profiles.find(profile => profile.id === activeProfileId)!.config) as UiDefinition).detail_layout_id : undefined)
                 : undefined)} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
                   const f = context.fields.find((field) => field.id === item.field_id)!;

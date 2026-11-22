@@ -56,13 +56,13 @@ test('mobile shared Trash filters libraries, restores, confirms purge, persists 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await page.reload(); await trash(page);
   await expect(page.getByLabel('Срок хранения в корзине', { exact: true })).toHaveValue('forever');
   await expect(page.locator('[data-trash]')).toHaveAttribute('aria-busy', 'false');
   await expect(page.getByRole('button', { name: 'Назад', exact: true })).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await openRecord(page, first);

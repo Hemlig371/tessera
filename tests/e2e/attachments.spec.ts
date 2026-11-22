@@ -1,3 +1,4 @@
+import { openApplicationAction, goToLibraries, captureToInbox } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 import { readFile } from 'node:fs/promises';
 type Scope = { library_name: string; library_id: string; collection_id: string; file_id: string; image_id: string };
@@ -87,20 +88,20 @@ test('small image preview is inert, settings persist and record purge removes at
   await row.getByRole('button', { name: 'Удалить окончательно', exact: true }).click(); await row.getByRole('button', { name: 'Подтвердить окончательное удаление', exact: true }).click();
   await expect(row).toHaveCount(0); expect(await rows(page, `SELECT name,purged FROM attachments WHERE id='${id}'`)).toEqual([{ name: '', purged: 1 }]);
   const check = await page.request.post('/__test-sqlite', { data: { op: 'binary-stat', file: { id } } }); expect((await check.json()).value).toBeNull();
-  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
-  await page.locator('#constructor-toggle').click(); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
+  await page.keyboard.press('Escape'); await goToLibraries(page);
+  await openApplicationAction(page, 'Настройки'); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
   await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toHaveValue('10');
   await page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true }).fill('');
   await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true })).toBeDisabled();
   await page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true }).fill('1'); await page.getByRole('button', { name: 'Сохранить настройки вложений', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0); await page.reload();
-  await page.locator('#constructor-toggle').click(); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
+  await openApplicationAction(page, 'Настройки'); await page.getByRole('button', { name: 'Настройки вложений', exact: true }).click();
   await expect(page.getByLabel('Порог полного переноса вложения, МиБ', { exact: true })).toHaveValue('1');
 });
 test('Inbox file stays usable after moving to a different field schema and after reopening', async ({ page }) => {
   const scope = await seed(page);
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await page.getByLabel('Содержимое', { exact: true }).fill('Входящий документ');
   await page.getByLabel('Вложения', { exact: true }).setInputFiles({ name: filename, mimeType: 'application/octet-stream', buffer: bytes });
   await expect(page.getByText('Копия на этом устройстве', { exact: true })).toBeVisible();

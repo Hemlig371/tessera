@@ -412,19 +412,21 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!!document.querySelector('[data-catalog=libraries]')");
             var intent = ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id"));
             assertEquals(scope.getString("library_id"), intent.getStringExtra("tessera.library_id"));
-            // Keep the in-process re-entry in ActivityScenario's own task. A launcher
-            // shortcut uses NEW_TASK, but starting that same intent from inside an
-            // ActivityScenario can background the tracked Activity and leave close()
-            // waiting for DESTROYED while it is PAUSED in a different task.
-            // The separate cold-start scenario below still uses the real shortcut flags.
-            var reentry = new android.content.Intent(intent).setFlags(intent.getFlags() & ~android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            scenario.onActivity(activity -> activity.startActivity(reentry));
+            // The Activity is singleTask. Starting another instance from this
+            // ActivityScenario transfers task ownership, leaving its tracked Activity
+            // PAUSED and impossible to close reliably. Deliver the OS re-entry
+            // callback directly to the tracked Activity instead; this exercises
+            // BridgeActivity.onNewIntent -> ExternalActionsPlugin.handleOnNewIntent.
+            // The separate scenario below exercises the real launcher Intent/flags.
+            scenario.onActivity(activity -> InstrumentationRegistry.getInstrumentation()
+                .callActivityOnNewIntent(activity, new android.content.Intent(intent)));
             awaitJs(scenario, "document.querySelector('.profile-switcher select')?.value===" + JSONObject.quote(scope.getString("profile_id")));
             awaitJs(scenario, "[...document.querySelectorAll('button')].some(b=>b.textContent==='+ Новая запись' && !b.disabled)");
             js(scenario, "[...document.querySelectorAll('button')].find(b=>b.textContent==='+ Новая запись').click()");
             awaitJs(scenario, "!!document.querySelector('[data-editor] input[aria-label=Название]:not(:disabled)')");
             js(scenario, "const input=document.querySelector('[data-editor] input[aria-label=Название]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Shortcut preserves creation draft');input.dispatchEvent(new Event('input',{bubbles:true}))");
-            scenario.onActivity(activity -> activity.startActivity(reentry));
+            scenario.onActivity(activity -> InstrumentationRegistry.getInstrumentation()
+                .callActivityOnNewIntent(activity, new android.content.Intent(intent)));
             awaitJs(scenario, "document.body.innerText.includes('Библиотека из ярлыка откроется после закрытия текущей формы.')");
             assertEquals("\"Shortcut preserves creation draft\"", js(scenario, "document.querySelector('[data-editor] input[aria-label=Название]').value"));
             js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");
@@ -433,16 +435,7 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "document.querySelector('[data-editor] input[aria-label=Название]')?.value==='Shortcut preserves creation draft'");
             js(scenario, "document.querySelector('[data-editor] .editor-heading button').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]')");
-            // Two in-process shortcut re-entries may leave a sibling MainActivity on top
-            // of the ActivityScenario-owned instance. End the entire test task before
-            // leaving the scenario so no PAUSED Activity or its database survives into
-            // the separate cold-launch assertion.
-            scenario.onActivity(android.app.Activity::finishAffinity);
-            long stopDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
-            while (scenario.getState() != androidx.lifecycle.Lifecycle.State.DESTROYED &&
-                   System.nanoTime() < stopDeadline) Thread.sleep(100);
-            assertEquals("Shortcut re-entry task must finish cleanly",
-                androidx.lifecycle.Lifecycle.State.DESTROYED, scenario.getState());
+
         }
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(ExternalActionsPlugin.libraryIntent(context, scope.getString("library_id")))) {
             awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);

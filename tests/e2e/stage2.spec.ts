@@ -31,6 +31,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await addField('Готово', 'boolean');
   await addField('Дата', 'date');
   await openConstructor(page); await page.getByRole('button', { name: 'Форма', exact: true }).click();
+  await page.locator('.hybrid-field-palette').getByRole('button', { name: /^Остаток/ }).click();
   const formCount = page.getByRole('group', { name: 'Остаток', exact: true });
   await formCount.getByRole('checkbox', { name: 'Обязательное', exact: true }).check();
   await formCount.getByRole('checkbox', { name: 'Задать значение по умолчанию для формы' }).check();
@@ -45,6 +46,7 @@ test('mobile field builder, typed records, independent layouts, search and CSV r
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('.entry')).toContainText('Красный блокнот');
   await openConstructor(page); await page.getByRole('button', { name: 'Карточка', exact: true }).click();
+  await page.locator('.hybrid-field-palette').getByRole('button', { name: /^Описание/ }).click();
   await page
     .getByRole('group', { name: 'Описание', exact: true })
     .getByRole('checkbox', { name: 'Показывать' })

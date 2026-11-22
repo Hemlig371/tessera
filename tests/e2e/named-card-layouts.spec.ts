@@ -25,6 +25,7 @@ test('named record layouts are view-specific and leave shared record history unt
   await page.getByRole('button', { name: 'Создать копию макета', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Макет подробной записи', exact: true })).toHaveValue(/.+/);
   await page.getByRole('button', { name: 'Редактировать макет', exact: true }).click();
+  await page.locator('.hybrid-field-palette').getByRole('button', { name: /^Текст/ }).click();
   await page.getByRole('group', { name: 'Текст', exact: true }).getByRole('checkbox', { name: 'Показывать' }).uncheck();
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
   await page.locator('.named-card-editor > .form-actions').getByRole('button', { name: 'Сохранить настройку' }).click();

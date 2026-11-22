@@ -162,7 +162,7 @@ export function LayoutEditor({
                   </div>}
             </div>
           </div>
-          {kind !== 'list' && <details className="hybrid-structure"><summary>{t('hybridStructure')}</summary>
+          {kind !== 'list' && <details className="hybrid-structure" open><summary>{t('hybridStructure')}</summary>
             <LayoutRowsEditor rows={rows} fields={fields} busy={busy} change={setRows}/>
           </details>}
           <div className="hybrid-history">

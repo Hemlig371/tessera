@@ -42,6 +42,7 @@ test('visual rows preserve cells while resizing/reordering; forms adapt and reve
   await page.getByRole('button', { name: 'Добавить строку', exact: true }).click();
   await rows.last().getByRole('combobox', { name: 'Поле 1', exact: true }).selectOption(scope.body);
   await rows.last().getByRole('textbox', { name: 'Группа полей', exact: true }).fill('Текст');
+  await page.locator('.hybrid-field-palette').getByRole('button', { name: /^Текст/ }).click();
   await page.getByRole('group', { name: 'Текст', exact: true }).getByRole('checkbox', { name: 'Свернуть поле по умолчанию' }).check();
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);

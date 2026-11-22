@@ -53,7 +53,12 @@ test('mobile shared Trash filters libraries, restores, confirms purge, persists 
   await expect(page.getByRole('button', { name: 'Сохранить срок хранения', exact: true })).toBeDisabled();
   await expect(page.getByRole('combobox', { name: 'Срок хранения в корзине', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.keyboard.press('Escape'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await page.reload(); await trash(page);
   await expect(page.getByLabel('Срок хранения в корзине', { exact: true })).toHaveValue('forever');
   await expect(page.locator('[data-trash]')).toHaveAttribute('aria-busy', 'false');

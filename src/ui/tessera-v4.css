@@ -35,7 +35,7 @@
     --hybrid-divider:#37453a; --hybrid-hover:#293a2e;
   }
 }
-.tessera-v4 .hybrid-main { width:100%; }
+.tessera-v4 .hybrid-main { width:auto; flex:1 1 0%; min-width:0; }
 .tessera-v4 .topbar { background:var(--page); border-bottom:0; }
 .tessera-v4 .topbar-tools { flex-wrap:nowrap; }
 .tessera-v4 .topbar .icon-button { color:var(--text); }
@@ -670,9 +670,16 @@
   }
 }
 @media(min-width:761px) {
+  /* The main gutter and the topbar's negative margin must be symmetrical.
+     Previously 24px padding vs 3vw negative margin pushed the topbar
+     beyond the document at desktop widths, especially after fold resize. */
   .tessera-v4 .hybrid-main {
-    padding-left:max(24px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
-    padding-right:max(24px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    padding-left:max(clamp(24px,3vw,48px),var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    padding-right:max(clamp(24px,3vw,48px),var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+  }
+  .tessera-v4 .topbar {
+    margin-left:calc(-1 * max(clamp(24px,3vw,48px),var(--safe-area-inset-left, env(safe-area-inset-left, 0px))));
+    margin-right:calc(-1 * max(clamp(24px,3vw,48px),var(--safe-area-inset-right, env(safe-area-inset-right, 0px))));
   }
 }
 

@@ -1133,3 +1133,35 @@ button { min-height: var(--control-height); line-height: 1.35; overflow-wrap: an
   .catalog-cards .catalog-item > .ui-icon { position: static; }
   .catalog-cards .catalog-item strong { flex: 1; }
 }
+
+/* Hybrid UI phase 2: browse/list/detail hierarchy without changing record data. */
+.sidebar nav button[aria-current="page"],
+.sidebar > button[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 650;
+}
+.browse-screen > header { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+.browse-heading-title { min-width: 0; }
+.browse-heading-title h1 { font-size: clamp(1.45rem, 1.15rem + 1vw, 2rem); overflow-wrap: anywhere; }
+.browse-heading-title > small { color: var(--muted); }
+.catalog-item { box-shadow: 0 1px 2px var(--shadow); }
+.entry-scroll { background: var(--surface); }
+.entry:not(.table) .entry-values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.entry:not(.table) .entry-values > span { min-width: 0; }
+.entry:not(.table) .entry-primary { grid-column: 1 / -1; }
+.entry-date { margin-top: var(--space-1); }
+.detail .layout-cell { min-width: 0; }
+.detail .layout-cell > dl {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.detail .layout-cell > dl dt { margin-bottom: var(--space-1); }
+.detail .layout-cell > dl dd { margin: 0; min-width: 0; line-height: 1.55; }
+.detail .layout-cell > dl dd :is(pre, code) { max-width: 100%; overflow-wrap: anywhere; }
+.detail .layout-group { background: var(--raised); }
+@media (max-width: 760px) {
+  .browse-screen > header { gap: var(--space-3); }
+  .entry:not(.table) .entry-values { grid-template-columns: minmax(0, 1fr); }
+  .detail .layout-cell > dl { padding-bottom: var(--space-4); }
+}

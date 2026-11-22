@@ -22,8 +22,8 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   const scope = (await seeded.json()).value as { collection_id: string; first: string };
   const snapshot = async () => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql: "SELECT r.id,r.hlc,r.data,(SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log) AS changes FROM records r WHERE r.collection_id=? ORDER BY r.id", params: [scope.collection_id] } })).json()).value as unknown;
   const before = await snapshot();
-  await page.reload(); await page.getByRole('button', { name: 'База знаний (dev/CI)', exact: true }).click();
-  await page.getByRole('button', { name: 'Материалы', exact: true }).click();
+  await page.reload(); await page.getByRole('button', { name: 'Открыть библиотеку «База знаний (dev/CI)»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Материалы»', exact: true }).click();
   const searched = page.waitForResponse(response => {
     if (!response.url().endsWith('/__test-sqlite')) return false;
     const request = response.request().postDataJSON() as { sql?: string } | null;

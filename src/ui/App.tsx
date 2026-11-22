@@ -435,7 +435,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [api, t]);
   useEffect(() => {
     let active = true;
     if (ui.libraryId)

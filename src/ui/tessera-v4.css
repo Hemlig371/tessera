@@ -300,3 +300,13 @@
   .tessera-v4[data-workspace="records"] .hybrid-browse { padding-bottom:88px; }
   .tessera-v4[data-workspace="records"]:has(input:focus,textarea:focus) .create-button { visibility:hidden; }
 }
+
+/* Optional image headers are content, not a universal sample wallpaper. */
+.tessera-v4 .tessera-record-cover {
+  display:block; width:100%; max-height:clamp(180px,27vw,340px);
+  aspect-ratio:16 / 5; object-fit:cover; border-radius:18px;
+  margin:0 0 22px; border:1px solid var(--border);
+}
+@media(max-width:760px) {
+  .tessera-v4 .tessera-record-cover { aspect-ratio:16 / 6; max-height:240px; border-radius:15px; }
+}

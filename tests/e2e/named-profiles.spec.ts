@@ -25,6 +25,7 @@ test('mobile profiles keep common records, independent layouts and a persistent 
   await page.getByRole('combobox', { name: 'Отображение', exact: true }).selectOption('table');
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await finishConstructor(page);
   await selector.selectOption({ label: 'Все' }); await expect(page.locator('.entry')).toHaveCount(2);
   await expect(page.locator('.entry').first()).toContainText('Длинный текст первой заметки');
   await openConstructor(page); await page.getByRole('button', { name: 'Представления', exact: true }).click();

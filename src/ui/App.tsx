@@ -1366,16 +1366,39 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
-          {ui.editor === 'settings' && <section className="global-settings" aria-label={t('globalSettings')}>
+          {ui.editor === 'settings' && <section className="global-settings hybrid-settings-hub" aria-label={t('globalSettings')}>
             <p className="screen-hint">{t('globalSettingsHint')}</p>
-            <div className="global-settings-links">
-              <button disabled={busy || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span>{t('deviceAppearance')}</span><Icon name="arrow" /></button>
-              {nativeMailSyncSupported() && <button disabled={busy} onClick={() => open('mail-sync')}><Icon name="inbox" /><span>{t('mailSyncTitle')}</span><Icon name="arrow" /></button>}
-              {openArchive && <button disabled={busy} onClick={openArchive}><Icon name="archive" /><span>{t('databaseArchive')}</span><Icon name="arrow" /></button>}
-              <button disabled={busy} onClick={() => open('file-settings')}><Icon name="archive" /><span>{t('fileSettings')}</span><Icon name="arrow" /></button>
-              <button disabled={busy} onClick={() => open('large-attachments')}><Icon name="archive" /><span>{t('largeAttachmentsTitle')}</span><Icon name="arrow" /></button>
-              <button disabled={busy} onClick={() => open('diagnostics')}><Icon name="tools" /><span>{t('diagnosticsTitle')}</span><Icon name="arrow" /></button>
-            </div>
+            <section className="hybrid-settings-group">
+              <h2>{t('hybridSettingsSync')}</h2>
+              <p>{t('hybridSettingsSyncHint')}</p>
+              <div className="global-settings-links">
+                {nativeMailSyncSupported() && <button className="hybrid-settings-feature" disabled={busy} onClick={() => open('mail-sync')}>
+                  <Icon name="inbox" /><span><strong>{t('mailSyncTitle')}</strong><small>{t('hybridSettingsSyncDescription')}</small></span><Icon name="arrow" />
+                </button>}
+                {!nativeMailSyncSupported() && <p className="screen-hint">{t('hybridSettingsNativeOnly')}</p>}
+              </div>
+            </section>
+            <section className="hybrid-settings-group">
+              <h2>{t('hybridSettingsAppearance')}</h2>
+              <div className="global-settings-links">
+                <button disabled={busy || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span>{t('deviceAppearance')}</span><Icon name="arrow" /></button>
+              </div>
+              <label className="hybrid-settings-language">{t('language')}
+                <select value={i18n.language} onChange={event => { void i18n.changeLanguage(event.target.value); }}>
+                  <option value="ru">{t('languageRussian')}</option><option value="en">{t('languageEnglish')}</option>
+                </select>
+              </label>
+            </section>
+            <section className="hybrid-settings-group">
+              <h2>{t('hybridSettingsStorage')}</h2>
+              <div className="global-settings-links">
+                {openArchive && <button disabled={busy} onClick={openArchive}><Icon name="archive" /><span>{t('databaseArchive')}</span><Icon name="arrow" /></button>}
+                <button disabled={busy} onClick={() => open('file-settings')}><Icon name="archive" /><span>{t('fileSettings')}</span><Icon name="arrow" /></button>
+                <button disabled={busy} onClick={() => open('large-attachments')}><Icon name="archive" /><span>{t('largeAttachmentsTitle')}</span><Icon name="arrow" /></button>
+                <button disabled={busy} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span>{t('trash')}</span><Icon name="arrow" /></button>
+                <button disabled={busy} onClick={() => open('diagnostics')}><Icon name="tools" /><span>{t('diagnosticsTitle')}</span><Icon name="arrow" /></button>
+              </div>
+            </section>
           </section>}
           {ui.editor === 'mail-sync' && <AndroidMailSyncSettings api={api} cancel={close} />}
           {ui.editor === 'diagnostics' && <DiagnosticsPanel api={api} busy={busy} />}

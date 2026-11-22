@@ -126,3 +126,29 @@
   .hybrid-shell .catalog-cards .catalog-item > .ui-icon { position:static; margin-left:auto; }
 }
 @media(prefers-reduced-motion:reduce){.hybrid-shell .catalog-item{transition:none;}}
+
+/* Hybrid settings: task-oriented sections instead of one undifferentiated tool list. */
+.hybrid-settings-hub { max-width:900px; }
+.hybrid-settings-hub > .screen-hint { margin:0 0 24px; max-width:65ch; }
+.hybrid-settings-group { margin:0 0 32px; }
+.hybrid-settings-group h2 { margin:0 0 7px; font-size:1.02rem; font-weight:690; letter-spacing:-.02em; }
+.hybrid-settings-group > p { margin:0 0 13px; color:var(--muted); font-size:.86rem; }
+.hybrid-settings-hub .global-settings-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.hybrid-settings-hub .global-settings-links button { min-height:72px; padding:16px; border-radius:12px; }
+.hybrid-settings-hub .global-settings-links button .ui-icon:first-child { color:var(--accent); }
+.hybrid-settings-hub .global-settings-links .hybrid-settings-feature { grid-column:1/-1; min-height:96px; background:var(--accent-soft); border-color:color-mix(in srgb,var(--accent) 23%,var(--border)); }
+.hybrid-settings-feature span { display:grid; gap:4px; }
+.hybrid-settings-feature strong { font-size:1rem; }
+.hybrid-settings-feature small { font-size:.8rem; color:var(--muted); }
+.hybrid-settings-language { display:flex; gap:16px; align-items:center; justify-content:space-between; border:1px solid var(--hybrid-divider); border-radius:12px; background:var(--surface); padding:10px 16px; margin-top:10px; }
+.hybrid-settings-language select { width:auto; max-width:210px; }
+@media(max-width:760px){
+  .hybrid-shell .topbar-tools .language,
+  .hybrid-shell .topbar-tools .icon-button[title="Корзина"],
+  .hybrid-shell .topbar-tools .icon-button[title="Trash"],
+  .hybrid-shell .topbar-tools .icon-button[data-testid="database-archive-open"],
+  .hybrid-shell .topbar-tools .icon-button[title="Оформление"],
+  .hybrid-shell .topbar-tools .icon-button[title="Appearance"] { display:none; }
+  .hybrid-settings-hub .global-settings-links { grid-template-columns:minmax(0,1fr); }
+  .hybrid-settings-hub .global-settings-links .hybrid-settings-feature { grid-column:auto; }
+}

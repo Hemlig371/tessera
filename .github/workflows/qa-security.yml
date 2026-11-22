@@ -1,0 +1,102 @@
+name: Compare Tessera Windows installer security
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare-windows:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[qa security]')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve the same-commit Windows installers from successful Actions
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force work | Out-Null
+          foreach ($item in @(@{ name='qa'; id=14751644293 }, @{ name='regular'; id=14750402688 })) {
+            $zip = "work/$($item.name).zip"
+            $url = "https://api.github.com/repos/Hemlig371/tessera/actions/artifacts/$($item.id)/zip"
+            Invoke-WebRequest -Uri $url -Headers @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = 'application/vnd.github+json'
+              'X-GitHub-Api-Version' = '2022-11-28'
+            } -OutFile $zip
+            $dir = "work/$($item.name)"
+            Expand-Archive -Path $zip -DestinationPath $dir -Force
+            $executables = @(Get-ChildItem -Path $dir -Recurse -File -Filter '*.exe')
+            if ($executables.Count -ne 1) { throw "Expected exactly one EXE in $dir; found $($executables.Count)" }
+            Copy-Item $executables[0].FullName "work/$($item.name).exe"
+          }
+      - name: Compare hashes, digital signatures and PE metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($kind in @('qa','regular')) {
+            $file = "work/$kind.exe"
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash
+            $signature = Get-AuthenticodeSignature $file
+            $version = (Get-Item $file).VersionInfo
+            @(
+              "$kind SHA256: $hash"
+              "$kind Length: $((Get-Item $file).Length)"
+              "$kind Authenticode status: $($signature.Status)"
+              "$kind Signer: $($signature.SignerCertificate.Subject)"
+              "$kind Product: $($version.ProductName)"
+              "$kind Company: $($version.CompanyName)"
+              "$kind Description: $($version.FileDescription)"
+              ''
+            ) | Add-Content work/security-report.txt
+          }
+          Get-Content work/security-report.txt
+      - name: Microsoft Defender on the exact Windows installers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try {
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            "Defender AntivirusEnabled: $($status.AntivirusEnabled)" | Add-Content work/security-report.txt
+            "Defender AMServiceEnabled: $($status.AMServiceEnabled)" | Add-Content work/security-report.txt
+            "Defender signatures updated: $($status.AntivirusSignatureLastUpdated)" | Add-Content work/security-report.txt
+            if (-not $status.AntivirusEnabled -or -not $status.AMServiceEnabled) {
+              'Defender scan unavailable on runner; no clean verdict is claimed.' | Add-Content work/security-report.txt
+              exit 0
+            }
+            try { Update-MpSignature -ErrorAction Stop }
+            catch { "Defender signature refresh failed: $($_.Exception.Message)" | Add-Content work/security-report.txt }
+            foreach ($kind in @('qa','regular')) {
+              $path = (Resolve-Path "work/$kind.exe").Path
+              try {
+                Start-MpScan -ScanType CustomScan -ScanPath $path -ErrorAction Stop
+                "$kind Defender custom scan command completed." | Add-Content work/security-report.txt
+              } catch {
+                "$kind Defender scan error: $($_.Exception.Message)" | Add-Content work/security-report.txt
+                throw
+              }
+            }
+            $detections = @(Get-MpThreatDetection -ErrorAction SilentlyContinue | Where-Object {
+              $_.Resources -match 'work[\\/](qa|regular)\.exe'
+            })
+            "Matching Defender detections: $($detections.Count)" | Add-Content work/security-report.txt
+            if ($detections.Count) {
+              $detections | Format-List ThreatID, Resources, InitialDetectionTime | Out-String | Add-Content work/security-report.txt
+              throw 'Microsoft Defender detected a Windows installer'
+            }
+          } finally {
+            Get-Content work/security-report.txt
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tessera-windows-qa-security-comparison
+          path: work/security-report.txt
+          if-no-files-found: warn
+          retention-days: 14

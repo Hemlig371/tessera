@@ -1316,9 +1316,16 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         </section>
         {selected && context && !ui.editor && (
           <section className="detail hybrid-record-detail" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
-            <div className="dialog-heading">
+            <div className="tessera-record-topline">
+              <button className="icon-button tessera-record-back" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
+                <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
+              </button>
+              <span className="tessera-record-location">{context.collection.name}</span>
+            </div>
+            {context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0) && <RecordCover api={api} ownerId={selected.id} id={fileIds(selected.data[context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0)!.id])[0]!} />}
+            <header className="dialog-heading">
               <div>
-                <span className="hybrid-eyebrow">{context.collection.name}</span>
+
                 {!!trail.length && (
                   <button
                     disabled={busy}
@@ -1334,11 +1341,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
                 <p className="hybrid-record-meta">{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(selected.updated_at))}</p>
               </div>
-              <button className="icon-button tessera-record-back" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
-                <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
-              </button>
-            </div>
-            {context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0) && <RecordCover api={api} ownerId={selected.id} id={fileIds(selected.data[context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0)!.id])[0]!} />}
+            </header>
             <LayoutRowsView definition={resolveCardLayout(context.layouts.card,
               ui.scope === 'collection' && trail.length === 0 && collection?.id === context.collection.id && selected.collection_id === context.collection.id
                 ? (profiles.find(profile => profile.id === activeProfileId) ? (JSON.parse(profiles.find(profile => profile.id === activeProfileId)!.config) as UiDefinition).detail_layout_id : undefined)
@@ -1379,7 +1382,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               <button className="tessera-record-edit" disabled={busy} onClick={() => open('entry', selected.id)}><Icon name="edit" />
                 {t('edit')}
               </button>
-              <button className="tessera-record-secondary" disabled={busy} onClick={() => open('history', selected.id)}>{t('recordHistory')}</button>
+              <button className="tessera-record-secondary tessera-history-button" aria-label={t('recordHistory')} disabled={busy} onClick={() => open('history', selected.id)}><Icon name="clock" /><span>{t('recordHistory')}</span></button>
               <button className="danger tessera-record-secondary" disabled={busy} onClick={() => remove('record', selected.id)}>
                 {t('delete')}
               </button>

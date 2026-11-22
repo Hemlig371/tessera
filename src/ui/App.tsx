@@ -26,6 +26,7 @@ import { androidDeviceLock, confirmDeviceIdentity, deviceAuthAvailable } from '.
 import { ExternalCalendarActions } from './ExternalCalendarActions';
 import { AttachmentList } from './AttachmentList';
 import { AttachmentThumbnail } from './AttachmentThumbnail';
+import { RecordCover } from './RecordCover';
 import { fileIds, isFile } from '../core/attachments';
 import { Trash } from './Trash';
 import { RecordHistory } from './RecordHistory';
@@ -1333,6 +1334,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
             </div>
+            {context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0) && <RecordCover api={api} ownerId={selected.id} id={fileIds(selected.data[context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0)!.id])[0]!} />}
             <LayoutRowsView definition={resolveCardLayout(context.layouts.card,
               ui.scope === 'collection' && trail.length === 0 && collection?.id === context.collection.id && selected.collection_id === context.collection.id
                 ? (profiles.find(profile => profile.id === activeProfileId) ? (JSON.parse(profiles.find(profile => profile.id === activeProfileId)!.config) as UiDefinition).detail_layout_id : undefined)

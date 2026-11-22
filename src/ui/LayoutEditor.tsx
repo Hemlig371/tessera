@@ -7,7 +7,7 @@ import { LayoutRowsView } from './LayoutRowsView';
 import { HybridPreviewField } from './HybridPreviewField';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { EntryFilter, Field, LayoutItem, LayoutRow, ListOptions, UiDefinition, UiKind } from '../core/model';
+import type { EntryFilter, Field, LayoutItem, LayoutRow, ListOptions, RecordData, UiDefinition, UiKind } from '../core/model';
 import { layoutItems, layoutRows } from '../core/ui-definition';
 import type { Repository } from '../core/repository';
 import { RelationInput } from './RelationInput';
@@ -47,6 +47,17 @@ export function LayoutEditor({
   const [selectedId, selectField] = useState<string>(fields[0]?.id ?? '');
   const [viewport, setViewport] = useState<'phone' | 'tablet' | 'desktop'>('desktop');
   const [previewDark, setPreviewDark] = useState(false);
+  const [previewRecord, setPreviewRecord] = useState<RecordData | null>(null);
+  const [useRecordPreview, setUseRecordPreview] = useState(false);
+  const collectionId = fields[0]?.collection_id;
+  useEffect(() => {
+    if (!collectionId) return;
+    let active = true;
+    void api.listEntries(collectionId, undefined, 1).then(result => {
+      if (active) setPreviewRecord(result.items[0]?.data ?? null);
+    }).catch(() => { /* Demonstration values remain available offline on read failure. */ });
+    return () => { active = false; };
+  }, [api, collectionId]);
   const [showOptions, setShowOptions] = useState(false);
   type Snapshot = { items: LayoutItem[]; rows: LayoutRow[]; list: ListOptions; actions: QuickActionDefinition[]; totals: SummaryMeasure[] };
   const history = useRef<{ past: Snapshot[]; future: Snapshot[]; current: Snapshot }>({
@@ -92,6 +103,16 @@ export function LayoutEditor({
   }, [changed, onDirtyChange]);
   const previewValue = (field: Field) => {
     if (field.type === 'secret') return '••••••';
+    if (useRecordPreview && previewRecord) {
+      const value = previewRecord[field.id];
+      if (value == null || value === '') return '—';
+      if (field.type === 'relation' || field.type === 'backlink') return t('hybridPreviewRelation');
+      if (field.type === 'file' || field.type === 'image') return t('hybridPreviewAttachment');
+      if (typeof value === 'boolean') return value ? t('hybridPreviewBoolean') : t('hybridPreviewNo');
+      if (typeof value === 'string' || typeof value === 'number') return String(value).slice(0, 180);
+      if (Array.isArray(value)) return t('hybridPreviewItems', { count: value.length });
+      return JSON.stringify(value).slice(0, 180);
+    }
     if (field.type === 'boolean') return t('hybridPreviewBoolean');
     if (field.type === 'markdown' || field.type === 'multiline') return t('hybridPreviewParagraph');
     if (['integer', 'decimal', 'money', 'formula', 'aggregate'].includes(field.type)) return '128';
@@ -166,10 +187,13 @@ export function LayoutEditor({
                 aria-pressed={viewport === size} onClick={() => setViewport(size)}>{t(`hybridViewport_${size}`)}</button>)}
             </div>
             <label className="hybrid-theme-toggle"><input type="checkbox" checked={previewDark} onChange={event => setPreviewDark(event.target.checked)}/>{t('hybridDarkPreview')}</label>
+            <label className="hybrid-theme-toggle"><input type="checkbox" checked={useRecordPreview} disabled={!previewRecord}
+              onChange={event => setUseRecordPreview(event.target.checked)}/>{t('hybridRealRecord')}</label>
           </div>
           <div className="hybrid-preview-stage" data-preview-theme={previewDark ? 'dark' : 'light'}>
             <div className={`hybrid-preview-frame hybrid-preview-${viewport}`}>
-              <div className="hybrid-record-banner"><small>{t('hybridSampleRecord')}</small><strong>{fields[0]?.name ?? t('brand')}</strong><span>{t('hybridRecordSubtitle')}</span></div>
+              <div className="hybrid-record-banner"><small>{t('hybridSampleRecord')}</small><strong>{useRecordPreview && previewRecord && typeof previewRecord[fields[0]?.id ?? ''] === 'string'
+                  ? String(previewRecord[fields[0]!.id]) : fields[0]?.name ?? t('brand')}</strong><span>{t('hybridRecordSubtitle')}</span></div>
               {kind !== 'list'
                 ? <LayoutRowsView definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
                     render={item => {

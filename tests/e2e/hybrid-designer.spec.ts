@@ -25,6 +25,9 @@ test('Hybrid canvas previews changes and undo/redo without writing records', asy
   await expect(page.locator('.hybrid-palette')).toBeVisible();
   await expect(page.locator('.hybrid-canvas-column')).toBeVisible();
   await expect(page.locator('.hybrid-inspector')).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Данные существующей записи' }).check();
+  await expect(page.locator('.hybrid-record-banner')).toContainText('Компоновка исходная');
+  await page.getByRole('checkbox', { name: 'Данные существующей записи' }).uncheck();
   await page.getByRole('button', { name: 'Телефон', exact: true }).click();
   await expect(page.locator('.hybrid-preview-phone')).toBeVisible();
   await page.getByRole('button', { name: 'Планшет', exact: true }).click();

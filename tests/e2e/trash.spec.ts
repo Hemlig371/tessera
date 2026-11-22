@@ -13,7 +13,10 @@ async function openRecord(page: Page, scope: Scope) {
 async function trash(page: Page) {
   await page.getByRole('button', { name: 'Корзина', exact: true }).click();
   await expect(page.locator('[data-trash]')).toBeVisible();
-  await expect(page.getByText('Загружаем корзину…', { exact: true })).toHaveCount(0);
+  // A transient zero count is not enough: cleanTrash()/revision can start another
+  // read immediately after opening the editor. Wait for actual settled data.
+  await expect(page.locator('[data-trash]')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByRole('button', { name: 'Назад', exact: true })).toBeEnabled();
 }
 async function rows(page: Page, sql: string) {
   const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql } });
@@ -52,7 +55,11 @@ test('mobile shared Trash filters libraries, restores, confirms purge, persists 
   await page.keyboard.press('Escape'); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await page.reload(); await trash(page);
   await expect(page.getByLabel('Срок хранения в корзине', { exact: true })).toHaveValue('forever');
-  await page.keyboard.press('Escape'); await openRecord(page, first);
+  await expect(page.locator('[data-trash]')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByRole('button', { name: 'Назад', exact: true })).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  await openRecord(page, first);
   await expect(page.locator('.detail #record-title')).toHaveText('Вторая редакция');
 });
 

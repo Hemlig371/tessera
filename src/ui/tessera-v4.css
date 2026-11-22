@@ -350,3 +350,17 @@
   border-radius:17px; border-color:var(--border); background:var(--surface);
   min-height:64px; padding:12px 16px;
 }
+
+/* Settings remain reachable in every collection/record context. On the
+   library home they live in the approved bottom navigation instead. */
+@media(max-width:760px) {
+  .tessera-v4:not([data-workspace="libraries"]) .topbar .tessera-settings-button {
+    display:inline-flex;
+  }
+  .tessera-v4 .topbar .tessera-settings-button {
+    flex:0 0 44px; align-items:center; justify-content:center;
+    width:44px; min-height:44px;
+  }
+  .tessera-v4 .tessera-mobile-brand { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .tessera-v4 .topbar .tessera-mobile-brand { margin-right:auto; }
+}

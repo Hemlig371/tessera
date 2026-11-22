@@ -1152,6 +1152,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </label>
           </div>
         )}
+        <div className="tessera-data-workspace" hidden={ui.constructorOpen} inert={ui.constructorOpen}>
         {activeDateSelection && <p className="screen-hint" role="status">
           {t('dateSelection.active', { field: fields.find(field => field.id === activeDateSelection.field_id)?.name ?? '', period: t(`dateSelection.${activeDateSelection.period}`) })}
           {activeDateRange?.period === 'range' && ` · ${activeDateRange.start}${activeDateRange.start === activeDateRange.end ? '' : ` — ${activeDateRange.end}`}`}
@@ -1306,6 +1307,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </>}
           </>
         )}
+        </div>
         </section>
         {selected && context && !ui.editor && (
           <section className="detail hybrid-record-detail" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>

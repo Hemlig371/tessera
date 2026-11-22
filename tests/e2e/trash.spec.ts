@@ -1,3 +1,4 @@
+import { openApplicationAction, goToLibraries } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 import { nextHlc } from '../../src/core/hlc';
 type Scope = { library_id: string; library_name: string; record_id: string; collection_id: string };
@@ -11,7 +12,7 @@ async function openRecord(page: Page, scope: Scope) {
   await page.locator('.entry').filter({ hasText: 'Вторая редакция' }).click();
 }
 async function trash(page: Page) {
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await openApplicationAction(page, 'Настройки');
   await page.getByRole('button', { name: 'Корзина', exact: true }).click();
   await expect(page.locator('[data-trash]')).toBeVisible();
   // A transient zero count is not enough: cleanTrash()/revision can start another
@@ -30,7 +31,7 @@ test('mobile shared Trash filters libraries, restores, confirms purge, persists 
   for (const scope of [first, second]) {
     await openRecord(page, scope); await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click();
     await expect(page.locator('.detail')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+    await goToLibraries(page);
   }
   const before = await rows(page, 'SELECT count(*) AS n FROM record_versions');
   await trash(page);

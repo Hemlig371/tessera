@@ -748,7 +748,7 @@
   "globalSearchLocked": "Global search is unavailable while any library is locked on this device. Open the intended library directly.",
   "mailSyncTitle": "Email synchronization",
   "mailSyncHint": "Optional sync. Mail providers can see addresses, sizes and timings but not content. Use a dedicated TLS mailbox. Database archive transfer is manual.",
-  "mailSyncModeNever": "Not configured",
+  "mailSyncModeNever": "Off; data only on this device",
   "mailSyncModeActive": "Enabled",
   "mailSyncModePaused": "Paused",
   "mailSyncModeDetached": "Independent device",

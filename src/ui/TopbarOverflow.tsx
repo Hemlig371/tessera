@@ -52,7 +52,7 @@ export function TopbarOverflow({ actions, registerClose }: {
     </button>
     {open && <div className="tessera-overflow-popover" role="menu" aria-label={t('moreActions')}>
       {actions.map(action => <button type="button" role="menuitem" key={action.id}
-        disabled={action.disabled} aria-pressed={action.pressed}
+        disabled={action.disabled} aria-current={action.pressed ? 'true' : undefined}
         onClick={() => { setOpen(false); action.run(); }}>
         <span className="tessera-overflow-action-icon" aria-hidden="true">{action.icon}</span>
         <span>{action.label}</span>

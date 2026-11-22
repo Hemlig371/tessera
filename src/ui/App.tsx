@@ -1327,6 +1327,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
               <span className="tessera-record-location">{context.collection.name}</span>
+              <div className="tessera-record-utilities">
+                <button className="icon-button" aria-label={t('globalSearch')} title={t('globalSearch')} disabled={disabled} onClick={() => openGlobalSearch()}><Icon name="search" /></button>
+                <button className="icon-button" aria-label={t('globalSettings')} title={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
+              </div>
             </div>
             {context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0) && <RecordCover api={api} ownerId={selected.id} id={fileIds(selected.data[context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0)!.id])[0]!} />}
             <header className="dialog-heading">

@@ -1,4 +1,4 @@
-import { showList } from '../support/ui-actions';
+import { showList, openApplicationAction } from '../support/ui-actions';
 import { expect, test } from '../support/e2e-test';
 
 test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and reopen', async ({ page }) => {
@@ -37,7 +37,7 @@ test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await showList(page);
-  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await openApplicationAction(page, 'Настройки');
   await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
   await page.locator('[data-editor] .editor-heading button').click();
   await expect(page.getByRole('button', { name: '+ New entry', exact: true })).toBeVisible();

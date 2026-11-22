@@ -7,7 +7,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Связи');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   async function navigate(name: string) {
@@ -15,7 +15,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
     await page.getByRole('button', { name: `Открыть библиотеку «${name}»`, exact: true }).click();
   }
   async function newCollection(name: string) {
-    await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+    await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
     await page.getByRole('textbox', { name: 'Название коллекции' }).fill(name);
     await page.getByRole('button', { name: 'Создать', exact: true }).click();
   }

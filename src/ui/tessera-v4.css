@@ -797,3 +797,14 @@
     margin-top:10px;
   }
 }
+
+/* Approved tessellated four-cell Tessera mark, rather than the old diamond. */
+.tessera-v4 .brand-mark,
+.tessera-v4 .tessera-mobile-mark {
+  background:transparent; color:#439669; box-shadow:none;
+}
+.tessera-v4 .brand-mark .ui-icon,
+.tessera-v4 .tessera-mobile-mark .ui-icon {
+  fill:currentColor; stroke:none;
+  width:31px; height:31px;
+}

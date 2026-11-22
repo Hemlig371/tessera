@@ -9,9 +9,8 @@ test('safe Markdown capture, preview, configured move and editing retain the exa
   const seed = await page.request.post('/__test-sqlite', { data: { op: 'markdown-seed' } }); expect(seed.ok(), await seed.text()).toBe(true);
   const scope = (await seed.json()).value as { collection_id: string; primary_field_id: string; body_field_id: string };
   const navigate = async () => {
-    await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-    await page.getByRole('button', { name: 'Заметки: Markdown (dev/CI)', exact: true }).click();
-    await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: Markdown (dev/CI)»', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   };
   await page.reload(); await navigate();
   await openConstructor(page); await page.getByRole('button', { name: 'Настройки коллекции', exact: true }).click();

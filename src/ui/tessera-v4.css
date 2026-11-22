@@ -808,3 +808,9 @@
   fill:currentColor; stroke:none;
   width:31px; height:31px;
 }
+
+/* The builder already provides an explicit Finish action in its own header.
+   Do not repeat that button in the desktop sidebar while the builder is open. */
+.tessera-v4[data-workspace="constructor"] .sidebar .tessera-constructor-link {
+  display:none;
+}

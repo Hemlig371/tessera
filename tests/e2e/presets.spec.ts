@@ -1,19 +1,18 @@
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, expectInboxCaptureReachable } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('creation choices, quick/standard presets and defaults respect one shared creation draft', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
-  await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible();
+  await expectInboxCaptureReachable(page);
   const request = async (data: object) => {
     const response = await page.request.post('/__test-sqlite', { data }); expect(response.ok(), await response.text()).toBe(true); return (await response.json()).value as unknown;
   };
   const scope = await request({ op: 'presets-seed' }) as { library_id: string; collection_id: string; preset_id: string };
   const records = () => request({ op: 'query', sql: 'SELECT * FROM records WHERE collection_id=?', params: [scope.collection_id] });
   const navigate = async () => {
-    await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-    await page.getByRole('button', { name: 'Проекты и задачи (dev/CI)', exact: true }).click();
-    await page.getByRole('button', { name: 'Задачи', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Проекты и задачи (dev/CI)»', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть коллекцию «Задачи»', exact: true }).click();
   };
   await page.reload(); await navigate();
   const primary = page.getByRole('button', { name: '+ Новая запись', exact: true });

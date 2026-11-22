@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Field, LayoutRow } from '../core/model';
 
@@ -9,6 +9,46 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
   const [targetCell, setTargetCell] = useState<string | null>(null);
+  const pointer = useRef<{ kind: 'row' | 'field'; value: string; startX: number; startY: number; moved: boolean } | null>(null);
+  function beginPointer(event: PointerEvent<HTMLButtonElement>, kind: 'row' | 'field', value: string) {
+    if (busy || event.button !== 0) return;
+    pointer.current = { kind, value, startX: event.clientX, startY: event.clientY, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function pointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const active = pointer.current;
+    if (!active || busy) return;
+    if (Math.abs(event.clientX - active.startX) + Math.abs(event.clientY - active.startY) < 10 && !active.moved) return;
+    active.moved = true;
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    if (active.kind === 'row') {
+      setTargetId(element?.closest<HTMLElement>('[data-row-id]')?.dataset.rowId ?? null);
+    } else {
+      const target = element?.closest<HTMLElement>('[data-layout-target]');
+      setTargetCell(target?.dataset.layoutTarget ?? null);
+    }
+  }
+  function endPointer(event: PointerEvent<HTMLButtonElement>) {
+    const active = pointer.current;
+    pointer.current = null;
+    if (!active || !active.moved || busy) { setTargetId(null); setTargetCell(null); return; }
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    if (active.kind === 'row') {
+      const to = rows.findIndex(row => row.id === element?.closest<HTMLElement>('[data-row-id]')?.dataset.rowId);
+      const from = rows.findIndex(row => row.id === active.value);
+      if (from >= 0 && to >= 0 && from !== to) move(from, to - from);
+    } else {
+      const target = element?.closest<HTMLElement>('[data-layout-target]')?.getAttribute('data-layout-target');
+      if (target) {
+        const separator = target.lastIndexOf(':');
+        const rowId = target.slice(0, separator), slot = Number(target.slice(separator + 1));
+        const to = rows.findIndex(row => row.id === rowId);
+        if (to >= 0 && Number.isInteger(slot) && slot >= 0 && fields.some(field => field.id === active.value)) assign(to, slot, active.value);
+      }
+    }
+    setTargetId(null);
+    setTargetCell(null);
+  }
   function columns(index: number, count: LayoutRow['columns']) {
     const current = rows[index]!, chunks: LayoutRow[] = [];
     for (let offset = 0; offset < Math.max(current.field_ids.length, 1); offset += count)
@@ -45,6 +85,8 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
       <div className="row-designer-tools">
         <button type="button" className="row-drag-handle" draggable={!busy} disabled={busy} title={t('dragLayoutRow')}
           aria-label={t('dragLayoutRow')}
+          onPointerDown={event => beginPointer(event, 'row', row.id)}
+          onPointerMove={pointerMove} onPointerUp={endPointer} onPointerCancel={() => { pointer.current = null; setTargetId(null); }}
           onDragStart={event => { setDraggedId(row.id); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', row.id); }}
           onDragEnd={() => { setDraggedId(null); setTargetId(null); }}>⠿</button>
         <label>{t('columnCount')}<select value={row.columns} onChange={event => columns(index, Number(event.target.value) as LayoutRow['columns'])}>
@@ -57,6 +99,7 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
       </div>
       <div className="layout-row row-designer-cells" style={{ '--layout-columns': row.columns } as CSSProperties}>
         {Array.from({ length: Math.min(row.columns, row.field_ids.length + 1) }, (_, slot) => <div key={slot}
+          data-layout-target={row.id + ':' + slot}
           className={'row-designer-cell' + (targetCell === row.id + ':' + slot ? ' drop-target' : '')}
           onDragOver={event => {
             if (!busy && event.dataTransfer.types.includes('application/x-tessera-field')) {
@@ -82,6 +125,8 @@ export function LayoutRowsEditor({ rows, fields, busy, change }: {
           {row.field_ids[slot] && <button type="button" className="field-drag-handle" disabled={busy}
             draggable={!busy} aria-label={t('dragLayoutField', { name: fields.find(field => field.id === row.field_ids[slot])?.name ?? '' })}
             title={t('dragLayoutField', { name: fields.find(field => field.id === row.field_ids[slot])?.name ?? '' })}
+            onPointerDown={event => beginPointer(event, 'field', row.field_ids[slot]!)}
+            onPointerMove={pointerMove} onPointerUp={endPointer} onPointerCancel={() => { pointer.current = null; setTargetCell(null); }}
             onDragStart={event => {
               event.stopPropagation(); event.dataTransfer.effectAllowed = 'move';
               event.dataTransfer.setData('application/x-tessera-field', row.field_ids[slot]!);

@@ -6,12 +6,29 @@ export async function showList(page: Page) {
   const back = page.getByRole('button', { name: /^(К списку|Back to list)$/ });
   if (await back.isVisible()) await back.click();
 }
+/** Find a visible action, or use the approved compact topbar menu on phones. */
+export async function openApplicationAction(page: Page, label: string) {
+  const direct = page.getByRole('button', { name: label, exact: true });
+  if (await direct.isVisible()) { await direct.click(); return; }
+  const more = page.getByRole('button', { name: 'Ещё', exact: true });
+  await expect(more).toBeVisible();
+  await more.click();
+  await page.getByRole('menuitem', { name: label, exact: true }).click();
+}
+export async function goToLibraries(page: Page) {
+  const direct = page.getByRole('button', { name: 'Все библиотеки', exact: true });
+  if (await direct.isVisible()) { await direct.click(); return; }
+  const back = page.getByRole('button', { name: 'К списку', exact: true });
+  if (await back.isVisible()) await back.click();
+  await page.getByRole('button', { name: 'Навигация', exact: true }).click();
+  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
+}
 export async function openConstructor(page: Page) {
   await showList(page);
-  const button = page.getByRole('button', { name: 'Конструктор', exact: true });
-  await expect(button).toBeEnabled();
-  if (await button.getAttribute('aria-pressed') !== 'true') await button.click();
-  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  const toggle = page.locator('#constructor-toggle');
+  await expect(toggle).toHaveAttribute('aria-pressed', /^(true|false)$/);
+  if (await toggle.getAttribute('aria-pressed') !== 'true') await openApplicationAction(page, 'Конструктор');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 }
 export async function openQuickCreation(page: Page) {
   await showList(page);

@@ -39,7 +39,7 @@ export async function openQuickCreation(page: Page) {
 export async function captureToInbox(page: Page, language: 'ru' | 'en' = 'ru') {
   await openApplicationAction(page, language === 'ru' ? '+ Во входящие' : '+ Capture to inbox');
 }
-export async function expectInboxCaptureReachable(page: Page, language: 'ru' | 'en' = 'ru') {
+export async function expectInboxCaptureReachable(page: Page, language: string = 'ru') {
   const label = language === 'ru' ? '+ Во входящие' : '+ Capture to inbox';
   const direct = page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
   if (await direct.isVisible()) { await expect(direct).toBeInViewport(); return; }

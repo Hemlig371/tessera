@@ -34,6 +34,8 @@
   "hybridUnsaved": "Unsaved layout changes",
   "hybridNoChanges": "No changes",
   "hybridDiscardWarning": "Discard unsaved layout changes?",
+  "hybridSidebarLibraries": "Go to library catalog",
+  "hybridSidebarSettings": "Open settings from navigation",
   "hybridWorkspace": "Workspace",
   "hybridRecordLabel": "Record",
   "hybridSettingsSync": "Synchronization and email",

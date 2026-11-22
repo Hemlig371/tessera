@@ -906,7 +906,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           </div>
         </div>
         <div className="hybrid-nav-global">
-          <button className={ui.screen === 'libraries' ? 'active' : ''} disabled={disabled} onClick={goHome} aria-current={ui.screen === 'libraries' ? 'page' : undefined}><Icon name="libraries" />{t('allLibraries')}</button>
+          <button className={ui.screen === 'libraries' ? 'active' : ''} aria-label={t('hybridSidebarLibraries')} disabled={disabled} onClick={goHome} aria-current={ui.screen === 'libraries' ? 'page' : undefined}><Icon name="libraries" />{t('allLibraries')}</button>
           <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} aria-current={collection?.system_kind === 'inbox' ? 'page' : undefined} onClick={() => showInbox()}><Icon name="inbox" />{t('inbox')}</button>
         </div>
         <div className="nav-heading">{t('libraries')}</div>
@@ -969,7 +969,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         <footer>
           <div className="hybrid-local-status"><span className="local-dot" aria-hidden="true" />{t('local')}</div>
           <small>{t('offline')}</small>
-          <button type="button" className="hybrid-sidebar-settings" disabled={disabled} onClick={() => open('settings')}><Icon name="settings" />{t('globalSettings')}</button>
+          <button type="button" className="hybrid-sidebar-settings" aria-label={t('hybridSidebarSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" />{t('globalSettings')}</button>
         </footer>
       </aside>
       <main className="hybrid-main">

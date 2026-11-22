@@ -37,7 +37,9 @@ test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await showList(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
+  await page.locator('[data-editor] .editor-heading button').click();
   await expect(page.getByRole('button', { name: '+ New entry', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -34,6 +34,8 @@
   "hybridUnsaved": "Есть несохранённые изменения",
   "hybridNoChanges": "Изменений нет",
   "hybridDiscardWarning": "Отменить несохранённые изменения макета?",
+  "hybridSidebarLibraries": "Перейти к каталогу библиотек",
+  "hybridSidebarSettings": "Открыть настройки из навигации",
   "hybridWorkspace": "Рабочее пространство",
   "hybridRecordLabel": "Запись",
   "hybridSettingsSync": "Синхронизация и почта",

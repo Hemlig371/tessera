@@ -146,9 +146,7 @@
   .hybrid-shell .topbar-tools .language,
   .hybrid-shell .topbar-tools .icon-button[title="Корзина"],
   .hybrid-shell .topbar-tools .icon-button[title="Trash"],
-  .hybrid-shell .topbar-tools .icon-button[data-testid="database-archive-open"],
-  .hybrid-shell .topbar-tools .icon-button[title="Оформление"],
-  .hybrid-shell .topbar-tools .icon-button[title="Appearance"] { display:none; }
+  .hybrid-shell .topbar-tools .icon-button[data-testid="database-archive-open"] { display:none; }
   .hybrid-settings-hub .global-settings-links { grid-template-columns:minmax(0,1fr); }
   .hybrid-settings-hub .global-settings-links .hybrid-settings-feature { grid-column:auto; }
 }

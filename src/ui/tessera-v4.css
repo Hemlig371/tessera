@@ -1,0 +1,195 @@
+/* Tessera v4 visual contract. Existing Hybrid selectors remain as compatibility scaffolding
+   until each screen has been moved to the new component hierarchy. */
+.tessera-v4 {
+  --page: #f8f9f8;
+  --surface: #ffffff;
+  --panel: #f5f7f5;
+  --raised: #f7f8f7;
+  --border: #e6e9e6;
+  --text: #171c1a;
+  --muted: #676f6a;
+  --accent: #35834a;
+  --accent-hover: #27693a;
+  --accent-soft: #e4f3e7;
+  --control-border: #a1aba3;
+  --hybrid-divider: #e9ece9;
+  --hybrid-hover: #f3f7f3;
+  --hybrid-radius: 18px;
+  background: var(--page);
+  color: var(--text);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+:root[data-theme="dark"] .tessera-v4 {
+  --page:#171d1a; --surface:#222a25; --panel:#1e2621;
+  --raised:#2a332d; --border:#3c4840; --text:#ecf0ec;
+  --muted:#b6c2b8; --accent:#90c99a; --accent-hover:#afe3b7;
+  --accent-soft:#2b4733; --control-border:#7e9582;
+  --hybrid-divider:#37453a; --hybrid-hover:#293a2e;
+}
+@media(prefers-color-scheme:dark) {
+  :root:not([data-theme="light"]) .tessera-v4 {
+    --page:#171d1a; --surface:#222a25; --panel:#1e2621;
+    --raised:#2a332d; --border:#3c4840; --text:#ecf0ec;
+    --muted:#b6c2b8; --accent:#90c99a; --accent-hover:#afe3b7;
+    --accent-soft:#2b4733; --control-border:#7e9582;
+    --hybrid-divider:#37453a; --hybrid-hover:#293a2e;
+  }
+}
+.tessera-v4 .hybrid-main { width:100%; }
+.tessera-v4 .topbar { background:var(--page); border-bottom:0; }
+.tessera-v4 .topbar-tools { flex-wrap:nowrap; }
+.tessera-v4 .topbar .icon-button { color:var(--text); }
+.tessera-v4 .tessera-mobile-brand { display:none; }
+.tessera-v4 .brand-mark { background:#e0f0e1; color:#2e8652; }
+.tessera-v4 .brand-mark .ui-icon { width:26px; height:26px; }
+.tessera-v4 .browse-heading-title { position:relative; }
+.tessera-v4 .browse-heading-title h1 {
+  display:inline; vertical-align:middle; font-size:clamp(1.65rem,1.3rem + 1vw,2.2rem);
+  font-weight:750; letter-spacing:-.035em;
+}
+.tessera-library-count {
+  display:inline-flex; align-items:center; justify-content:center;
+  margin-inline-start:12px; min-width:34px; min-height:29px;
+  padding:3px 10px; border-radius:999px; background:var(--accent-soft);
+  color:var(--accent); font-weight:700; font-size:.95rem;
+}
+.tessera-v4 .hybrid-browse > header { border:0; margin-bottom:14px; }
+.tessera-v4 .catalog-list { border:0; background:transparent; display:grid; gap:12px; overflow:visible; }
+.tessera-v4 .catalog-list .catalog-item,
+.tessera-v4 .catalog-cards .catalog-item {
+  display:flex; flex-direction:row; align-items:center; gap:16px;
+  min-height:92px; padding:14px 18px; width:100%;
+  border:1px solid var(--border); border-radius:20px;
+  background:var(--surface); box-shadow:0 4px 16px #0f23110a;
+  text-align:start; transform:none;
+}
+.tessera-v4 .catalog-list .catalog-item:last-child { border-bottom:1px solid var(--border); }
+.tessera-v4 .catalog-icon {
+  display:flex; width:62px; height:62px; flex:0 0 62px;
+  border-radius:17px; background:var(--accent-soft);
+  color:var(--accent); font-size:1.75rem;
+}
+.tessera-v4 .catalog-icon .ui-icon { width:32px; height:32px; }
+.tessera-v4 .tessera-catalog-copy { display:grid; flex:1; gap:3px; min-width:0; }
+.tessera-v4 .tessera-catalog-copy strong { flex:auto; font-size:1.13rem; font-weight:720; color:var(--text); line-height:1.28; overflow-wrap:anywhere; }
+.tessera-v4 .tessera-catalog-copy small { color:var(--muted); font-size:.87rem; }
+.tessera-v4 .catalog-item > .ui-icon { flex:0 0 22px; width:22px; height:22px; color:var(--muted); }
+.tessera-v4 .catalog-item:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.tessera-v4 .entry-scroll { background:transparent; border:0; }
+.tessera-v4 .entry:not(.table) {
+  background:var(--surface); border:1px solid var(--border); border-radius:15px;
+  margin:5px 6px 8px; width:calc(100% - 12px); padding:14px 16px;
+  box-shadow:0 2px 8px #182c1b08;
+}
+.tessera-v4 .entry:not(.table) .entry-primary { font-size:1.02rem; font-weight:700; }
+.tessera-v4 .entry-date { color:var(--muted); }
+.tessera-v4 .searchbar { border:0; background:transparent; padding:0; }
+.tessera-v4 .searchbar input[type="search"] { border:0; background:var(--panel); border-radius:16px; padding:14px; min-height:50px; }
+.tessera-v4 .profile-switcher select { border-radius:999px; background:var(--surface); }
+.tessera-v4 .detail { max-width:900px; }
+.tessera-v4 .detail > .dialog-heading { border-bottom:0; margin-bottom:12px; }
+.tessera-v4 .detail #record-title { font-size:clamp(1.8rem,1.35rem + 1.8vw,2.55rem); line-height:1.2; }
+.tessera-v4 .detail .layout-row { gap:9px; }
+.tessera-v4 .detail .layout-rows { gap:9px; }
+.tessera-v4 .detail .layout-cell > dl {
+  min-height:58px; border:0; border-bottom:1px solid var(--border);
+  background:transparent; border-radius:0; padding:12px 4px; margin:0;
+  display:grid; grid-template-columns:minmax(110px,36%) minmax(0,1fr);
+  gap:14px; align-items:start;
+}
+.tessera-v4 .detail .layout-cell dt { margin:0; color:var(--muted); font-size:.91rem; }
+.tessera-v4 .detail .layout-cell dd { margin:0; color:var(--text); font-size:.97rem; line-height:1.5; }
+.tessera-v4 .detail .layout-group { padding-top:16px; }
+.tessera-v4 .detail .layout-group legend { font-size:1.12rem; color:var(--text); }
+.tessera-v4 .detail > .actions { background:var(--page); border-top:0; }
+.tessera-v4 .tessera-record-edit { display:inline-flex; align-items:center; gap:8px; background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:650; }
+.tessera-v4 .tessera-record-edit .ui-icon { width:20px; height:20px; }
+.tessera-v4 .tessera-record-secondary { background:transparent; border-color:transparent; }
+.tessera-v4 .hybrid-record-form .layout-cell:not(.collapsed-field) { border:1px solid var(--border); background:var(--surface); }
+.tessera-v4 .hybrid-record-form .form-field :is(input,textarea,select) { background:var(--raised); }
+.tessera-v4 .tessera-bottom-nav { display:none; }
+@media(min-width:761px) {
+  .tessera-v4 .sidebar { width:clamp(220px,20vw,280px); background:var(--surface); }
+  .tessera-v4 .hybrid-main { padding-inline:clamp(24px,3vw,48px); }
+  .tessera-v4 .catalog-list { max-width:960px; }
+  .tessera-v4 .catalog-cards { grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); }
+  .tessera-v4 .catalog-cards .catalog-item { min-height:100px; }
+}
+@media(max-width:760px) {
+  .tessera-v4 { min-height:100dvh; }
+  .tessera-v4 .hybrid-main {
+    padding:0 max(15px,env(safe-area-inset-right)) max(26px,env(safe-area-inset-bottom));
+    padding-left:max(15px,env(safe-area-inset-left));
+  }
+  .tessera-v4 .topbar {
+    margin:0 -15px 10px;
+    min-height:68px; padding:10px max(15px,env(safe-area-inset-right));
+    padding-left:max(15px,env(safe-area-inset-left));
+    position:sticky; top:0; z-index:6;
+    background:var(--page);
+  }
+  .tessera-v4 .tessera-mobile-brand {
+    display:flex; align-items:center; flex:1; gap:11px;
+    font-size:1.45rem; font-weight:760; letter-spacing:-.03em; white-space:nowrap;
+  }
+  .tessera-v4 .tessera-mobile-mark {
+    display:grid; place-items:center; width:37px; height:37px;
+    background:#e0f0e1; color:#327d46; border-radius:10px;
+  }
+  .tessera-v4 .tessera-mobile-mark .ui-icon { width:25px; height:25px; }
+  .tessera-v4 .topbar-navigation { order:2; }
+  .tessera-v4 .topbar-tools { order:3; margin:0; }
+  .tessera-v4 .topbar .tessera-home-button,
+  .tessera-v4 .topbar .tessera-secondary-nav,
+  .tessera-v4 .topbar .tessera-overflow-tool,
+  .tessera-v4 .topbar .nav-toggle { display:none; }
+  .tessera-v4 .topbar .topbar-navigation > .icon-button[title] { display:inline-flex; }
+  .tessera-v4 .topbar .tessera-secondary-nav,
+  .tessera-v4 .topbar .tessera-home-button { display:none !important; }
+  .tessera-v4 .browse-screen > header { margin-top:6px; align-items:center; }
+  .tessera-v4 .browse-heading-title h1 { font-size:1.85rem; }
+  .tessera-v4 .catalog-list { gap:10px; }
+  .tessera-v4 .catalog-list .catalog-item,
+  .tessera-v4 .catalog-cards .catalog-item { min-height:80px; padding:11px 13px; border-radius:18px; gap:13px; }
+  .tessera-v4 .catalog-icon { width:52px; height:52px; flex-basis:52px; border-radius:15px; }
+  .tessera-v4 .catalog-icon .ui-icon { width:27px; height:27px; }
+  .tessera-v4 .tessera-catalog-copy strong { font-size:1.03rem; }
+  .tessera-v4 .tessera-catalog-copy small { font-size:.82rem; }
+  .tessera-v4[data-workspace="libraries"] .catalog-create {
+    position:fixed; bottom:calc(94px + env(safe-area-inset-bottom));
+    right:max(20px,env(safe-area-inset-right)); z-index:7;
+    width:62px; height:62px; padding:0; border-radius:20px;
+    font-size:0; box-shadow:0 8px 18px #173c2140;
+  }
+  .tessera-v4[data-workspace="libraries"] .catalog-create::after { content:"+"; font-size:2.3rem; font-weight:300; }
+  .tessera-v4[data-workspace="libraries"] .browse-screen { padding-bottom:150px; }
+  .tessera-v4[data-workspace="libraries"] .tessera-bottom-nav {
+    position:fixed; bottom:0; left:0; right:0; z-index:5;
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+    padding:10px max(12px,env(safe-area-inset-right)) max(13px,env(safe-area-inset-bottom));
+    padding-left:max(12px,env(safe-area-inset-left));
+    border-top:1px solid var(--border); background:var(--surface);
+  }
+  .tessera-v4 .tessera-bottom-nav button {
+    display:grid; justify-items:center; gap:4px;
+    padding:4px; border:0; background:transparent;
+    font-size:.75rem; color:var(--muted);
+  }
+  .tessera-v4 .tessera-bottom-nav button[aria-current="page"] { color:var(--accent); font-weight:700; }
+  .tessera-v4 .tessera-bottom-nav .ui-icon { width:24px; height:24px; }
+  .tessera-v4 .hybrid-record-detail { padding:0 0 24px; }
+  .tessera-v4 .detail > .dialog-heading { display:flex; flex-direction:row-reverse; align-items:flex-start; gap:14px; }
+  .tessera-v4 .tessera-record-back { order:1; }
+  .tessera-v4 .detail #record-title { font-size:1.8rem; }
+  .tessera-v4 .detail .layout-cell > dl { grid-template-columns:minmax(96px,38%) minmax(0,1fr); gap:8px; }
+  .tessera-v4 .detail > .actions { padding-bottom:max(15px,env(safe-area-inset-bottom)); }
+  .tessera-v4 .entry-scroll { height:min(65dvh,780px); min-height:260px; }
+}
+@media(max-width:390px) {
+  .tessera-v4 .tessera-mobile-brand { font-size:1.25rem; }
+  .tessera-v4 .catalog-list .catalog-item { padding:10px; }
+  .tessera-v4 .tessera-catalog-copy strong { font-size:.94rem; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .tessera-v4 .catalog-item { transition:none; }
+}

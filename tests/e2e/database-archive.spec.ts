@@ -5,7 +5,7 @@ async function query(page: Page, sql: string, params: unknown[] = []) {
 }
 async function openArchiveSettings(page: Page) {
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.getByRole('button', { name: 'Архив базы данных', exact: true }).click();
+  await page.getByRole('button', { name: 'Экспорт / Импорт БД', exact: true }).click();
 }
 test('offline ZIP export and verified replacement preserve data/files while fresh installation import gets a new identity', async ({ page }) => {
   test.setTimeout(60000);

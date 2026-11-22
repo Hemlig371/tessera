@@ -193,3 +193,31 @@
 @media (prefers-reduced-motion:reduce) {
   .tessera-v4 .catalog-item { transition:none; }
 }
+
+/* The navigation drawer remains reachable from every mobile screen; advanced
+   actions live there rather than disappearing behind responsive CSS. */
+@media(max-width:760px) {
+  .tessera-v4 .topbar .nav-toggle.icon-button { display:inline-flex; order:0; }
+  .tessera-v4 .topbar .topbar-navigation { order:0; }
+  .tessera-v4 .topbar .tessera-mobile-brand { order:1; }
+  .tessera-v4 .topbar .topbar-tools { order:3; }
+  .tessera-v4 .topbar-navigation { flex:0 0 auto; }
+  .tessera-v4 .nav-open .sidebar {
+    z-index:12; padding-top:max(20px,env(safe-area-inset-top));
+    padding-left:max(16px,env(safe-area-inset-left));
+    padding-bottom:max(20px,env(safe-area-inset-bottom));
+  }
+  .tessera-v4 .nav-open .sidebar-close { align-self:flex-start; }
+  .tessera-v4 .nav-open .hybrid-main { visibility:hidden; }
+  .tessera-v4[data-workspace="record"] .tessera-mobile-brand,
+  .tessera-v4[data-workspace="records"] .tessera-mobile-brand { font-size:1.1rem; }
+}
+@supports(height:100dvh) {
+  .tessera-v4 .hybrid-main { min-height:100dvh; }
+}
+/* Keyboard-safe editors: preserve scrolling and reachable actions as IME opens. */
+.tessera-v4 .editor-page { min-height:0; }
+.tessera-v4 .editor-page :is(input,textarea,select) { scroll-margin-block:90px 160px; }
+.tessera-v4 .hybrid-record-form > .actions {
+  padding-bottom:max(16px,env(safe-area-inset-bottom));
+}

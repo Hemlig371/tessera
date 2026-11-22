@@ -783,3 +783,17 @@
     right:max(-4px,calc(-1 * var(--safe-area-inset-right, env(safe-area-inset-right,0px))));
   }
 }
+
+/* On desktop the home screen is the library catalog. Avoid a second, competing
+   copy of the same catalog in the sidebar; reveal library navigation again in a
+   selected library or collection. This follows the approved single-focus home. */
+@media(min-width:761px) {
+  .tessera-v4[data-workspace="libraries"] .sidebar > .nav-heading,
+  .tessera-v4[data-workspace="libraries"] .sidebar > nav,
+  .tessera-v4[data-workspace="libraries"] .sidebar > .quiet {
+    display:none;
+  }
+  .tessera-v4[data-workspace="libraries"] .sidebar .hybrid-nav-global {
+    margin-top:10px;
+  }
+}

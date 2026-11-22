@@ -5,6 +5,11 @@ export async function showList(page: Page) {
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   const back = page.getByRole('button', { name: /^(К списку|Back to list)$/ });
   if (await back.isVisible()) await back.click();
+  // Data screens and the library builder are separate destinations in v4.
+  const toggle = page.locator('#constructor-toggle');
+  if (await toggle.count() && await toggle.getAttribute('aria-pressed') === 'true') {
+    await page.getByRole('button', { name: 'Готово, к данным', exact: true }).click();
+  }
 }
 /** Find a visible action, or use the approved compact topbar menu on phones. */
 export async function openApplicationAction(page: Page, label: string) {
@@ -24,10 +29,12 @@ export async function goToLibraries(page: Page) {
   await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
 }
 export async function openConstructor(page: Page) {
-  await showList(page);
   const toggle = page.locator('#constructor-toggle');
   await expect(toggle).toHaveAttribute('aria-pressed', /^(true|false)$/);
-  if (await toggle.getAttribute('aria-pressed') !== 'true') await openApplicationAction(page, 'Конструктор');
+  if (await toggle.getAttribute('aria-pressed') !== 'true') {
+    await showList(page);
+    await openApplicationAction(page, 'Конструктор');
+  }
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 }
 export async function openQuickCreation(page: Page) {

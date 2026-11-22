@@ -1,3 +1,4 @@
+import { openApplicationAction, captureToInbox } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 
 async function holdFailure(page: Page, matches: (sql: string, params: unknown[]) => boolean) {
@@ -20,12 +21,12 @@ test('Inbox move waits for its destination, retries failed reads without writes 
   expect(response.ok(), await response.text()).toBe(true);
   const scope = (await response.json()).value as { library_id: string; collection_id: string };
   await page.reload();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
   const original = '# Перенос **после ошибки** 🦔\n\nТекст без потери <script>window.inboxUnsafe=true</script>';
-  await page.getByRole('button', { name: '+ Во входящие', exact: true }).click();
+  await captureToInbox(page);
   await page.getByRole('textbox', { name: 'Содержимое', exact: true }).fill(original);
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);

@@ -8,7 +8,7 @@ export async function showList(page: Page) {
   // Data screens and the library builder are separate destinations in v4.
   const toggle = page.locator('#constructor-toggle');
   if (await toggle.count() && await toggle.getAttribute('aria-pressed') === 'true') {
-    await page.getByRole('button', { name: 'Готово, к данным', exact: true }).click();
+    await page.locator('.constructor-banner').getByRole('button', { name: 'Готово, к данным', exact: true }).click();
   }
 }
 /** Find a visible action, or use the approved compact topbar menu on phones. */
@@ -61,7 +61,7 @@ export async function finishConstructor(page: Page) {
   const toggle = page.locator('#constructor-toggle');
   if (await toggle.getAttribute('aria-pressed') === 'true') {
     await expect(page.locator('[data-editor]')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Готово, к данным', exact: true }).click();
+    await page.locator('.constructor-banner').getByRole('button', { name: 'Готово, к данным', exact: true }).click();
   }
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
 }

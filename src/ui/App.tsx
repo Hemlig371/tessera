@@ -1169,7 +1169,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           {activeDateRange?.period === 'range' && ` · ${activeDateRange.start}${activeDateRange.start === activeDateRange.end ? '' : ` — ${activeDateRange.end}`}`}
         </p>}
         {ui.screen === 'libraries' ? (
-          <Catalog kind="libraries" items={libraries} layout="list" metadata={libraryMeta} busy={disabled} open={id => { void openLibrary(id, true); }} />
+          <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} metadata={libraryMeta} busy={disabled} open={id => { void openLibrary(id, true); }} />
         ) : ui.screen === 'summary' && library ? (
           <LibrarySummaryView widgets={summaryWidgets} states={widgetStates} busy={disabled}
             open={id => { void selectEntry(id); }}

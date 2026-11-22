@@ -149,6 +149,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }, [api, drafts, suspended]);
   const [libraries, setLibraries] = useState<Library[]>([]),
     [collections, setCollections] = useState<Collection[]>([]);
+  const [libraryMeta, setLibraryMeta] = useState<Record<string, string>>({});
   const [fields, setFields] = useState<Field[]>([]),
     [layouts, setLayouts] = useState(emptyLayouts);
   const [presets, setPresets] = useState<CreationPreset[]>([]);
@@ -422,6 +423,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       .listLibraries()
       .then((rows) => {
         if (active) setLibraries(rows);
+        void Promise.all(rows.map(async library => {
+          const collections = await api.listCollections(library.id);
+          return [library.id, t('collectionCount', { count: collections.filter(item => !item.system_kind).length, defaultValue: `${collections.filter(item => !item.system_kind).length} ${t('collections').toLowerCase()}` })] as const;
+        })).then(meta => { if (active) setLibraryMeta(Object.fromEntries(meta)); }).catch(() => { /* Metadata is optional; library navigation stays available. */ });
       })
       .catch((e) => {
         if (active) setError(errorKey(e));
@@ -901,13 +906,11 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     </main>;
   }
   return (
-    <div className={'app hybrid-shell' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '') + (selected ? ' record-open' : '')} data-workspace={ui.editor ? 'editor' : selected ? 'record' : ui.screen}>
+    <div className={'app hybrid-shell tessera-v4' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '') + (selected ? ' record-open' : '')} data-workspace={ui.editor ? 'editor' : selected ? 'record' : ui.screen}>
       <aside className="sidebar">
         <button className="sidebar-close" onClick={() => useUi.setState({ navOpen: false })}>{t('closeNavigation')}</button>
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            ◈
-          </span>
+          <span className="brand-mark" aria-hidden="true"><Icon name="libraries" /></span>
           <div>
             <b>{t('brand')}</b>
             <small>{t('tagline')}</small>
@@ -982,6 +985,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       </aside>
       <main className="hybrid-main">
         <div className="topbar" role="group" aria-label={t('globalNavigation')}>
+          <span className="tessera-mobile-brand" aria-hidden="true"><span className="tessera-mobile-mark"><Icon name="libraries" /></span>{t('brand')}</span>
           <div className="topbar-navigation">
           <button
             className="nav-toggle icon-button"
@@ -992,23 +996,23 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           >
             <Icon name="menu" /><span className="visually-hidden">{t('navigation')}</span>
           </button>
-          <button className="icon-button" title={t('allLibraries')} disabled={disabled} onClick={goHome}><Icon name="libraries" /><span className="visually-hidden">{t('allLibraries')}</span></button>
+          <button className="icon-button tessera-home-button" title={t('allLibraries')} disabled={disabled} onClick={goHome}><Icon name="libraries" /><span className="visually-hidden">{t('allLibraries')}</span></button>
           <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={openGlobalSearch}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
-          <button className="icon-button" title={t('openInbox')} disabled={disabled} onClick={() => showInbox()}><Icon name="inbox" /><span className="visually-hidden">{t('openInbox')}</span></button>
-          <button className="icon-button capture-button" title={'+ ' + t('captureInbox')} disabled={disabled} onClick={() => showInbox(true)}><Icon name="capture" /><span className="visually-hidden">+ {t('captureInbox')}</span></button>
+          <button className="icon-button tessera-secondary-nav" title={t('openInbox')} disabled={disabled} onClick={() => showInbox()}><Icon name="inbox" /><span className="visually-hidden">{t('openInbox')}</span></button>
+          <button className="icon-button capture-button tessera-secondary-nav" title={'+ ' + t('captureInbox')} disabled={disabled} onClick={() => showInbox(true)}><Icon name="capture" /><span className="visually-hidden">+ {t('captureInbox')}</span></button>
           </div>
           <div className="hybrid-topbar-context" aria-live="off">
             <span className="hybrid-topbar-trail">{library?.name ?? t('libraries')}</span>
             {collection && !collection.system_kind && <><span className="hybrid-topbar-separator" aria-hidden="true">/</span><strong>{collection.name}</strong></>}
           </div>
           <div className="topbar-tools">
-          <button className="icon-button" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
-          <button className="icon-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
-          {openArchive && <button className="icon-button" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
+          <button className="icon-button tessera-overflow-tool" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
+          <button className="icon-button tessera-overflow-tool" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
+          {openArchive && <button className="icon-button tessera-overflow-tool" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
           {androidDeviceLock() && ui.libraryId && ui.scope !== 'all' && <button type="button" disabled={disabled || gateWorking} onClick={() => { void toggleLibraryLock(); }}>{libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock')}</button>}
-          <button className="icon-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
-          <button className="icon-button" title={t('globalSettings')} aria-label={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
-          <label className="language">
+          <button className="icon-button tessera-overflow-tool" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
+          <button className="icon-button tessera-overflow-tool" title={t('globalSettings')} aria-label={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
+          <label className="language tessera-overflow-tool">
             <span className="visually-hidden">{t('language')}</span>
             <select
               value={i18n.language}
@@ -1050,7 +1054,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         <section className={'browse-screen hybrid-browse' + (ui.editor || selected ? ' screen-inactive' : '')} inert={!!ui.editor || !!selected} aria-hidden={!!ui.editor || !!selected}>
         <header>
           <div className="browse-heading-title">
-            <span className="hybrid-eyebrow">{ui.screen === 'libraries' ? t('hybridWorkspace') : ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? t('libraries') : t('collections')}</span>
+            {ui.screen !== 'libraries' && <span className="hybrid-eyebrow">{ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? t('libraries') : t('collections')}</span>}
             {ui.screen !== 'libraries' && <button className="section-back" disabled={disabled} onClick={backSection} aria-label={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}>← {t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}</button>}
             <small>{library?.name ?? t('brand')}</small>
             <h1>
@@ -1060,6 +1064,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                   ? library?.name
                   : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
             </h1>
+            {ui.screen === 'libraries' && <span className="tessera-library-count" aria-label={String(libraries.length)}>{libraries.length}</span>}
           </div>
           {(ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
             + {t(ui.screen === 'libraries' ? 'newLibrary' : 'newCollection')}
@@ -1150,7 +1155,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           {activeDateRange?.period === 'range' && ` · ${activeDateRange.start}${activeDateRange.start === activeDateRange.end ? '' : ` — ${activeDateRange.end}`}`}
         </p>}
         {ui.screen === 'libraries' ? (
-          <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} busy={disabled} open={id => { void openLibrary(id, true); }} />
+          <Catalog kind="libraries" items={libraries} layout="list" metadata={libraryMeta} busy={disabled} open={id => { void openLibrary(id, true); }} />
         ) : ui.screen === 'summary' && library ? (
           <LibrarySummaryView widgets={summaryWidgets} states={widgetStates} busy={disabled}
             open={id => { void selectEntry(id); }}
@@ -1303,7 +1308,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <section className="detail hybrid-record-detail" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
             <div className="dialog-heading">
               <div>
-                <span className="hybrid-eyebrow">{context.collection.name} · {t('hybridRecordLabel')}</span>
+                <span className="hybrid-eyebrow">{context.collection.name}</span>
                 {!!trail.length && (
                   <button
                     disabled={busy}
@@ -1319,7 +1324,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
                 <p className="hybrid-record-meta">{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(selected.updated_at))}</p>
               </div>
-              <button className="icon-button" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
+              <button className="icon-button tessera-record-back" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
             </div>
@@ -1360,11 +1365,11 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
             <div className="actions">
               {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
-              <button disabled={busy} onClick={() => open('entry', selected.id)}>
+              <button className="tessera-record-edit" disabled={busy} onClick={() => open('entry', selected.id)}><Icon name="edit" />
                 {t('edit')}
               </button>
-              <button disabled={busy} onClick={() => open('history', selected.id)}>{t('recordHistory')}</button>
-              <button className="danger" disabled={busy} onClick={() => remove('record', selected.id)}>
+              <button className="tessera-record-secondary" disabled={busy} onClick={() => open('history', selected.id)}>{t('recordHistory')}</button>
+              <button className="danger tessera-record-secondary" disabled={busy} onClick={() => remove('record', selected.id)}>
                 {t('delete')}
               </button>
             </div>
@@ -1593,6 +1598,11 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           )}
         </EditorPage>
       )}
+        {!ui.editor && !selected && ui.screen === 'libraries' && <nav className="tessera-bottom-nav" aria-label={t('globalNavigation')}>
+          <button aria-current="page" disabled={disabled} onClick={goHome}><Icon name="libraries" /><span>{t('libraries')}</span></button>
+          <button disabled={disabled} onClick={openGlobalSearch}><Icon name="clock" /><span>{i18n.language === 'ru' ? 'Недавние' : 'Recent'}</span></button>
+          <button disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /><span>{t('globalSettings')}</span></button>
+        </nav>}
       </main>
     </div>
   );

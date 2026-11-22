@@ -37,6 +37,7 @@ test('Hybrid canvas previews changes and undo/redo without writing records', asy
   await expect(page.locator(`[data-preview-field="${scope.body}"]`)).toBeVisible();
   await page.getByRole('button', { name: '↷ Повторить' }).click();
   await expect(page.locator(`[data-preview-field="${scope.body}"]`)).toHaveCount(0);
+  page.once('dialog', dialog => { void dialog.accept(); });
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   expect(await snapshot()).toEqual(original);

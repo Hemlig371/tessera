@@ -1,3 +1,4 @@
+import { goToLibraries } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 type Scope = { library_name: string; collection_id: string; field_id: string; record_id: string; first_version_id: string; other_id: string };
 
@@ -50,8 +51,8 @@ test('history preview and Back write nothing; explicit restore creates one versi
   await page.getByRole('button', { name: 'Подтвердить очистку истории', exact: true }).click();
   await expect(page.getByText('Сохранённых версий нет.', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape'); await expect(page.locator('.detail #record-title')).toHaveText('Первая редакция');
-  await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();
-  await page.locator('#constructor-toggle').click();
+  await goToLibraries(page);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
   await page.getByRole('button', { name: 'Очистить всю историю', exact: true }).click();
   await page.getByRole('button', { name: 'Подтвердить очистку истории', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);

@@ -10,8 +10,8 @@ test('Notes creation drafts survive close/restart; existing edits and stale-form
   const bytes = () => request({ op: 'local-read', path });
   const read = async () => { const data = await bytes() as number[] | null; return data ? JSON.parse(new TextDecoder().decode(new Uint8Array(data))) as { action: { create_id: string }; data: Record<string,string> } : null; };
   const navigate = async () => {
-    await page.getByRole('button', { name: 'Заметки (dev/CI)', exact: true }).click();
-    await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Заметки (dev/CI)»', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
     await expect(page.getByRole('button', { name: '+ Новая запись', exact: true })).toBeEnabled();
   };
   const closeCreation = () => page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();

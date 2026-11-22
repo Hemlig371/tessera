@@ -1,10 +1,10 @@
 import { test, expect } from '../support/e2e-test';
-import { openConstructor, showList } from '../support/ui-actions';
+import { openConstructor, showList, openApplicationAction } from '../support/ui-actions';
 
 test('visual rows preserve cells while resizing/reordering; forms adapt and reveal collapsed required inputs', async ({ page }) => {
   test.setTimeout(90000);
   await page.goto('/'); await expect(page.locator('aside')).toBeVisible();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
   const seeded = await page.request.post('/__test-sqlite', { data: { op: 'layout-seed' } });

@@ -281,7 +281,7 @@ export function LayoutEditor({
               </>
             )}
           </fieldset>
-        );
+        ) : null;
       })}
         </aside>
       </div>

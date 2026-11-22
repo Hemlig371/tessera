@@ -1013,10 +1013,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           </div>
           <div className="topbar-tools">
           <button className="icon-button tessera-overflow-tool" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
-          <button className="icon-button tessera-overflow-tool" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
+          <button className="icon-button tessera-overflow-tool tessera-builder-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
           {openArchive && <button className="icon-button tessera-overflow-tool" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
           {androidDeviceLock() && ui.libraryId && ui.scope !== 'all' && <button type="button" disabled={disabled || gateWorking} onClick={() => { void toggleLibraryLock(); }}>{libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock')}</button>}
-          <button className="icon-button tessera-overflow-tool" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
+          <button className="icon-button tessera-overflow-tool tessera-appearance-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
           <button className="icon-button tessera-overflow-tool tessera-settings-button" title={t('globalSettings')} aria-label={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
           <label className="language tessera-overflow-tool">
             <span className="visually-hidden">{t('language')}</span>

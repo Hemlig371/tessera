@@ -1181,3 +1181,7 @@ button { min-height: var(--control-height); line-height: 1.35; overflow-wrap: an
 .row-designer.drop-target { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
 .row-designer-tools .row-drag-handle { cursor: grab; touch-action: none; min-width: 44px; }
 .row-designer-tools .row-drag-handle:active { cursor: grabbing; }
+
+.named-card-editor { max-width: 72rem; min-width: 0; }
+.named-card-editor > form { border-top: 1px solid var(--border); margin-top: var(--space-6); padding-top: var(--space-4); }
+.named-card-editor > .actions { justify-content: flex-start; }

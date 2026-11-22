@@ -32,6 +32,7 @@ import { LibraryStartEditor } from './LibraryStartEditor';
 import { libraryNavigation } from '../core/library-navigation';
 import { androidLibraryShortcuts, libraryShortcutSupported, pinLibraryShortcut, subscribeLibraryLaunch } from '../platform/external-actions';
 import { LayoutRowsView } from './LayoutRowsView';
+import { NamedCardLayoutsEditor } from './NamedCardLayoutsEditor';
 import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
 import { useAppearance } from './use-appearance';
 import { defaultAppearance } from '../core/device-appearance';
@@ -61,7 +62,7 @@ import type {
   UiKind,
 } from '../core/model';
 import type { Repository } from '../core/repository';
-import { layoutItems } from '../core/ui-definition';
+import { layoutItems, resolveCardLayout } from '../core/ui-definition';
 import { useUi } from './store';
 import { ErrorMessage, errorKey, EditorPage, useFormatValue } from './common';
 import { StructureEditor } from './StructureEditor';
@@ -1304,7 +1305,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
             </div>
-            <LayoutRowsView definition={context.layouts.card} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
+            <LayoutRowsView definition={resolveCardLayout(context.layouts.card,
+              ui.scope === 'collection' && collection?.id === context.collection.id && selected.collection_id === collection.id
+                ? (profiles.find(profile => profile.id === activeProfileId) ? (JSON.parse(profiles.find(profile => profile.id === activeProfileId)!.config) as UiDefinition).detail_layout_id : undefined)
+                : undefined)} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
                   const f = context.fields.find((field) => field.id === item.field_id)!;
                   return (
                     <dl key={f.id}>
@@ -1498,13 +1502,25 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               else await api.createCreationPreset(collection.id, name, definition, makeDefault, position);
             }); }} remove={id => { void run(() => api.deleteCreationPreset(id), false); }} />}
           {ui.editor === 'profiles' && collection && <ProfilesEditor profiles={profiles} defaultId={collection.default_profile_id ?? null}
+            cardLayouts={layouts.card.named_cards ?? []}
             busy={busy} cancel={close} create={name => { void run(async () => {
               const profile = await api.createDisplayProfile(collection.id, name, layouts.list);
               useUi.setState({ profileId: profile.id });
             }); }}
-            update={(id, patch) => { void run(async () => { await api.updateDisplayProfile(id, patch); }, false); }}
+            update={(id, patch) => { void run(async () => {
+              const current = profiles.find(profile => profile.id === id);
+              if (!current) return;
+              const { detail_layout_id: _old, ...base } = JSON.parse(current.config) as UiDefinition;
+              await api.updateDisplayProfile(id, {
+                name: patch.name, position: patch.position, make_default: patch.make_default,
+                definition: patch.detail_layout_id ? { ...base, detail_layout_id: patch.detail_layout_id } : base,
+              });
+            }, false); }}
             remove={id => { void run(async () => { await api.deleteDisplayProfile(id); useUi.setState({ profileId: null }); }, false); }} />}
-          {(ui.editor === 'form' || ui.editor === 'card' || ui.editor === 'list') && collection && (
+          {ui.editor === 'card' && collection && <NamedCardLayoutsEditor api={api} key={collection.id} fields={fields}
+            definition={layouts.card} busy={busy} cancel={close}
+            save={definition => { void run(() => api.saveUiConfig(collection.id, 'card', definition)); }} />}
+          {(ui.editor === 'form' || ui.editor === 'list') && collection && (
             <LayoutEditor
               api={api}
               key={ui.editor}

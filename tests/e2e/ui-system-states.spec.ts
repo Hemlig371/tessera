@@ -1,3 +1,4 @@
+import { openApplicationAction } from '../support/ui-actions';
 import { expect, test, type Page } from '../support/e2e-test';
 
 async function holdRead(page: Page, matches: (sql: string) => boolean) {
@@ -28,7 +29,7 @@ test('history and Trash distinguish a failed read from empty data, retry safely 
   expect(response.ok(), await response.text()).toBe(true);
   const scope = (await response.json()).value as { library_id: string; library_name: string; record_id: string };
   await page.reload();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();

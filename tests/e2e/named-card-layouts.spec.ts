@@ -32,7 +32,11 @@ test('named record layouts are view-specific and leave shared record history unt
   await openConstructor(page); await page.getByRole('button', { name: 'Представления', exact: true }).click();
   await page.getByRole('combobox', { name: 'Настраиваемое представление' }).selectOption({ label: 'Только Бета' });
   await page.getByRole('combobox', { name: 'Макет подробной записи для представления' }).selectOption({ label: 'Компактный' });
-  await page.getByRole('button', { name: 'Сохранить представление', exact: true }).click();
+  const saveProfile = page.getByRole('button', { name: 'Сохранить представление', exact: true });
+  await saveProfile.click();
+  // Saving a profile intentionally keeps the editor open; wait for Repository reload
+  // before triggering Escape, which is ignored while a write is in flight.
+  await expect(saveProfile).toBeEnabled();
   await expect(page.getByRole('combobox', { name: 'Макет подробной записи для представления' })).toHaveValue(/.+/);
   await page.locator('[data-editor]').press('Escape');
   await expect(page.locator('[data-editor]')).toHaveCount(0);

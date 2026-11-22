@@ -1003,7 +1003,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <Icon name="menu" /><span className="visually-hidden">{t('navigation')}</span>
           </button>
           <button className="icon-button tessera-home-button" title={t('allLibraries')} disabled={disabled} onClick={goHome}><Icon name="libraries" /><span className="visually-hidden">{t('allLibraries')}</span></button>
-          <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={() => openGlobalSearch()}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
+          
           <button className="icon-button tessera-secondary-nav" title={t('openInbox')} disabled={disabled} onClick={() => showInbox()}><Icon name="inbox" /><span className="visually-hidden">{t('openInbox')}</span></button>
           <button className="icon-button capture-button tessera-secondary-nav" title={'+ ' + t('captureInbox')} disabled={disabled} onClick={() => showInbox(true)}><Icon name="capture" /><span className="visually-hidden">+ {t('captureInbox')}</span></button>
           </div>
@@ -1012,6 +1012,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             {collection && !collection.system_kind && <><span className="hybrid-topbar-separator" aria-hidden="true">/</span><strong>{collection.name}</strong></>}
           </div>
           <div className="topbar-tools">
+          <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={() => openGlobalSearch()}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
           <button className="icon-button tessera-overflow-tool" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
           <button className="icon-button tessera-overflow-tool tessera-builder-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
           {openArchive && <button className="icon-button tessera-overflow-tool" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}

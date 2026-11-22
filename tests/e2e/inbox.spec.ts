@@ -21,10 +21,10 @@ test('global capture and inbox move preserve one record; cancel never writes', a
   const sourceId = source?.id;
   if (typeof sourceId !== 'string') throw new Error('Captured record was not found');
   const versions = await rows('SELECT * FROM record_versions WHERE record_id=?', [sourceId]);
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Мои записи');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Ссылки');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await page.getByRole('button', { name: 'Входящие', exact: true }).click();

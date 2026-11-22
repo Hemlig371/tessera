@@ -27,8 +27,8 @@ test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and
   await expect(page.getByRole('button', { name: /Первая запись/ })).toBeVisible();
   expect((await count()).value[0]?.n).toBe(initialCount + 1);
   await page.reload();
-  await page.getByRole('button', { name: 'Моя библиотека', exact: true }).click();
-  await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть библиотеку «Моя библиотека»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   await page.getByRole('button', { name: /Первая запись/ }).click();
   await page.getByRole('button', { name: 'Редактировать', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Отменённая правка');

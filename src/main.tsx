@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import './ui/i18n';
 import './ui/style.css';
 import './ui/hybrid-workspace.css';
+import './ui/tessera-v4.css';
 import { App, ErrorMessage } from './ui/App';
 import { openDatabase } from './platform/open';
 import { checkSqlite } from './core/sqlite-check';

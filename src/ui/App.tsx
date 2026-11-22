@@ -17,6 +17,7 @@ import { QuickActions } from './QuickActions';
 import { Catalog } from './Catalog';
 import { ConstructorOverview } from './ConstructorOverview';
 import { Icon } from './Icon';
+import { TopbarOverflow } from './TopbarOverflow';
 import { AttachmentSettings } from './AttachmentSettings';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { AndroidMailSyncSettings } from './AndroidMailSyncSettings';
@@ -169,6 +170,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const registerFileClose = useCallback((close: (() => Promise<void>) | null) => { fileClose.current = close; }, []);
   const creationClose = useRef<(() => Promise<void>) | null>(null);
   const creationMenuClose = useRef<(() => void) | null>(null);
+  const overflowMenuClose = useRef<(() => void) | null>(null);
+  const registerOverflowMenuClose = useCallback((close: (() => void) | null) => { overflowMenuClose.current = close; }, []);
   const registerCreationMenuClose = useCallback((close: (() => void) | null) => { creationMenuClose.current = close; }, []);
   const fieldPropertiesClose = useRef<(() => void) | null>(null);
   const registerFieldPropertiesClose = useCallback((close: (() => void) | null) => { fieldPropertiesClose.current = close; }, []);
@@ -786,7 +789,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   useEffect(() => {
     if (suspended) return;
     const bind = (action: () => void) => bindSystemBack(() => {
-      const menu = creationMenuClose.current;
+      const menu = overflowMenuClose.current ?? creationMenuClose.current;
       if (menu) menu(); else action();
     }, () => setError('fileError'));
     if (ui.editor) return bind(close);
@@ -1017,7 +1020,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button className="icon-button tessera-overflow-tool" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
           <button className="icon-button tessera-overflow-tool tessera-builder-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
           {openArchive && <button className="icon-button tessera-overflow-tool" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
-          {androidDeviceLock() && ui.libraryId && ui.scope !== 'all' && <button type="button" disabled={disabled || gateWorking} onClick={() => { void toggleLibraryLock(); }}>{libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock')}</button>}
+          {androidDeviceLock() && ui.libraryId && ui.scope !== 'all' && <button type="button" className="tessera-overflow-tool" disabled={disabled || gateWorking} onClick={() => { void toggleLibraryLock(); }}>{libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock')}</button>}
           <button className="icon-button tessera-overflow-tool tessera-appearance-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
           <button className="icon-button tessera-overflow-tool tessera-settings-button" title={t('globalSettings')} aria-label={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
           <label className="language tessera-overflow-tool">
@@ -1032,6 +1035,19 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               <option value="en">{t('languageEnglish')}</option>
             </select>
           </label>
+          <TopbarOverflow registerClose={registerOverflowMenuClose} actions={[
+            { id: 'constructor', label: t('constructor'), icon: <Icon name="tools" />, pressed: ui.constructorOpen, disabled, run: toggleConstructor },
+            { id: 'appearance', label: t('deviceAppearance'), icon: <Icon name="appearance" />, disabled: disabled || !appearanceReady, run: () => open('appearance') },
+            ...(ui.screen !== 'libraries' ? [{ id: 'settings', label: t('globalSettings'), icon: <Icon name="settings" />, disabled, run: () => open('settings') }] : []),
+            { id: 'inbox', label: t('inbox'), icon: <Icon name="inbox" />, disabled, run: () => showInbox() },
+            { id: 'capture', label: '+ ' + t('captureInbox'), icon: <Icon name="capture" />, disabled, run: () => showInbox(true) },
+            ...(openArchive ? [{ id: 'archive', label: t('databaseArchive'), icon: <Icon name="archive" />, disabled, run: openArchive }] : []),
+            { id: 'trash', label: t('trash'), icon: <Icon name="trash" />, disabled, run: () => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); } },
+            ...(androidDeviceLock() && ui.libraryId && ui.scope !== 'all' ? [{
+              id: 'lock', label: libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock'),
+              icon: <Icon name="settings" />, disabled: disabled || gateWorking, run: () => { void toggleLibraryLock(); }
+            }] : []),
+          ]} />
           </div>
         </div>
         {fileCleanupPending > 0 && !ui.editor && <div role="status" className="error"><p>{t('attachmentCleanupHint')}</p><button disabled={busy} onClick={() => { void run(async () => {}, false); }}>{t('retryAttachmentCleanup')}</button></div>}

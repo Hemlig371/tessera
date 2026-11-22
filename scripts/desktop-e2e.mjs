@@ -32,9 +32,9 @@ async function leaveConstructor() {
   await until("document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='false'");
 }
 async function clickText(text) {
-  if (['+ Новая запись','Варианты создания','CSV','+ Во входящие','Все библиотеки','Глобальный поиск'].includes(text)) await leaveConstructor();
   if (text === 'Закрыть' && await execute("return !!document.querySelector('[data-editor]')")) { await clickText('Назад'); return; }
   if (['+ Новая запись','Варианты создания','CSV','Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text) && await execute("return [...document.querySelectorAll('button')].some(button=>button.getAttribute('aria-label')==='К списку')")) await clickText('К списку');
+  if (['+ Новая запись','Варианты создания','CSV','+ Во входящие','Все библиотеки','Глобальный поиск'].includes(text)) await leaveConstructor();
   if (text === '+ Быстрая запись') { await clickText('Варианты создания'); await clickText('Быстрая запись'); return; }
   if (['Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text)) {
     await until("!!document.querySelector('#constructor-toggle:not(:disabled)')");

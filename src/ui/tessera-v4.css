@@ -118,13 +118,13 @@
 @media(max-width:760px) {
   .tessera-v4 { min-height:100dvh; }
   .tessera-v4 .hybrid-main {
-    padding:0 max(15px,env(safe-area-inset-right)) max(26px,env(safe-area-inset-bottom));
-    padding-left:max(15px,env(safe-area-inset-left));
+    padding:0 max(15px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px))) max(26px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    padding-left:max(15px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
   }
   .tessera-v4 .topbar {
     margin:0 -15px 10px;
-    min-height:68px; padding:10px max(15px,env(safe-area-inset-right));
-    padding-left:max(15px,env(safe-area-inset-left));
+    min-height:68px; padding:10px max(15px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    padding-left:max(15px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
     position:sticky; top:0; z-index:6;
     background:var(--page);
   }
@@ -156,8 +156,8 @@
   .tessera-v4 .tessera-catalog-copy strong { font-size:1.03rem; }
   .tessera-v4 .tessera-catalog-copy small { font-size:.82rem; }
   .tessera-v4[data-workspace="libraries"] .catalog-create {
-    position:fixed; bottom:calc(94px + env(safe-area-inset-bottom));
-    right:max(20px,env(safe-area-inset-right)); z-index:7;
+    position:fixed; bottom:calc(94px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    right:max(20px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px))); z-index:7;
     width:62px; height:62px; padding:0; border-radius:20px;
     font-size:0; box-shadow:0 8px 18px #173c2140;
   }
@@ -166,8 +166,8 @@
   .tessera-v4[data-workspace="libraries"] .tessera-bottom-nav {
     position:fixed; bottom:0; left:0; right:0; z-index:5;
     display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
-    padding:10px max(12px,env(safe-area-inset-right)) max(13px,env(safe-area-inset-bottom));
-    padding-left:max(12px,env(safe-area-inset-left));
+    padding:10px max(12px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px))) max(13px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    padding-left:max(12px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
     border-top:1px solid var(--border); background:var(--surface);
   }
   .tessera-v4 .tessera-bottom-nav button {
@@ -182,7 +182,7 @@
   .tessera-v4 .tessera-record-back { order:1; }
   .tessera-v4 .detail #record-title { font-size:1.8rem; }
   .tessera-v4 .detail .layout-cell > dl { grid-template-columns:minmax(96px,38%) minmax(0,1fr); gap:8px; }
-  .tessera-v4 .detail > .actions { padding-bottom:max(15px,env(safe-area-inset-bottom)); }
+  .tessera-v4 .detail > .actions { padding-bottom:max(15px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
   .tessera-v4 .entry-scroll { height:min(65dvh,780px); min-height:260px; }
 }
 @media(max-width:390px) {
@@ -203,9 +203,9 @@
   .tessera-v4 .topbar .topbar-tools { order:3; }
   .tessera-v4 .topbar-navigation { flex:0 0 auto; }
   .tessera-v4 .nav-open .sidebar {
-    z-index:12; padding-top:max(20px,env(safe-area-inset-top));
-    padding-left:max(16px,env(safe-area-inset-left));
-    padding-bottom:max(20px,env(safe-area-inset-bottom));
+    z-index:12; padding-top:max(20px,var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    padding-left:max(16px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    padding-bottom:max(20px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
   .tessera-v4 .nav-open .sidebar-close { align-self:flex-start; }
   .tessera-v4 .nav-open .hybrid-main { visibility:hidden; }
@@ -219,7 +219,7 @@
 .tessera-v4 .editor-page { min-height:0; }
 .tessera-v4 .editor-page :is(input,textarea,select) { scroll-margin-block:90px 160px; }
 .tessera-v4 .hybrid-record-form > .actions {
-  padding-bottom:max(16px,env(safe-area-inset-bottom));
+  padding-bottom:max(16px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
 
 /* Constructor is a separate, intentional workspace: no data browsing while
@@ -274,8 +274,8 @@
 /* Existing creation presets and menu stay functional behind a single contextual FAB. */
 @media(max-width:760px) {
   .tessera-v4[data-workspace="records"] .hybrid-browse > header .create-button {
-    position:fixed; right:max(20px,env(safe-area-inset-right));
-    bottom:calc(26px + env(safe-area-inset-bottom));
+    position:fixed; right:max(20px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    bottom:calc(26px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
     z-index:5; margin:0;
   }
   .tessera-v4[data-workspace="records"] .create-button .split-button {
@@ -314,13 +314,13 @@
 /* Android edge-to-edge and cutout-safe composition. No fixed device dimensions. */
 @media(max-width:760px) {
   .tessera-v4 .topbar {
-    min-height:calc(62px + env(safe-area-inset-top, 0px));
-    padding-top:max(10px,env(safe-area-inset-top, 0px));
+    min-height:calc(62px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    padding-top:max(10px,var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
     padding-bottom:10px;
   }
   .tessera-v4 .editor-page {
-    padding-top:max(12px,env(safe-area-inset-top, 0px));
-    padding-bottom:max(28px,env(safe-area-inset-bottom, 0px));
+    padding-top:max(12px,var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    padding-bottom:max(28px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
   .tessera-v4 .hybrid-record-form > .actions {
     bottom:var(--tessera-keyboard-occlusion,0px);
@@ -472,7 +472,7 @@
   .tessera-v4 .detail .layout-row { grid-template-columns:minmax(0,1fr); }
   .tessera-v4 .detail .layout-group { padding:10px 14px 12px; }
   .tessera-v4 .editor-heading { top:0; }
-  .tessera-v4 .editor-page { padding-bottom:max(28px,env(safe-area-inset-bottom,0px)); }
+  .tessera-v4 .editor-page { padding-bottom:max(28px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))); }
 }
 @media(max-width:360px) {
   .tessera-v4 .topbar .tessera-mobile-brand {
@@ -537,7 +537,7 @@
   }
   .tessera-v4 .detail > .actions {
     display:flex; align-items:center; gap:6px; flex-wrap:nowrap;
-    padding:12px 0 max(16px,env(safe-area-inset-bottom));
+    padding:12px 0 max(16px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
   .tessera-v4 .detail > .actions .tessera-record-edit {
     margin-left:auto; min-height:54px; border-radius:18px; padding:12px 18px;
@@ -637,4 +637,41 @@
     font-size:.89rem;
   }
   .tessera-v4 .tessera-constructor-preview { grid-template-columns:minmax(0,1fr); }
+}
+
+/* SystemBars (Capacitor 8) supplies --safe-area-inset-* on older Android
+   WebViews where env(safe-area-inset-*) is incorrectly zero. */
+.tessera-v4 {
+  padding-left:var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  padding-right:var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+}
+.tessera-v4 .hybrid-main {
+  padding-bottom:max(40px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+}
+.tessera-v4 .topbar .icon-button:focus-visible,
+.tessera-v4 .tessera-bottom-nav button:focus-visible {
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+@media(max-width:760px) {
+  .tessera-v4 { padding:0; }
+  .tessera-v4 .topbar {
+    padding-top:max(10px,var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+    padding-left:max(12px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    padding-right:max(12px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    min-height:calc(62px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  }
+  .tessera-v4 .hybrid-main {
+    padding-left:max(15px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    padding-right:max(15px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    padding-bottom:max(26px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+  .tessera-v4 .tessera-bottom-nav {
+    padding-bottom:max(13px,var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+}
+@media(min-width:761px) {
+  .tessera-v4 .hybrid-main {
+    padding-left:max(24px,var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    padding-right:max(24px,var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+  }
 }

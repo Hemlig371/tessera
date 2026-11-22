@@ -1,10 +1,10 @@
-import { openConstructor } from '../support/ui-actions';
+import { openConstructor, expectInboxCaptureReachable, finishConstructor } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('mobile profiles keep common records, independent layouts and a persistent default', async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/'); await expect(page.getByRole('button', { name: '+ Во входящие', exact: true })).toBeVisible({ timeout: 30000 });
+  await page.goto('/'); await expectInboxCaptureReachable(page);
   await expect(page.locator('aside')).not.toBeVisible();
   const seed = await page.request.post('/__test-sqlite', { data: { op: 'profiles-seed' } }); expect(seed.ok(), await seed.text()).toBe(true);
   const libraryId = (await seed.json()).value as string;
@@ -12,9 +12,8 @@ test('mobile profiles keep common records, independent layouts and a persistent 
   const snapshot = () => query('SELECT r.* FROM records r JOIN collections c ON c.id=r.collection_id WHERE c.library_id=? ORDER BY r.id');
   const before = await snapshot();
   const navigate = async () => {
-    await page.getByRole('button', { name: 'Библиотеки', exact: true }).click();
-    await page.getByRole('button', { name: 'Заметки: профили (dev/CI)', exact: true }).click();
-    await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: профили (dev/CI)»', exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   };
   await page.reload(); await navigate();
   const selector = page.getByRole('combobox', { name: 'Представление', exact: true });

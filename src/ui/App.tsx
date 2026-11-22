@@ -893,21 +893,22 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     </main>;
   }
   return (
-    <div className={'app' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '')}>
+    <div className={'app hybrid-shell' + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '') + (selected ? ' record-open' : '')} data-workspace={ui.editor ? 'editor' : selected ? 'record' : ui.screen}>
       <aside className="sidebar">
         <button className="sidebar-close" onClick={() => useUi.setState({ navOpen: false })}>{t('closeNavigation')}</button>
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
-            ▦
+            ◈
           </span>
           <div>
             <b>{t('brand')}</b>
             <small>{t('tagline')}</small>
           </div>
         </div>
-        <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} aria-current={collection?.system_kind === 'inbox' ? 'page' : undefined} onClick={() => showInbox()}>
-          {t('inbox')}
-        </button>
+        <div className="hybrid-nav-global">
+          <button className={ui.screen === 'libraries' ? 'active' : ''} disabled={disabled} onClick={goHome} aria-current={ui.screen === 'libraries' ? 'page' : undefined}><Icon name="libraries" />{t('allLibraries')}</button>
+          <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} aria-current={collection?.system_kind === 'inbox' ? 'page' : undefined} onClick={() => showInbox()}><Icon name="inbox" />{t('inbox')}</button>
+        </div>
         <div className="nav-heading">{t('libraries')}</div>
         <nav aria-label={t('libraries')}>
           {libraries.map((l) => {
@@ -966,12 +967,12 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           + {t('newLibrary')}
         </button>
         <footer>
-          <span className="local-dot" aria-hidden="true" />
-          {t('local')}
+          <div className="hybrid-local-status"><span className="local-dot" aria-hidden="true" />{t('local')}</div>
           <small>{t('offline')}</small>
+          <button type="button" className="hybrid-sidebar-settings" disabled={disabled} onClick={() => open('settings')}><Icon name="settings" />{t('globalSettings')}</button>
         </footer>
       </aside>
-      <main>
+      <main className="hybrid-main">
         <div className="topbar" role="group" aria-label={t('globalNavigation')}>
           <div className="topbar-navigation">
           <button
@@ -987,6 +988,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={openGlobalSearch}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
           <button className="icon-button" title={t('openInbox')} disabled={disabled} onClick={() => showInbox()}><Icon name="inbox" /><span className="visually-hidden">{t('openInbox')}</span></button>
           <button className="icon-button capture-button" title={'+ ' + t('captureInbox')} disabled={disabled} onClick={() => showInbox(true)}><Icon name="capture" /><span className="visually-hidden">+ {t('captureInbox')}</span></button>
+          </div>
+          <div className="hybrid-topbar-context" aria-live="off">
+            <span className="hybrid-topbar-trail">{library?.name ?? t('libraries')}</span>
+            {collection && !collection.system_kind && <><span className="hybrid-topbar-separator" aria-hidden="true">/</span><strong>{collection.name}</strong></>}
           </div>
           <div className="topbar-tools">
           <button className="icon-button" title={t('trash')} disabled={disabled} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span className="visually-hidden">{t('trash')}</span></button>
@@ -1034,9 +1039,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </button>
           </div>
         )}
-        <section className={'browse-screen' + (ui.editor || selected ? ' screen-inactive' : '')} inert={!!ui.editor || !!selected} aria-hidden={!!ui.editor || !!selected}>
+        <section className={'browse-screen hybrid-browse' + (ui.editor || selected ? ' screen-inactive' : '')} inert={!!ui.editor || !!selected} aria-hidden={!!ui.editor || !!selected}>
         <header>
           <div className="browse-heading-title">
+            <span className="hybrid-eyebrow">{ui.screen === 'libraries' ? t('hybridWorkspace') : ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? t('libraries') : t('collections')}</span>
             {ui.screen !== 'libraries' && <button className="section-back" disabled={disabled} onClick={backSection} aria-label={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}>← {t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}</button>}
             <small>{library?.name ?? t('brand')}</small>
             <h1>
@@ -1286,9 +1292,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         )}
         </section>
         {selected && context && !ui.editor && (
-          <section className="detail" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
+          <section className="detail hybrid-record-detail" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
             <div className="dialog-heading">
               <div>
+                <span className="hybrid-eyebrow">{context.collection.name} · {t('hybridRecordLabel')}</span>
                 {!!trail.length && (
                   <button
                     disabled={busy}
@@ -1302,6 +1309,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                   </button>
                 )}
                 <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
+                <p className="hybrid-record-meta">{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(selected.updated_at))}</p>
               </div>
               <button className="icon-button" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>

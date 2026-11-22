@@ -32,6 +32,8 @@
   "hybridUnsaved": "Есть несохранённые изменения",
   "hybridNoChanges": "Изменений нет",
   "hybridDiscardWarning": "Отменить несохранённые изменения макета?",
+  "hybridWorkspace": "Рабочее пространство",
+  "hybridRecordLabel": "Запись",
   "globalSettings": "Настройки",
   "layoutLivePreview": "Предпросмотр макета",
   "layoutPreviewHint": "Изменения видны до сохранения; записи и история не затрагиваются.",

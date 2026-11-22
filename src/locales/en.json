@@ -32,6 +32,8 @@
   "hybridUnsaved": "Unsaved layout changes",
   "hybridNoChanges": "No changes",
   "hybridDiscardWarning": "Discard unsaved layout changes?",
+  "hybridWorkspace": "Workspace",
+  "hybridRecordLabel": "Record",
   "globalSettings": "Settings",
   "layoutLivePreview": "Layout preview",
   "layoutPreviewHint": "Changes appear before saving; records and history are unaffected.",

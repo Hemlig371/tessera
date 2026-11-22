@@ -1512,7 +1512,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             update={(id, patch) => { void run(async () => {
               const current = profiles.find(profile => profile.id === id);
               if (!current) return;
-              const { detail_layout_id: _old, ...base } = JSON.parse(current.config) as UiDefinition;
+              const base = JSON.parse(current.config) as UiDefinition;
+              delete base.detail_layout_id;
               await api.updateDisplayProfile(id, {
                 name: patch.name, position: patch.position, make_default: patch.make_default,
                 definition: patch.detail_layout_id ? { ...base, detail_layout_id: patch.detail_layout_id } : base,

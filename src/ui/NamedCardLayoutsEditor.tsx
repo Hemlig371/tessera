@@ -21,13 +21,17 @@ export function NamedCardLayoutsEditor({ api, fields, definition, save, cancel, 
     const value = name.trim();
     if (!value || named.length >= 16 || named.some(card => card.name.toLocaleLowerCase() === value.toLocaleLowerCase())) return;
     const id = crypto.randomUUID();
-    const { named_cards: _cards, detail_layout_id: _linked, ...base } = selectedDefinition;
+    const base = { ...selectedDefinition };
+    delete base.named_cards;
+    delete base.detail_layout_id;
     setDraft(old => ({ ...old, named_cards: [...(old.named_cards ?? []), { id, name: value, definition: structuredClone(base) }] }));
     setName('');
     setSelectedId(id);
   }
   function patchCurrent(next: UiDefinition) {
-    const { named_cards: _cards, detail_layout_id: _linked, ...clean } = next;
+    const clean = { ...next };
+    delete clean.named_cards;
+    delete clean.detail_layout_id;
     setDraft(old => selectedId
       ? { ...old, named_cards: (old.named_cards ?? []).map(card => card.id === selectedId ? { ...card, definition: clean } : card) }
       : { ...clean, named_cards: old.named_cards });

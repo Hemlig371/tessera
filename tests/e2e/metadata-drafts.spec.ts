@@ -3,10 +3,10 @@ import { test, expect } from '../support/e2e-test';
 
 test('capture waits for its own field metadata before constructing a draft session', async ({ page }) => {
   await page.goto('/'); await expect(page.locator('aside')).toBeVisible();
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Metadata isolation');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Other fields');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await expect(page.getByRole('button', { name: '+ Новая запись', exact: true })).toBeEnabled();

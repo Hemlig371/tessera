@@ -1165,3 +1165,10 @@ button { min-height: var(--control-height); line-height: 1.35; overflow-wrap: an
   .entry:not(.table) .entry-values { grid-template-columns: minmax(0, 1fr); }
   .detail .layout-cell > dl { padding-bottom: var(--space-4); }
 }
+
+/* Global application settings are a standalone destination, not constructor tools. */
+.global-settings { max-width: 44rem; margin-inline: auto; min-width: 0; }
+.global-settings-links { display: grid; gap: var(--space-2); }
+.global-settings-links > button { display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: start; padding: var(--space-4); background: var(--surface); }
+.global-settings-links > button > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.global-settings-links > button > .ui-icon:last-child { width: 1rem; height: 1rem; color: var(--muted); }

@@ -1,6 +1,8 @@
 {
   "brand": "Tessera",
   "tagline": "Your personal database, close at hand.",
+  "globalSettings": "Settings",
+  "globalSettingsHint": "Application settings are available without selecting a library or opening the designer.",
   "libraries": "Libraries",
   "newLibrary": "New library",
   "newCollection": "New collection",

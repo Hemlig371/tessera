@@ -870,7 +870,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }
   const fieldsReady = fields.length > 0 && fields[0]?.collection_id === collection?.id;
   const title =
-    ui.editor === 'mail-sync' ? t('mailSyncTitle') : ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'diagnostics' ? t('diagnosticsTitle') : ui.editor === 'large-attachments' ? t('largeAttachmentsTitle') : ui.editor === 'library-summary' ? t('librarySummary') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
+    ui.editor === 'settings' ? t('globalSettings') : ui.editor === 'mail-sync' ? t('mailSyncTitle') : ui.editor === 'file-settings' ? t('fileSettings') : ui.editor === 'diagnostics' ? t('diagnosticsTitle') : ui.editor === 'large-attachments' ? t('largeAttachmentsTitle') : ui.editor === 'library-summary' ? t('librarySummary') : ui.editor === 'trash' ? t('trash') : ui.editor === 'history' ? t('recordHistory') : ui.editor === 'history-clear' ? t('clearAllHistory') : ui.editor === 'appearance' ? t('deviceAppearance') : ui.editor === 'library-start' ? t('libraryStart') : ui.editor === 'presets' ? t('creationPresets') : ui.editor === 'profiles' ? t('displayProfiles') : ui.editor === 'library'
       ? t(ui.editingId ? 'editLibrary' : 'newLibrary')
       : ui.editor === 'collection'
         ? t(ui.editingId ? 'editCollection' : 'newCollection')
@@ -992,7 +992,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button className="icon-button" title={t('constructor')} id="constructor-toggle" aria-pressed={ui.constructorOpen} disabled={disabled} onClick={toggleConstructor}><Icon name="tools" /><span className="visually-hidden">{t('constructor')}</span></button>
           {openArchive && <button className="icon-button" title={t('databaseArchive')} disabled={disabled} data-testid="database-archive-open" onClick={openArchive}><Icon name="archive"/><span className="visually-hidden">{t('databaseArchive')}</span></button>}
           {androidDeviceLock() && ui.libraryId && ui.scope !== 'all' && <button type="button" disabled={disabled || gateWorking} onClick={() => { void toggleLibraryLock(); }}>{libraryGate?.required ? t('disableLibraryLock') : t('enableLibraryLock')}</button>}
-          <button className="icon-button" title={t('deviceAppearance')} disabled={disabled || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span className="visually-hidden">{t('deviceAppearance')}</span></button>
+          <button className="icon-button" title={t('globalSettings')} aria-label={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
           <label className="language">
             <span className="visually-hidden">{t('language')}</span>
             <select
@@ -1069,7 +1069,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
         </section>}
         <div className="toolbar">
-          {ui.constructorOpen && ui.screen === 'libraries' && <>{nativeMailSyncSupported() && <button disabled={disabled} onClick={() => open('mail-sync')}>{t('mailSyncTitle')}</button>}<button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
+          {ui.constructorOpen && ui.screen === 'libraries' && <><button disabled={disabled} onClick={() => open('settings')}>{t('globalSettings')}</button><button disabled={disabled} onClick={() => open('history-clear')}>{t('clearAllHistory')}</button><button disabled={disabled} onClick={() => open('file-settings')}>{t('fileSettings')}</button><button disabled={disabled} onClick={() => open('diagnostics')}>{t('diagnosticsTitle')}</button><button disabled={disabled} onClick={() => open('large-attachments')}>{t('largeAttachmentsTitle')}</button></>}
           {ui.constructorOpen && library && !library.system_kind && (
             <><button disabled={disabled} onClick={() => open('library', library.id)}>
               {t('editLibrary')}
@@ -1352,6 +1352,17 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
+          {ui.editor === 'settings' && <section className="global-settings" aria-label={t('globalSettings')}>
+            <p className="screen-hint">{t('globalSettingsHint')}</p>
+            <div className="global-settings-links">
+              <button disabled={busy || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span>{t('deviceAppearance')}</span><Icon name="arrow" /></button>
+              {nativeMailSyncSupported() && <button disabled={busy} onClick={() => open('mail-sync')}><Icon name="inbox" /><span>{t('mailSyncTitle')}</span><Icon name="arrow" /></button>}
+              {openArchive && <button disabled={busy} onClick={openArchive}><Icon name="archive" /><span>{t('databaseArchive')}</span><Icon name="arrow" /></button>}
+              <button disabled={busy} onClick={() => open('file-settings')}><Icon name="archive" /><span>{t('fileSettings')}</span><Icon name="arrow" /></button>
+              <button disabled={busy} onClick={() => open('large-attachments')}><Icon name="archive" /><span>{t('largeAttachmentsTitle')}</span><Icon name="arrow" /></button>
+              <button disabled={busy} onClick={() => open('diagnostics')}><Icon name="tools" /><span>{t('diagnosticsTitle')}</span><Icon name="arrow" /></button>
+            </div>
+          </section>}
           {ui.editor === 'mail-sync' && <AndroidMailSyncSettings api={api} cancel={close} />}
           {ui.editor === 'diagnostics' && <DiagnosticsPanel api={api} busy={busy} />}
           {ui.editor === 'large-attachments' && <LargeAttachments api={api} busy={busy} />}

@@ -1268,7 +1268,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                               {listItems.map((item) => {
                                 const f = fields.find((field) => field.id === item.field_id)!;
                                 return (
-                                  <span key={f.id} className={(item.width === 'half' ? 'half' : 'full') + (f.id === collection?.primary_field_id ? ' entry-primary' : '')}>
+                                  <span key={f.id} className={(item.width === 'half' ? 'half' : 'full') + (f.id === collection?.primary_field_id ? ' entry-primary' : '') + (['select', 'multiselect'].includes(f.type) ? ' tessera-select-field' : '')}>
                                     {item.group && <small>{item.group} · </small>}
                                     <small className="entry-field-label">{f.name}: </small>
                                     {isCalculated(f.type) ? <CalculatedValue field={f} value={row.computed?.[f.id]} /> : ['relation', 'backlink'].includes(f.type)
@@ -1368,7 +1368,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                           />
                         ) : isFile(f.type) ? <AttachmentList api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
                           <MarkdownView key={selected.id + f.id} source={String(selected.data[f.id])} />
-                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : format(f, selected.data[f.id])}
+                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <span className="tessera-readonly-boolean"><input type="checkbox" checked={selected.data[f.id] === true} readOnly disabled aria-label={f.name} /><span>{format(f, selected.data[f.id])}</span></span> : ['select', 'multiselect'].includes(f.type) ? <span className="tessera-select-value">{format(f, selected.data[f.id])}</span> : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );

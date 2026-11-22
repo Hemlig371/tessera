@@ -49,3 +49,12 @@ export async function expectInboxCaptureReachable(page: Page, language: 'ru' | '
   await expect(page.getByRole('menuitem', { name: label, exact: true })).toBeVisible();
   await more.click();
 }
+
+export async function finishConstructor(page: Page) {
+  const toggle = page.locator('#constructor-toggle');
+  if (await toggle.getAttribute('aria-pressed') === 'true') {
+    await expect(page.locator('[data-editor]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Готово, к данным', exact: true }).click();
+  }
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+}

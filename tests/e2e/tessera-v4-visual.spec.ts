@@ -29,6 +29,15 @@ test('Tessera v4 visual contract: adaptive libraries, collection and record form
   await page.screenshot({ path: 'test-results/tessera-v4-record-desktop.png', fullPage: true });
   for (const width of [320, 390, 760, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const measure = await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      protruding: [...document.querySelectorAll('body *')].map(element => ({
+        tag: element.tagName.toLowerCase(),
+        cls: element.getAttribute('class')?.slice(0,90) ?? '',
+        right: Math.round(element.getBoundingClientRect().right),
+      })).filter(item => item.right > window.innerWidth + 1).slice(0,8),
+    }));
+    expect(measure.scrollWidth, JSON.stringify(measure)).toBeLessThanOrEqual(measure.viewport);
   }
 });

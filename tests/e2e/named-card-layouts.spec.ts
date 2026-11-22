@@ -33,6 +33,8 @@ test('named record layouts are view-specific and leave shared record history unt
   await page.getByRole('combobox', { name: 'Настраиваемое представление' }).selectOption({ label: 'Только Бета' });
   await page.getByRole('combobox', { name: 'Макет подробной записи для представления' }).selectOption({ label: 'Компактный' });
   await page.getByRole('button', { name: 'Сохранить представление', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Макет подробной записи для представления' })).toHaveValue(/.+/);
+  await page.locator('[data-editor]').press('Escape');
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Готово, к данным' }).click();
   const profile = page.getByRole('combobox', { name: 'Представление', exact: true });

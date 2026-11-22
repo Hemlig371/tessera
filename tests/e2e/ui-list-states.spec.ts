@@ -1,9 +1,10 @@
+import { openApplicationAction } from '../support/ui-actions';
 import { expect, test } from '../support/e2e-test';
 
 test('a delayed failed list read shows loading and Retry, without claiming the collection is empty', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('combobox', { name: 'Тема', exact: true }).selectOption('dark');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();

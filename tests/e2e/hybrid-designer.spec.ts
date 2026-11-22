@@ -17,8 +17,8 @@ test('Hybrid canvas previews changes and undo/redo without writing records', asy
   const original = await snapshot();
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Заметки: строки (dev/CI)', exact: true }).click();
-  await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: строки (dev/CI)»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   await openConstructor(page);
   await page.getByRole('button', { name: 'Карточка', exact: true }).click();
   await expect(page.locator('.hybrid-designer')).toBeVisible();

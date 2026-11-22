@@ -27,6 +27,8 @@
   "hybridPreviewRelation": "Related record",
   "hybridEditField": "Configure field “{{name}}”",
   "hybridStructure": "Rows and columns",
+  "hybridReset": "Default layout",
+  "hybridResetWarning": "Reset this layout to default? Unsaved settings will be replaced.",
   "hybridUndo": "↶ Undo",
   "hybridRedo": "↷ Redo",
   "hybridUnsaved": "Unsaved layout changes",

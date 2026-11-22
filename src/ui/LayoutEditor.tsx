@@ -4,6 +4,7 @@ import { modeFields } from '../core/mode-options';
 import type { SummaryMeasure } from '../core/query-summary';
 import { LayoutRowsEditor } from './LayoutRowsEditor';
 import { LayoutRowsView } from './LayoutRowsView';
+import { HybridPreviewField } from './HybridPreviewField';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EntryFilter, Field, LayoutItem, LayoutRow, ListOptions, UiDefinition, UiKind } from '../core/model';
@@ -106,6 +107,25 @@ export function LayoutEditor({
       });
     } else setItems(old => { const next = [...old], [item] = next.splice(index, 1); next.splice(index + offset, 0, item!); return next; });
   }
+  function swapPreviewFields(from: string, to: string) {
+    if (kind === 'list') setItems(old => {
+      const next = [...old], a = next.findIndex(item => item.field_id === from), b = next.findIndex(item => item.field_id === to);
+      if (a >= 0 && b >= 0) [next[a], next[b]] = [next[b]!, next[a]!];
+      return next;
+    });
+    else setRows(old => old.map(row => ({ ...row, field_ids: row.field_ids.map(id => id === from ? to : id === to ? from : id) })));
+    selectField(from);
+  }
+  function resetTemplate() {
+    if (!window.confirm(t('hybridResetWarning'))) return;
+    const defaults: LayoutItem[] = fields.map(field => ({ field_id: field.id, visible: true }));
+    setItems(defaults);
+    setRows(kind === 'list' ? [] : layoutRows({ fields: defaults }, fields, true));
+    setList({ mode: 'rows' });
+    setActions([]);
+    setTotals([]);
+    selectField(fields[0]?.id ?? '');
+  }
   function filter(index: number, value: Partial<EntryFilter>) {
     setList((old) => ({
       ...old,
@@ -148,16 +168,14 @@ export function LayoutEditor({
                 ? <LayoutRowsView definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
                     render={item => {
                       const field = fields.find(f => f.id === item.field_id)!;
-                      return <button type="button" className={selectedId === field.id ? 'hybrid-preview-field chosen' : 'hybrid-preview-field'}
-                        onClick={() => selectField(field.id)} aria-label={t('hybridEditField', { name: field.name })}>
-                        <small>{field.name}</small><span>{previewValue(field)}</span>
-                      </button>;
+                      return <HybridPreviewField field={field} value={previewValue(field)} selected={selectedId === field.id}
+                        disabled={busy} select={() => selectField(field.id)} move={swapPreviewFields}/>;
                     }} />
                 : <div className="hybrid-preview-list">
                     {items.filter(item => item.visible).map(item => {
                       const field = fields.find(f => f.id === item.field_id)!;
-                      return <button type="button" key={field.id} className={selectedId === field.id ? 'hybrid-preview-field chosen' : 'hybrid-preview-field'}
-                        onClick={() => selectField(field.id)}><small>{field.name}</small><span>{previewValue(field)}</span></button>;
+                      return <HybridPreviewField key={field.id} field={field} value={previewValue(field)}
+                        selected={selectedId === field.id} disabled={busy} select={() => selectField(field.id)} move={swapPreviewFields}/>;
                     })}
                   </div>}
             </div>
@@ -168,6 +186,7 @@ export function LayoutEditor({
           <div className="hybrid-history">
             <button type="button" disabled={busy || !historyStatus.undo} onClick={() => restore('undo')}>{t('hybridUndo')}</button>
             <button type="button" disabled={busy || !historyStatus.redo} onClick={() => restore('redo')}>{t('hybridRedo')}</button>
+            <button type="button" disabled={busy} onClick={resetTemplate}>{t('hybridReset')}</button>
           </div>
         </div>
         <aside className="hybrid-inspector" aria-label={t('hybridPropertiesPanel')}>

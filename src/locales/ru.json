@@ -27,6 +27,8 @@
   "hybridPreviewRelation": "Связанная запись",
   "hybridEditField": "Настроить поле «{{name}}»",
   "hybridStructure": "Расположение строк и колонок",
+  "hybridReset": "Стандартный макет",
+  "hybridResetWarning": "Сбросить текущую компоновку к стандартной? Несохранённые настройки будут заменены.",
   "hybridUndo": "↶ Отменить",
   "hybridRedo": "↷ Повторить",
   "hybridUnsaved": "Есть несохранённые изменения",

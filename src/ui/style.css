@@ -1244,3 +1244,14 @@ button { min-height: var(--control-height); line-height: 1.35; overflow-wrap: an
 @media (max-width:1150px) { .hybrid-designer { grid-template-columns:minmax(0,1fr) minmax(0,2fr); } .hybrid-inspector { grid-column:1 / -1; position:static; max-height:none; } }
 @media (max-width:760px) { .hybrid-designer { display:flex; flex-direction:column; gap:12px; } .hybrid-designer > * { width:100%; } .hybrid-palette, .hybrid-inspector { position:static; max-height:none; } .hybrid-field-palette { display:flex; overflow-x:auto; padding-bottom:6px; } .hybrid-field-palette button { flex:0 0 min(160px,55vw); } .hybrid-canvas-toolbar { align-items:flex-start; } .hybrid-preview-frame { padding:12px; } .hybrid-preview-stage { padding:10px; } .hybrid-designer-actions { flex-wrap:wrap; } }
 @media (prefers-reduced-motion:reduce) { .hybrid-preview-frame { transition:none; } }
+
+
+/* Direct canvas block selection and pointer/keyboard-equivalent reordering. */
+.hybrid-preview-block { display:flex; position:relative; width:100%; border:1px solid transparent; border-radius:10px; min-width:0; background:var(--raised); }
+.hybrid-preview-block.selected { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+.hybrid-preview-block.drop-target { outline:2px dashed var(--accent); outline-offset:1px; }
+.hybrid-preview-block .hybrid-preview-field { flex:1; width:auto; border:0; background:transparent; }
+.hybrid-preview-drag { align-self:flex-start; min-height:36px; min-width:32px; padding:7px; border:0; background:transparent; color:var(--muted); cursor:grab; touch-action:none; }
+.hybrid-preview-drag:active { cursor:grabbing; }
+.hybrid-preview-block .hybrid-preview-field:hover { background:var(--hybrid-hover,var(--accent-soft)); }
+.hybrid-history { flex-wrap:wrap; }

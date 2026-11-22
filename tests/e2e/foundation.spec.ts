@@ -9,10 +9,10 @@ test('UI → TypeScript → native Node SQLite → UI, explicit save, cancel and
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible({ timeout: 30000 });
   const count = async () => page.request.post('/__test-sqlite', { data: { op: 'query', sql: 'SELECT count(*) AS n FROM records' } }).then(r => r.json()) as Promise<{ value: { n: number }[] }>;
   const initialCount = (await count()).value[0]!.n;
-  await page.getByRole('button', { name: '+ Новая библиотека', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать библиотеку', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название библиотеки' }).fill('Моя библиотека');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
-  await page.getByRole('button', { name: '+ Новая коллекция', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название коллекции' }).fill('Заметки');
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();

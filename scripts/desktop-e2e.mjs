@@ -76,7 +76,7 @@ try {
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   assert.equal(await execute("return document.querySelector('[role=status]').textContent"), 'Запись сохранена');
   await leaveConstructor();
-  await until("document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='false' && ![...document.querySelectorAll('button')].some(button=>button.textContent==='Поля' && !button.closest('[inert]')))";
+  await until("document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='false' && ![...document.querySelectorAll('button')].some(button=>button.textContent==='Поля' && !button.closest('[inert]'))");
   const csvPath = join(directory, 'native-export.csv');
   const bridgeResult = await request('POST', `/session/${session}/execute/async`, {
     script: `const done=arguments[arguments.length-1]; (async()=>{

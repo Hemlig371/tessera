@@ -460,6 +460,8 @@
   "attachmentOptions": "File actions",
   "recentRecords": "Recent",
   "collectionCount_one": "{{count}} collection",
+  "collectionCount_few": "{{count}} collections",
+  "collectionCount_many": "{{count}} collections",
   "collectionCount_other": "{{count}} collections",
   "emptyCollections": "No collections yet",
   "emptyCollectionsHint": "Create a collection and configure its fields.",

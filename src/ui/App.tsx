@@ -1494,8 +1494,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                     if (ui.editingId) await api.updateLibrary(ui.editingId, { name, appearance, position });
                     else {
                       const row = await api.createLibrary(name, appearance);
+                      // The new library is the next screen; do not obscure it
+                      // with the legacy mobile navigation drawer.
                       ui.select(row.id);
-                      useUi.setState({ navOpen: true });
+                      useUi.setState({ navOpen: false });
                     }
                   } else if (ui.libraryId) {
                     if (ui.editingId)

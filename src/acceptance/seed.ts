@@ -141,17 +141,17 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
   const options = [{ id: firstChoice, label: 'Первый' }, { id: secondChoice, label: 'Второй' }];
   const select = await create('Select', 'select', { options });
   const multiple = await create('Multiselect', 'multiselect', { options });
-  const date = await create('Date', 'date');
-  const time = await create('Time', 'time');
+  const catalogDate = await create('Date', 'catalogDate');
+  const catalogTime = await create('Time', 'catalogTime');
   const local = await create('Local datetime', 'local_datetime');
   const range = await create('Date range', 'date_range');
   const duration = await create('Duration', 'duration');
   const url = await create('URL', 'url');
-  const email = await create('Email', 'email');
-  const phone = await create('Phone', 'phone');
+  const catalogEmail = await create('Email', 'catalogEmail');
+  const catalogPhone = await create('Phone', 'catalogPhone');
   const barcode = await create('Barcode', 'barcode', { barcode_label: 'Тестовый код' });
   const secret = await create('Secret', 'secret');
-  const address = await create('Address', 'address');
+  const catalogAddress = await create('Address', 'catalogAddress');
   const coordinates = await create('Coordinates', 'coordinates');
   const color = await create('Color', 'color');
   const icon = await create('Icon', 'icon');
@@ -171,11 +171,11 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     [markdown.id]: '# Заголовок\n\n**Жирный** и _курсив_.',
     [bool.id]: false, [integer.id]: 0, [decimal.id]: '0.1', [money.id]: '123.45',
     [select.id]: firstChoice, [multiple.id]: [firstChoice, secondChoice],
-    [date.id]: '2026-11-22', [time.id]: '09:45', [local.id]: '2026-11-22T09:45',
+    [catalogDate.id]: '2026-11-22', [catalogTime.id]: '09:45', [local.id]: '2026-11-22T09:45',
     [range.id]: { start: '2026-11-22', end: '2026-11-29' }, [duration.id]: '90.5',
-    [url.id]: 'https://example.org/', [email.id]: 'qa@example.org', [phone.id]: '+7 900 000-00-02',
+    [url.id]: 'https://example.org/', [catalogEmail.id]: 'qa@example.org', [catalogPhone.id]: '+7 900 000-00-02',
     [barcode.id]: 'ABC-123', [secret.id]: 'QA_FAKE_NOT_A_PASSWORD',
-    [address.id]: 'Тестовая улица', [coordinates.id]: { latitude: '55.7558', longitude: '37.6173' },
+    [catalogAddress.id]: 'Тестовая улица', [coordinates.id]: { latitude: '55.7558', longitude: '37.6173' },
     [color.id]: '#336699', [icon.id]: '★', [json.id]: { nested: [false, 0, 'ёж'] },
     [relation.id]: target.id,
   };

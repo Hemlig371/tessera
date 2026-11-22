@@ -3,7 +3,7 @@ import { expect, type Page } from '@playwright/test';
 export async function showList(page: Page) {
   // Closing a form may still be flushing its draft and private file staging.
   await expect(page.locator('[data-editor]')).toHaveCount(0);
-  const back = page.getByRole('button', { name: /^(К списку|Back to list)$/ });
+  const back = page.getByRole('button', { name: /^(К списку|Back to list)$/ }).filter({ visible: true }).first();
   if (await back.isVisible()) await back.click();
   // Data screens and the library builder are separate destinations in v4.
   const toggle = page.locator('#constructor-toggle');
@@ -21,9 +21,9 @@ export async function openApplicationAction(page: Page, label: string) {
   await page.getByRole('menuitem', { name: label, exact: true }).click();
 }
 export async function goToLibraries(page: Page) {
-  const direct = page.getByRole('button', { name: 'Все библиотеки', exact: true });
+  const direct = page.getByRole('button', { name: 'Все библиотеки', exact: true }).filter({ visible: true }).first();
   if (await direct.isVisible()) { await direct.click(); return; }
-  const back = page.getByRole('button', { name: 'К списку', exact: true });
+  const back = page.getByRole('button', { name: 'К списку', exact: true }).filter({ visible: true }).first();
   if (await back.isVisible()) await back.click();
   await page.getByRole('button', { name: 'Навигация', exact: true }).click();
   await page.getByRole('button', { name: 'Все библиотеки', exact: true }).click();

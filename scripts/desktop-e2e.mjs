@@ -326,8 +326,8 @@ try {
   await clickText('История записи'); await until("document.querySelectorAll('.history-versions button').length===1");
   await clickText('Назад');
   // @quarantine M1-native-archive-picker: locked Tauri invoke is read-only;
-  // local GTK picker attempts failed (focus, then duplicate .zip). See audit.md.
-  // Resolve before M7; native data/replacement and blob-preview remain mandatory.
+  // local GTK picker attempts failed (focus, then duplicate .zip). See implementation.md.
+  // Native archive picker still requires manual verification; native data/replacement and blob-preview remain mandatory.
   const quarantinedNativeScenarios = new Set(['M1-native-archive-picker']);
   if (!quarantinedNativeScenarios.has('M1-native-archive-picker')) {
     await until("!!document.querySelector('[data-testid=database-archive-open]:not(:disabled)')");
@@ -349,7 +349,7 @@ try {
     await until("!!document.querySelector('[data-testid=database-archive-open]') && !document.querySelector('[data-testid=database-archive]')");
     const newIdentity = await request('POST', `/session/${session}/execute/async`, { script: `const done=arguments[arguments.length-1];window.__TAURI_INTERNALS__.invoke('db_query',{sql:"SELECT value FROM local_settings WHERE key='device_id'",params:[]}).then(rows=>done(rows[0].value),error=>done(String(error)))`, args: [] });
     assert.notEqual(newIdentity, oldIdentity); assert.deepEqual(await readFile(attachmentPath), Buffer.from([0,255,17,13,10,42]));
-  } else console.warn('::warning::@quarantine M1-native-archive-picker: native archive UI is not accepted; see audit.md');
+  } else console.warn('::warning::@quarantine M1-native-archive-picker: native archive UI is not accepted; see implementation.md');
   console.log('PASS: Tauri WebView → shared TS → Rust/rusqlite and native attachment bytes; persisted after process restart');
 } catch (error) {
   // Surface the assertion through the GitHub Checks API as well as runner logs.

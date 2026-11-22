@@ -904,7 +904,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <small>{t('tagline')}</small>
           </div>
         </div>
-        <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} onClick={() => showInbox()}>
+        <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} aria-current={collection?.system_kind === 'inbox' ? 'page' : undefined} onClick={() => showInbox()}>
           {t('inbox')}
         </button>
         <div className="nav-heading">{t('libraries')}</div>
@@ -915,6 +915,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               <div className="library" key={l.id}>
                 <button
                   className={l.id === ui.libraryId ? 'active library-button' : 'library-button'}
+                  aria-current={l.id === ui.libraryId && !ui.collectionId ? 'page' : undefined}
                   disabled={disabled}
                   title={l.name}
                   onClick={() => { void openLibrary(l.id); }}
@@ -937,6 +938,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                             title={c.name}
                             disabled={disabled}
                             className={c.id === ui.collectionId ? 'active' : ''}
+                            aria-current={c.id === ui.collectionId ? 'page' : undefined}
                             onClick={() => {
                               rememberBrowse(); clearRecordContext();
                               ui.select(l.id, c.id);

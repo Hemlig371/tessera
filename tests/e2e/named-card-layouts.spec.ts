@@ -17,8 +17,8 @@ test('named record layouts are view-specific and leave shared record history unt
   const before = await snapshot('records');
   const history = await snapshot('record_versions');
   await page.goto('/');
-  await page.getByRole('button', { name: 'Заметки: профили (dev/CI)', exact: true }).click();
-  await page.getByRole('button', { name: 'Заметки', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть библиотеку «Заметки: профили (dev/CI)»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   await openConstructor(page);
   await page.getByRole('button', { name: 'Макеты записи', exact: true }).click();
   await page.getByRole('textbox', { name: 'Новый именованный макет', exact: true }).fill('Компактный');

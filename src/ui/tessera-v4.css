@@ -683,3 +683,26 @@
   .tessera-v4 .catalog-cards .catalog-item { min-height:80px; }
   .tessera-v4 .catalog-cards .catalog-item > .ui-icon { position:static; }
 }
+
+/* Record reading is its own full-screen destination on Android. */
+.tessera-v4 .tessera-record-utilities { display:none; }
+@media(max-width:760px) {
+  .tessera-v4[data-workspace="record"] .topbar { display:none; }
+  .tessera-v4[data-workspace="record"] .hybrid-main {
+    padding-top:var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  }
+  .tessera-v4[data-workspace="record"] .tessera-record-topline {
+    min-height:60px; margin:0 0 13px; gap:8px;
+  }
+  .tessera-v4 .tessera-record-topline .tessera-record-location {
+    flex:1 1 auto; white-space:nowrap;
+  }
+  .tessera-v4 .tessera-record-utilities {
+    display:flex; align-items:center; gap:0; margin-left:auto;
+  }
+  .tessera-v4 .tessera-record-utilities .icon-button {
+    flex:0 0 42px; width:42px; height:42px;
+    border:0; background:transparent; color:var(--text);
+  }
+  .tessera-v4 .tessera-record-utilities .ui-icon { width:23px; height:23px; }
+}

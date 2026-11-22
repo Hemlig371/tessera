@@ -222,6 +222,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const [readyBrowse, setReadyBrowse] = useState<{ token: string; revision: number } | null>(null);
   const cardHeading = useRef<HTMLHeadingElement>(null);
   const [search, setSearch] = useState('');
+  const [recentMode, setRecentMode] = useState(false);
   const searchFor = ui.searchFor;
   const scroll = useRef<HTMLDivElement>(null),
     navigationRequest = useRef(0),
@@ -681,13 +682,13 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }
   function goHome() {
     if (busy || ui.editor) return;
-    rememberBrowse(); clearRecordContext(); ui.home();
+    rememberBrowse(); clearRecordContext(); setRecentMode(false); ui.home();
   }
-  function openGlobalSearch() {
+  function openGlobalSearch(recent = false) {
     if (busy || ui.editor) return;
-    if (ui.searchOrigin && ui.scope === 'all') return;
+    if (ui.searchOrigin && ui.scope === 'all') { setRecentMode(recent); return; }
     const origin = selected ? { token: queryToken, id: selected.id, trail: [...trail] } : null;
-    const proceed = () => { rememberBrowse(); clearRecordContext(); searchRecordOrigin.current = origin; ui.globalSearch(); };
+    const proceed = () => { rememberBrowse(); clearRecordContext(); searchRecordOrigin.current = origin; setRecentMode(recent); ui.globalSearch(); };
     if (!androidDeviceLock()) { proceed(); return; }
     setBusy(true); setError(null);
     void api.listLibraries().then(async items => {
@@ -1000,7 +1001,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <Icon name="menu" /><span className="visually-hidden">{t('navigation')}</span>
           </button>
           <button className="icon-button tessera-home-button" title={t('allLibraries')} disabled={disabled} onClick={goHome}><Icon name="libraries" /><span className="visually-hidden">{t('allLibraries')}</span></button>
-          <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={openGlobalSearch}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
+          <button className="icon-button" title={t('globalSearch')} disabled={disabled} onClick={() => openGlobalSearch()}><Icon name="search" /><span className="visually-hidden">{t('globalSearch')}</span></button>
           <button className="icon-button tessera-secondary-nav" title={t('openInbox')} disabled={disabled} onClick={() => showInbox()}><Icon name="inbox" /><span className="visually-hidden">{t('openInbox')}</span></button>
           <button className="icon-button capture-button tessera-secondary-nav" title={'+ ' + t('captureInbox')} disabled={disabled} onClick={() => showInbox(true)}><Icon name="capture" /><span className="visually-hidden">+ {t('captureInbox')}</span></button>
           </div>
@@ -1062,7 +1063,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <small>{library?.name ?? t('brand')}</small>
             <h1>
               {ui.constructorOpen ? t('constructor') : ui.screen === 'libraries' ? t('libraries') : ui.screen === 'summary' ? t('librarySummary') : ui.screen === 'library' ? library?.name ?? t('collections') : ui.scope === 'all'
-                ? t('allEntries')
+                ? (recentMode ? (i18n.language === 'ru' ? 'Недавние' : 'Recent') : t('allEntries'))
                 : ui.scope === 'library'
                   ? library?.name
                   : (collection?.system_kind === 'inbox' ? t('inbox') : collection?.name ?? t('brand'))}
@@ -1607,7 +1608,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       )}
         {!ui.editor && !selected && ui.screen === 'libraries' && <nav className="tessera-bottom-nav" aria-label={t('globalNavigation')}>
           <button aria-current="page" disabled={disabled} onClick={goHome}><Icon name="libraries" /><span>{t('libraries')}</span></button>
-          <button disabled={disabled} onClick={openGlobalSearch}><Icon name="clock" /><span>{i18n.language === 'ru' ? 'Недавние' : 'Recent'}</span></button>
+          <button disabled={disabled} onClick={() => openGlobalSearch(true)}><Icon name="clock" /><span>{i18n.language === 'ru' ? 'Недавние' : 'Recent'}</span></button>
           <button disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /><span>{t('globalSettings')}</span></button>
         </nav>}
       </main>

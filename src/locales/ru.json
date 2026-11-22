@@ -457,6 +457,7 @@
   "globalSearch": "Глобальный поиск",
   "openInbox": "Открыть входящие",
   "collections": "Коллекции",
+  "attachmentOptions": "Действия с файлом",
   "recentRecords": "Недавние",
   "collectionCount_one": "{{count}} коллекция",
   "collectionCount_few": "{{count}} коллекции",

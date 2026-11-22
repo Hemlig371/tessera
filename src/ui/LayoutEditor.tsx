@@ -24,6 +24,7 @@ export function LayoutEditor({
   cancel,
   busy,
   allowQuickActions = true,
+  onDirtyChange,
 }: {
   api: Repository;
   kind: UiKind;
@@ -33,6 +34,7 @@ export function LayoutEditor({
   cancel: () => void;
   busy: boolean;
   allowQuickActions?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [storedItems, setItems] = useState(() => layoutItems(definition, fields));
@@ -84,6 +86,10 @@ export function LayoutEditor({
   const changed = JSON.stringify({ items: storedItems, rows, list, actions, totals }) !==
     JSON.stringify({ items: layoutItems(definition, fields), rows: kind === 'list' ? [] : layoutRows(definition, fields, true),
       list: definition.list ?? {}, actions: definition.quick_actions ?? [], totals: definition.totals ?? [] });
+  useEffect(() => {
+    onDirtyChange?.(changed);
+    return () => onDirtyChange?.(false);
+  }, [changed, onDirtyChange]);
   const previewValue = (field: Field) => {
     if (field.type === 'secret') return '••••••';
     if (field.type === 'boolean') return t('hybridPreviewBoolean');

@@ -14,6 +14,8 @@ test('global settings open without choosing a library or enabling constructor', 
   await editor.getByRole('button', { name: 'Оформление' }).click();
   await expect(page.getByRole('combobox', { name: 'Тема' })).toBeVisible();
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await expect(editor.getByRole('heading', { name: 'Настройки', exact: true })).toBeVisible();
+  await page.locator('[data-editor] .editor-heading button').click();
   await expect(editor).toHaveCount(0);
   await expect(constructor).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

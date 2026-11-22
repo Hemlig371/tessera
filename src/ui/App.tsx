@@ -159,6 +159,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const [openingDraft, setOpeningDraft] = useState<Draft | null>(null);
   const [staleEdit, setStaleEdit] = useState<{ data: RecordData; current: Entry } | null>(null);
   const fileClose = useRef<(() => Promise<void>) | null>(null);
+  const designerDirty = useRef(false);
+  const settingsReturn = useRef(false);
+  const registerDesignerDirty = useCallback((value: boolean) => { designerDirty.current = value; }, []);
   const registerFileClose = useCallback((close: (() => Promise<void>) | null) => { fileClose.current = close; }, []);
   const creationClose = useRef<(() => Promise<void>) | null>(null);
   const creationMenuClose = useRef<(() => void) | null>(null);
@@ -730,6 +733,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }
   function open(editor: typeof ui.editor, editingId?: string) {
     setDraftRecoveryPath(null);
+    settingsReturn.current = ui.editor === 'settings' && editor !== 'settings';
     if (!editingId && collection && (editor === 'entry' || editor === 'quick-entry')) { beginCreate({ kind: editor === 'quick-entry' ? 'quick' : 'standard' }); return; }
     selectionRequest.current++;
     rememberBrowse(); editorOrigin.current = { id: selected?.id ?? null, top: window.scrollY };
@@ -741,13 +745,17 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const close = useCallback(() => {
     if (busy) return;
     if (fieldPropertiesClose.current) { fieldPropertiesClose.current(); return; }
+    if (designerDirty.current && !window.confirm(t('hybridDiscardWarning'))) return;
+    designerDirty.current = false;
+    const returnToSettings = settingsReturn.current && ui.editor !== 'settings';
+    settingsReturn.current = false;
     setBusy(true);
     void (async () => {
-      try { await fileClose.current?.(); await creationClose.current?.(); setLinked(null); setOpeningDraft(null); setStaleEdit(null); ui.openEditor(null); setError(null); }
+      try { await fileClose.current?.(); await creationClose.current?.(); setLinked(null); setOpeningDraft(null); setStaleEdit(null); ui.openEditor(returnToSettings ? 'settings' : null); setError(null); }
       catch { setError('draftWrite'); }
       finally { setBusy(false); }
     })();
-  }, [busy, ui]);
+  }, [busy, ui, t]);
   const backRecord = useCallback(() => {
     if (busy) return;
     const parent = trail.at(-1);
@@ -1506,7 +1514,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               else await saveDraftAction(action, collection.id, data);
               await complete(); setSaved(true);
             }); }} />}
-          {ui.editor === 'quick' && collection && <><p>{t('quickFormHint')}</p><LayoutEditor api={api} kind="card" allowQuickActions={false} fields={fields.filter(field => field.type !== 'backlink')}
+          {ui.editor === 'quick' && collection && <><p>{t('quickFormHint')}</p><LayoutEditor api={api} kind="card" onDirtyChange={registerDesignerDirty} allowQuickActions={false} fields={fields.filter(field => field.type !== 'backlink')}
             definition={quickDefinition} busy={busy} cancel={close} save={definition => { void run(() => api.saveQuickForm(collection.id, definition)); }} /></>}
           {ui.editor === 'fields' && collection && (
             <FieldsEditor
@@ -1558,6 +1566,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <LayoutEditor
               api={api}
               key={ui.editor}
+              onDirtyChange={registerDesignerDirty}
               kind={ui.editor}
               fields={ui.editor === 'list' ? fields.filter(field => field.type !== 'secret') : fields}
               definition={layouts[ui.editor]}

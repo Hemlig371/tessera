@@ -334,7 +334,7 @@ export function LayoutEditor({
       })}
         </aside>
       </div>
-      {kind === 'list' && <button type="button" className="hybrid-more-options" onClick={() => setShowOptions(!showOptions)} aria-expanded={showOptions}>{t('listSettings')} {showOptions ? '−' : '+'}</button>}
+      {kind === 'list' && <button type="button" className="hybrid-more-options" aria-label={t('listSettings')} onClick={() => setShowOptions(!showOptions)} aria-expanded={showOptions}>{t('listSettings')} <span aria-hidden="true">{showOptions ? '−' : '+'}</span></button>}
       {kind === 'list' && showOptions && (
         <fieldset disabled={busy}>
           <legend>{t('listSettings')}</legend>

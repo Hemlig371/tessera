@@ -93,7 +93,7 @@ jobs:
       # navigation restoration and loading/error states; no duplicate UI tests.
       - name: M6.5 UI viewport and state checkpoint
         if: ${{ !contains(github.event.head_commit.message, '[m7 ci]') }}
-        run: npx playwright test tests/e2e/ui-appearance.spec.ts tests/e2e/ui-pages.spec.ts tests/e2e/ui-settings-states.spec.ts
+        run: npx playwright test tests/e2e/ui-appearance.spec.ts tests/e2e/ui-pages.spec.ts tests/e2e/ui-settings-states.spec.ts tests/e2e/tessera-v4-visual.spec.ts
         env:
           PLAYWRIGHT_CHANNEL: ${{ runner.os == 'Windows' && 'msedge' || '' }}
       - name: M7 full browser UI acceptance (existing scenarios, no duplicate smoke)

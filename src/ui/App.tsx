@@ -396,7 +396,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   const listItems = layoutItems(layouts.list, fields).filter((item) => item.visible && fields.find(field => field.id === item.field_id)?.type !== 'secret'),
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
   const compact = appearance.density === 'compact';
-  const rowHeight = appearance.font_scale * (
+  const rowHeight = ui.scope === 'collection' && layouts.list.list?.mode !== 'table' && !ui.constructorOpen
+    ? appearance.font_scale * (compact ? 108 : 126)
+    : appearance.font_scale * (
     ui.scope === 'collection'
       ? Math.max(
           compact ? 64 : 76,
@@ -1282,6 +1284,18 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                             void selectEntry(row.id);
                           }}
                         >
+                          {collectionMode && layouts.list.list?.mode !== 'table'
+                            ? <ReferenceRecordPreview
+                                api={api} row={row}
+                                fields={listFields.length ? listFields : fields.filter(field => field.type !== 'secret')}
+                                primaryId={collection!.primary_field_id} locale={i18n.language}
+                                label={field => field.name}
+                                group={groupField ? (isCalculated(groupField.type) ? <CalculatedValue field={groupField} value={row.computed?.[groupField.id]} /> : format(groupField, row.data[groupField.id])) : undefined}
+                                renderValue={field => isCalculated(field.type)
+                                  ? <CalculatedValue field={field} value={row.computed?.[field.id]} />
+                                  : ['relation','backlink'].includes(field.type) ? formatRelations(row,field.id) : format(field,row.data[field.id])}
+                              />
+                            : <>
                           {collectionMode && fields.find(field => field.type === 'image' && fileIds(row.data[field.id]).length > 0) && <AttachmentThumbnail api={api} id={fileIds(row.data[fields.find(field => field.type === 'image' && fileIds(row.data[field.id]).length > 0)!.id])[0]!} ownerId={row.id} />}
                           {collectionMode && groupField && (
                             <small className="list-group">
@@ -1323,6 +1337,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                               new Date(row.updated_at)
                             )}
                           </small>
+                            </>}
                         </button>
                       );
                       return withActions ? <div key={row.id} data-index={v.index} className="entry-shell" ref={virtual.measureElement} style={{ transform: `translateY(${v.start}px)` }}>

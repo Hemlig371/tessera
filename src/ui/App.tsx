@@ -15,6 +15,8 @@ import { CalculatedValue } from './CalculatedValue';
 import { isCalculated } from '../core/calculated-fields';
 import { QuickActions } from './QuickActions';
 import { Catalog } from './Catalog';
+import { LibraryIndex, LibraryCollections, ReferenceRecordPreview } from './ReferenceWorkspace';
+import { CollectionControls } from './CollectionControls';
 import { ConstructorOverview } from './ConstructorOverview';
 import { Icon } from './Icon';
 import { TopbarOverflow } from './TopbarOverflow';
@@ -1036,6 +1038,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </select>
           </label>
           <TopbarOverflow registerClose={registerOverflowMenuClose} actions={[
+            ...(browsing && ui.scope === 'collection' && collection && !collection.system_kind ? [{ id: 'csv', label: t('csv'), icon: <Icon name="archive" />, disabled, run: () => open('csv') }] : []),
             { id: 'constructor', label: t('constructor'), icon: <Icon name="tools" />, pressed: ui.constructorOpen, disabled, run: toggleConstructor },
             { id: 'appearance', label: t('deviceAppearance'), icon: <Icon name="appearance" />, disabled: disabled || !appearanceReady, run: () => open('appearance') },
             ...(ui.screen !== 'libraries' ? [{ id: 'settings', label: t('globalSettings'), icon: <Icon name="settings" />, disabled, run: () => open('settings') }] : []),
@@ -1090,7 +1093,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </h1>
             {ui.screen === 'libraries' && !ui.constructorOpen && <span className="tessera-library-count" aria-label={String(libraries.length)}>{libraries.length}</span>}
           </div>
-          {(ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
+          {ui.constructorOpen && (ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
             + {t(ui.screen === 'libraries' ? 'newLibrary' : 'newCollection')}
           </button>}
           {browsing && ui.scope === 'collection' && collection && !collection.system_kind && (
@@ -1099,7 +1102,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               ...presets.filter(preset => preset.collection_id === collection.id).map(preset => ({ label: preset.name, choice: { kind: 'preset' as const, preset_id: preset.id } })),
             ]} />
           )}
-          {browsing && collection && !collection.system_kind && <div className="profile-switcher">
+          {browsing && ui.constructorOpen && collection && !collection.system_kind && <div className="profile-switcher">
             {profiles.some(profile => profile.collection_id === collection.id) && <label>{t('displayProfile')}
               <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
                 {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
@@ -1149,7 +1152,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           openLibrary={id => { void openLibrary(id, true); }}
           openCollection={id => { if (library) { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); } }}
         />}
-        {browsing && (
+        {browsing && (ui.scope !== 'collection' || ui.constructorOpen) && (
           <div className="searchbar">
             <label>
               {t('search')}
@@ -1180,12 +1183,21 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           </div>
         )}
         <div className="tessera-data-workspace" hidden={ui.constructorOpen} inert={ui.constructorOpen}>
+        {browsing && ui.scope === 'collection' && collection && !ui.constructorOpen && <CollectionControls
+          collection={collection} library={library} fields={fields}
+          count={page.items.length} search={search} onSearch={setSearch}
+          scope={ui.scope} onScope={scope => ui.searchFor(search, scope)}
+          profiles={profiles.filter(profile => profile.collection_id === collection.id)}
+          profileId={activeProfileId} onProfile={id => useUi.setState({ profileId: id })}
+          busy={disabled}
+        />}
         {activeDateSelection && <p className="screen-hint" role="status">
           {t('dateSelection.active', { field: fields.find(field => field.id === activeDateSelection.field_id)?.name ?? '', period: t(`dateSelection.${activeDateSelection.period}`) })}
           {activeDateRange?.period === 'range' && ` · ${activeDateRange.start}${activeDateRange.start === activeDateRange.end ? '' : ` — ${activeDateRange.end}`}`}
         </p>}
         {ui.screen === 'libraries' ? (
-          <Catalog kind="libraries" items={libraries} layout={appearance.libraries_layout} metadata={libraryMeta} busy={disabled} open={id => { void openLibrary(id, true); }} />
+          <LibraryIndex libraries={libraries} metadata={libraryMeta} busy={disabled}
+            open={id => { void openLibrary(id, true); }} create={() => open('library')} />
         ) : ui.screen === 'summary' && library ? (
           <LibrarySummaryView widgets={summaryWidgets} states={widgetStates} busy={disabled}
             open={id => { void selectEntry(id); }}
@@ -1195,8 +1207,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             month={(widget, value) => setSummaryMonths(old => ({ ...old, [widget.id]: value }))}
             day={(widget, date) => { clearRecordContext(); ui.select(library.id, widget.collection_id, widget.profile_id); setDrilldown({ scope: widget.collection_id, field: widget.kind === 'calendar' ? widget.calendar_field : '', value: date, date }); }} />
         ) : ui.screen === 'library' && library ? (
-          <><button type="button" disabled={disabled} onClick={() => { clearRecordContext(); ui.selectSummary(library.id); }}>{t('librarySummary')}</button><Catalog kind="collections" items={collections.filter(row => row.library_id === library.id)} layout={libraryNavigation(library).collections_layout}
-            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }} /></>
+          <LibraryCollections library={library} collections={collections.filter(row => row.library_id === library.id && !row.system_kind)}
+            busy={disabled} open={id => { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); }}
+            create={() => open('collection')}
+            summary={() => { clearRecordContext(); ui.selectSummary(library.id); }} />
         ) : !browsing ? (
           <div className="empty">
             <h2>{t('chooseCollection')}</h2>

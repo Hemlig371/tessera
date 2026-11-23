@@ -997,8 +997,24 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       </aside>
       <main className="hybrid-main">
         <div className="topbar" role="group" aria-label={t('globalNavigation')}>
-          <span className="tessera-mobile-brand" aria-hidden="true"><span className="tessera-mobile-mark"><Icon name="libraries" /></span>{t('brand')}</span>
+          <span className="tessera-mobile-brand" aria-hidden="true">
+            <span className="tessera-mobile-mark">
+              {ui.screen === 'libraries' ? <Icon name="libraries" /> : (() => {
+                const item = collection ?? library;
+                if (!item) return <Icon name="collection" />;
+                const appearance = JSON.parse(item.config) as { icon?: string };
+                return appearance.icon && appearance.icon !== '◇' ? appearance.icon : <Icon name="collection" />;
+              })()}
+            </span>
+            <span className="reference-mobile-identity"><strong>{ui.screen === 'libraries' ? t('brand') : (collection?.name ?? library?.name ?? t('brand'))}</strong>
+              {ui.screen === 'records' && <small>{t('entryCount', { count: page.items.length })}</small>}
+              {ui.screen === 'library' && <small>{t('collections')}</small>}
+            </span>
+          </span>
           <div className="topbar-navigation">
+          {ui.screen !== 'libraries' && !ui.constructorOpen && <button type="button" className="icon-button reference-screen-back"
+            aria-label={t(ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}
+            disabled={disabled} onClick={backSection}><Icon name="back" /></button>}
           <button
             className="nav-toggle icon-button"
             title={t('navigation')}

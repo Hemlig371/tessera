@@ -16,6 +16,7 @@ const paths = {
   clock: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM12 7v5l3 2',
   edit: 'M4 20l4-.8L19 8a2 2 0 0 0-3-3L5 16zM14 7l3 3',
   more: 'M12 5v.01M12 12v.01M12 19v.01',
+  filter: 'M4 7h16M7 12h10M10 17h4',
   check: 'M4 12l5 5 11-11',
   back: 'M19 12H5M10 7l-5 5 5 5',
 } as const;

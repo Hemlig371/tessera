@@ -22,6 +22,7 @@ const recipes = [
 
 export async function seedReferenceExamples(api: Repository, nutrition: string, projects: string) {
   const collection = await api.createCollection(nutrition, 'Рецепты', 'Название');
+  await api.updateCollection(collection.id, {appearance:{icon:'🍃',color:'#3d8647'}});
   const options = ['Завтрак', 'Основное', 'Салат', 'Десерт'].map(label => ({label, id:crypto.randomUUID()}));
   const field = (name: string, type: string, config = {}) => api.createField(collection.id, name, type, config);
   const photo = await field('Фото', 'image');
@@ -64,8 +65,10 @@ export async function seedReferenceExamples(api: Repository, nutrition: string, 
   const status = await api.createField(release.id,'Статус','select',{options:statuses});
   const priority = await api.createField(release.id,'Приоритет','select',{options:[{id:crypto.randomUUID(),label:'Высокий'},{id:crypto.randomUUID(),label:'Обычный'}]});
   const due = await api.createField(release.id,'Срок','date');
+  const people = ['А','К'].map(label => ({id:crypto.randomUUID(),label}));
+  const participants = await api.createField(release.id,'Участники','multiselect',{options:people});
   const description = await api.createField(release.id,'Описание','multiline');
-  const tasks = await Promise.all(['Новый дизайн основных экранов','Адаптация для Android','Тестирование','Подготовка релиза'].map(name=>api.createField(release.id,name,'boolean')));
+  const tasks = await api.createField(release.id,'Подзадачи','markdown');
   const image = await api.createField(release.id,'Обложка','image');
   const files = await api.createField(release.id,'Вложения','file');
   const owner = crypto.randomUUID();
@@ -74,9 +77,10 @@ export async function seedReferenceExamples(api: Repository, nutrition: string, 
   await api.saveNewEntry(release.id,{[release.primary_field_id]:'Обновление Tessera v4.0',[status.id]:statuses[0]!.id,
     [priority.id]:JSON.parse(priority.config).options[0].id,[due.id]:'2025-01-28',
     [description.id]:'Завершить переработку интерфейса, провести тестирование и подготовить релиз v4.0.',
-    ...Object.fromEntries(tasks.map((f,i)=>[f.id,i<2])),[image.id]:[await attachCover(api,release.id,owner,'mountains')],[files.id]:[document.id]},owner);
+    [participants.id]:people.map(person=>person.id),
+    [tasks.id]:'- [x] Новый дизайн основных экранов\n- [x] Адаптация для Android\n- [ ] Тестирование\n- [ ] Подготовка релиза',[image.id]:[await attachCover(api,release.id,owner,'mountains')],[files.id]:[document.id]},owner);
   await api.saveUiConfig(release.id,'card',{fields:(await api.listFields(release.id)).map(f=>({
-    field_id:f.id,visible:f.id!==release.primary_field_id && f.id!==image.id,...(tasks.some(task=>task.id===f.id)?{group:'Подзадачи'}:{})
+    field_id:f.id,visible:f.id!==release.primary_field_id && f.id!==image.id
   }))});
   await api.saveLibraryNavigation(projects,{start:{kind:'collection',collection_id:release.id},collections_layout:'list'});
 }

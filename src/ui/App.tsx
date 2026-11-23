@@ -17,7 +17,7 @@ import { isCalculated } from '../core/calculated-fields';
 import { QuickActions } from './QuickActions';
 import { LibraryIndex, LibraryCollections, ReferenceRecordPreview } from './ReferenceWorkspace';
 import { CollectionControls } from './CollectionControls';
-import { ConstructorOverview } from './ConstructorOverview';
+import { StructureWorkspace } from './StructureWorkspace';
 import { Icon } from './Icon';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { AttachmentSettings } from './AttachmentSettings';
@@ -401,7 +401,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
   const compact = appearance.density === 'compact';
   const rowHeight = ui.scope === 'collection' && layouts.list.list?.mode !== 'table' && !ui.constructorOpen
-    ? appearance.font_scale * (compact ? 108 : 126)
+    ? appearance.font_scale * (compact ? 66 : 82)
     : appearance.font_scale * (
     ui.scope === 'collection'
       ? Math.max(
@@ -1062,67 +1062,25 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           </div>
         )}
         <div className="workspace-panes">
-        <section className={'browse-screen' + (browseHidden ? ' screen-inactive' : '')} inert={browseHidden} aria-hidden={browseHidden}>
+        {ui.constructorOpen && !ui.editor && <StructureWorkspace
+          edit={open} finish={toggleConstructor} ready={fieldsReady}
+          pin={shortcutAvailable ? () => void requestShortcut() : undefined}
+          profiles={profiles.filter(profile => profile.collection_id === collection?.id)}
+          profileId={activeProfileId} chooseProfile={profileId => useUi.setState({profileId})}
+          library={library} collection={collection} libraries={libraries} collections={collections}
+          fields={fields} entries={page.items} busy={disabled}
+          openLibrary={id => { rememberBrowse(); clearRecordContext(); ui.select(id); }}
+          openCollection={id => { if (library) { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); } }}
+        />}
+        {!ui.constructorOpen && <section className={'browse-screen' + (browseHidden ? ' screen-inactive' : '')} inert={browseHidden} aria-hidden={browseHidden}>
         <header className="workspace-commands">
-          {ui.constructorOpen && (ui.screen === 'libraries' || ui.screen === 'library') && <button className="primary catalog-create" disabled={disabled} aria-label={t(ui.screen === 'libraries' ? 'createLibrary' : 'createCollection')} onClick={() => open(ui.screen === 'libraries' ? 'library' : 'collection')}>
-            + {t(ui.screen === 'libraries' ? 'newLibrary' : 'newCollection')}
-          </button>}
           {browsing && !ui.constructorOpen && ui.scope === 'collection' && collection && !collection.system_kind && (
             <CreateButton disabled={disabled || !fieldsReady} create={beginCreate} registerMenuClose={registerCreationMenuClose} options={[
               { label: t('standardForm'), choice: { kind: 'standard' } }, { label: t('quickEntry'), choice: { kind: 'quick' } },
               ...presets.filter(preset => preset.collection_id === collection.id).map(preset => ({ label: preset.name, choice: { kind: 'preset' as const, preset_id: preset.id } })),
             ]} />
           )}
-          {browsing && ui.constructorOpen && collection && !collection.system_kind && <div className="profile-switcher">
-            {profiles.some(profile => profile.collection_id === collection.id) && <label>{t('displayProfile')}
-              <select disabled={disabled || ui.scope !== 'collection'} value={activeProfileId ?? ''} onChange={event => useUi.setState({ profileId: event.target.value })}>
-                {profiles.filter(profile => profile.collection_id === collection.id).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-              </select>
-            </label>}
-            {ui.constructorOpen && <button disabled={disabled || !fieldsReady} onClick={() => open('profiles')}>{t('displayProfiles')}</button>}
-            <button disabled={disabled || !fieldsReady} onClick={() => open('csv')}>{t('csv')}</button>
-          </div>}
         </header>
-        {ui.constructorOpen && <section className="constructor-banner" aria-label={t('constructor')}>
-          <div><h2>{t('constructor')}</h2><p>{t(collection && !collection.system_kind ? 'constructorCollectionHint' : 'constructorChooseHint')}</p></div>
-          <button disabled={disabled} onClick={toggleConstructor}>{t('finishConstructor')}</button>
-        </section>}
-        <div className="toolbar">
-
-          {ui.constructorOpen && library && !library.system_kind && (
-            <><button disabled={disabled} onClick={() => open('library', library.id)}>
-              {t('editLibrary')}
-            </button><button disabled={disabled} onClick={() => open('library-start')}>{t('libraryStart')}</button><button disabled={disabled} onClick={() => open('library-summary')}>{t('librarySummary')}</button>
-              {shortcutAvailable && <button disabled={disabled} onClick={() => { void requestShortcut(); }}>{t('pinLibraryShortcut')}</button>}</>
-          )}
-          {collection && !collection.system_kind && (
-            <>
-              {ui.constructorOpen && <>
-              <button disabled={disabled || !fieldsReady} onClick={() => open('collection', collection.id)}>
-                {t('editCollection')}
-              </button>
-              <button disabled={disabled || !fieldsReady} onClick={() => open('fields')}>
-                {t('fields')}
-              </button>
-              {(['form', 'card', 'list'] as const).map((kind) => (
-                <button key={kind} disabled={disabled || !fieldsReady} onClick={() => open(kind)}>
-                  {t(`layouts.${kind}`)}
-                </button>
-              ))}
-              <button disabled={disabled || !fieldsReady} onClick={() => open('named-cards')}>{t('namedCards')}</button>
-              <button disabled={disabled || !fieldsReady} onClick={() => open('quick')}>{t('layouts.quick')}</button>
-              <button disabled={disabled || !fieldsReady} onClick={() => open('presets')}>{t('creationPresets')}</button>
-              <button disabled={disabled || !fieldsReady} onClick={() => open('quick-entry')}>+ {t('quickEntry')}</button>
-              </>}
-            </>
-          )}
-        </div>
-        {ui.constructorOpen && <ConstructorOverview
-          library={library} collection={collection} libraries={libraries} collections={collections}
-          fields={fields} entries={page.items} busy={disabled}
-          openLibrary={id => { void openLibrary(id, true); }}
-          openCollection={id => { if (library) { rememberBrowse(); clearRecordContext(); ui.select(library.id, id); } }}
-        />}
         {browsing && ui.scope !== 'collection' && !ui.constructorOpen && (
           <div className="searchbar">
             <label>
@@ -1153,7 +1111,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             </label>
           </div>
         )}
-        <div className="tessera-data-workspace" hidden={ui.constructorOpen} inert={ui.constructorOpen}>
+        <div className="tessera-data-workspace">
         {browsing && ui.scope === 'collection' && collection && !ui.constructorOpen && <CollectionControls key={collection.id}
           collection={collection} library={library} fields={fields}
           filter={activeFilter} onFilter={value => setViewFilter(value ? {collectionId: collection.id, profileId: activeProfileId, field: value} : null)} search={search} onSearch={setSearch}
@@ -1249,7 +1207,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                             (collectionMode ? (layouts.list.list?.mode ?? 'rows') : 'rows') +
                             (selected?.id === row.id ? ' active' : '')
                           }
-                          style={{ minHeight: rowHeight, ...(!withActions ? { transform: `translateY(${v.start}px)` } : {}) }}
+                          style={{ minHeight: (rowHeight / (15 * appearance.font_scale)) + 'rem', ...(!withActions ? { transform: `translateY(${v.start}px)` } : {}) }}
                           disabled={disabled || !rowsReady}
                           onClick={() => {
                             setTrail([]); void selectEntry(row.id);
@@ -1333,7 +1291,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           </>
         )}
         </div>
-        </section>
+        </section>}
         {selected && context && !ui.editor && (
           <section className="detail record-page" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
             <div className="tessera-record-topline">
@@ -1398,7 +1356,14 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                           />
                         ) : isFile(f.type) ? <AttachmentList compact api={api} ownerId={selected.id} ids={fileIds(selected.data[f.id])} busy={busy} /> : (f.type === 'markdown' || context.collection.system_kind === 'inbox') && typeof selected.data[f.id] === 'string' && selected.data[f.id] !== '' ? (
                           <RecordChecklist key={selected.id + f.id} source={String(selected.data[f.id])} disabled={busy}
-                            save={source => run(async () => { await api.saveEntry(selected.collection_id, {...selected.data, [f.id]:source}, selected.id, selected.hlc); }, false)} />
+                            save={async source => {
+                              let written = false;
+                              await run(async () => {
+                                await api.saveEntry(selected.collection_id, {...selected.data, [f.id]:source}, selected.id, selected.hlc);
+                                written = true;
+                              }, false);
+                              return written;
+                            }} />
                         ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
                           const value = event.currentTarget.value || null;
                           void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'set', value}, selected.hlc); }, false);

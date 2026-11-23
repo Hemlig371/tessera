@@ -1,4 +1,6 @@
 {
+  "addChecklistItem": "Add item",
+  "checklistItem": "New item",
   "recordCount": "Records: {{count}}",
   "loadedCount": "Records: {{count}}+",
   "viewFilters": "Filters",

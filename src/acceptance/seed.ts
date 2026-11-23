@@ -54,7 +54,7 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     fields: [taskTitle], list: { mode: 'tree', mode_field: projects.parent.id },
   });
 
-  await createKnowledgeFixture(api, '03 · База знаний (QA)');
+  const knowledge = await createKnowledgeFixture(api, '03 · База знаний (QA)');
   const notes = await createNotesLibrary(api, '04 · Заметки (QA)', '2026-11-22');
   const topic = await api.saveEntry(notes.topics.id, { [notes.topics.primary_field_id]: 'Приёмка' });
   for (let n = 1; n <= 6; n++) await api.saveEntry(notes.notes.id, {
@@ -188,5 +188,11 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
       { field_id: secret.id, visible: false }],
     list: { mode: 'rows' },
   });
+  for (const [id, icon, color] of [
+    [nutrition.library.id, '🍴', '#53875e'], [projects.library.id, '☑', '#7662a4'],
+    [knowledge.library_id, '▱', '#477ea9'], [notes.library.id, '✎', '#9c743b'],
+    [finance.id, '▣', '#528578'], [media.id, '▧', '#77609e'],
+    [contacts.id, '♧', '#527ba4'], [catalog.id, '⊞', '#658547'],
+  ] as const) await api.updateLibrary(id, {appearance:{icon, color}});
   await seedReferenceExamples(api, nutrition.library.id, projects.library.id);
 }

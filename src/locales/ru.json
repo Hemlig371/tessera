@@ -1,4 +1,6 @@
 {
+  "addChecklistItem": "Добавить пункт",
+  "checklistItem": "Новый пункт",
   "recordCount": "Записей: {{count}}",
   "loadedCount": "Записей: {{count}}+",
   "viewFilters": "Фильтры",

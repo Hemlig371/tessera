@@ -122,7 +122,7 @@ export function useFormatValue() {
     if (['decimal', 'money', 'duration'].includes(field.type)) {
       try { if (typeof value !== 'string') throw new Error('invalidDecimal');
         const seconds = Number(value);
-        if (field.type === 'duration' && Number.isSafeInteger(seconds) && seconds > 0 && seconds % 60 === 0)
+        if (field.type === 'duration' && /^\d+(?:\.0+)?$/.test(value) && Number.isSafeInteger(seconds) && seconds > 0 && seconds % 60 === 0)
           return new Intl.NumberFormat(i18n.language, {style:'unit',unit:'minute',unitDisplay:'short'}).format(seconds / 60);
         return formatDecimal(value, i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision) + (field.type === 'money' ? ' ' + (config.currency ?? '') : field.type === 'duration' ? ' ' + t('seconds') : ''); }
       catch { return t('errors.invalidDecimal'); }

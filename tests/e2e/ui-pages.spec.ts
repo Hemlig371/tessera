@@ -1,10 +1,11 @@
+import { openApplicationAction } from '../support/ui-actions';
 import { test, expect } from '../support/e2e-test';
 
 test('record and editor pages keep list position, relation trail, unsaved edits and creation drafts', async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 900 }); await page.goto('/');
   await expect(page.locator('aside')).toBeVisible();
-  await page.locator('.topbar').getByRole('button', { name: 'Оформление', exact: true }).click();
+  await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('combobox', { name: 'Плотность', exact: true }).selectOption('compact');
   await page.getByRole('button', { name: 'Сохранить оформление', exact: true }).click();
@@ -44,11 +45,11 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   await expect(entry).toBeVisible();
   await entry.scrollIntoViewIfNeeded();
   const offset = await scroller.evaluate(element => element.scrollTop);
-  const profile = await page.getByRole('combobox', { name: 'Представление', exact: true }).inputValue();
+  const profile = await page.locator('.reference-view-chips [aria-pressed=true]').innerText();
   await entry.click();
   await expect(page.getByRole('region', { name: 'Материал 220', exact: true })).toBeVisible();
   await expect(page.locator('.shade,[role=dialog],[aria-modal=true]')).toHaveCount(0);
-  await expect(page.getByRole('searchbox', { name: 'Поиск', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('searchbox', { name: 'Поиск', exact: true })).toBeVisible();
   await page.locator('.detail').getByRole('button', { name: /Материал 221/ }).click();
   await expect(page.locator('.detail #record-title')).toHaveText('Материал 221');
   await page.locator('.detail').getByRole('button', { name: /Материал 220/ }).click();
@@ -62,7 +63,7 @@ test('record and editor pages keep list position, relation trail, unsaved edits 
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(offset);
   await expect(entry).toBeFocused();
   await expect(page.getByRole('searchbox', { name: 'Поиск', exact: true })).toHaveValue('ёж');
-  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(profile);
+  await expect(page.locator('.reference-view-chips [aria-pressed=true]')).toHaveText(profile);
   await entry.click();
   const edit = page.locator('.detail').getByRole('button', { name: 'Редактировать', exact: true });
   await expect(page.locator('.detail .relation-block[aria-busy=true]')).toHaveCount(0);

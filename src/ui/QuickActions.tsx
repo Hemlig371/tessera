@@ -30,6 +30,10 @@ function QuickField({ entry, field, action, busy, execute }: { entry: Entry; fie
     const next: JsonValue = field.type === 'integer' ? Number(draft) : draft;
     if (canonical(next) !== canonical(value ?? null)) void submit({ kind: 'set', value: next });
   }
+  if (action.control === 'toggle' && ['избранное','favorite','favourite'].includes(field.name.trim().toLowerCase())) {
+    return <button className="favorite-action" aria-label={field.name} aria-pressed={value === true} disabled={disabled}
+      onClick={() => void submit({kind:'toggle'})}>{value === true ? '★' : '☆'}</button>;
+  }
   return <div className="quick-field" data-field-id={field.id}>
     {action.control === 'toggle' ? <label className="check"><input type="checkbox" role="switch" aria-label={field.name} disabled={disabled} checked={value === true} onChange={() => { void submit({ kind: 'toggle' }); }} />{field.name}</label> :
       action.control === 'choice' ? <label>{field.name}<select aria-label={field.name} disabled={disabled} value={typeof value === 'string' ? value : ''} onChange={event => { void submit({ kind: 'set', value: event.target.value || null }); }}><option value="">{t('unset')}</option>{(config.options ?? []).filter(option => !option.archived || option.id === value).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label> : <>

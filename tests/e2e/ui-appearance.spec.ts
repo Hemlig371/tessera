@@ -48,13 +48,9 @@ test('system/light/dark themes and local density/text size persist without recor
   await page.getByRole('button', { name: 'Сохранить оформление' }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0); await expect(root).toHaveAttribute('data-theme', 'dark');
   await page.emulateMedia({ colorScheme: 'light' }); await expect(root).toHaveAttribute('data-theme', 'light');
-  await page.getByRole('button', { name: 'Навигация', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Перейти к каталогу библиотек', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Закрыть навигацию', exact: true }).click();
   await expect(page.locator('aside')).toBeHidden();
-  await page.getByRole('button', { name: 'Навигация', exact: true }).click();
-  await page.getByRole('navigation', { name: 'Библиотеки' }).getByRole('button', { name: 'Оформление', exact: true }).click();
-  await page.getByRole('button', { name: 'Текст', exact: true }).click();
+  await page.getByRole('button', {name:'Открыть библиотеку «Оформление»'}).click();
+  await page.getByRole('button', {name:'Открыть коллекцию «Текст»'}).click();
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Важный черновик');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

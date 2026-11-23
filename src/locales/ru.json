@@ -1,4 +1,12 @@
 {
+  "recordCount": "Записей: {{count}}",
+  "loadedCount": "Записей: {{count}}+",
+  "viewFilters": "Фильтры",
+  "fieldHasValue": "Заполнено поле",
+  "anyField": "Любое",
+  "sortLibraries": "Порядок библиотек",
+  "libraryOrder": "Порядок библиотеки",
+  "alphabetical": "По названию",
   "brand": "Tessera",
   "tagline": "Личная база. Всегда рядом.",
   "namedCards": "Макеты записи",

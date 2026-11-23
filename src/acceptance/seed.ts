@@ -1,3 +1,4 @@
+import { seedReferenceExamples } from './reference-examples';
 import type { Repository } from '../core/repository';
 import type { RecordData } from '../core/model';
 import type { ByteSource } from '../core/attachments';
@@ -187,4 +188,5 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
       { field_id: secret.id, visible: false }],
     list: { mode: 'rows' },
   });
+  await seedReferenceExamples(api, nutrition.library.id, projects.library.id);
 }

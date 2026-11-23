@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Collection, EntryListItem, Field, Library } from '../core/model';
 import { Catalog } from './Catalog';
@@ -9,23 +9,28 @@ import type { Repository } from '../core/repository';
 
 /** The home is a real destination, not the old browse toolbar with a new skin.
  * Catalog data and actions still come entirely from the existing Repository. */
-export function LibraryIndex({ libraries, metadata, busy, open, create }: {
-  libraries: Library[]; metadata: Record<string, string>; busy: boolean;
+export function LibraryIndex({ layout, libraries, metadata, busy, open, create }: {
+  layout: 'list' | 'cards'; libraries: Library[]; metadata: Record<string, string>; busy: boolean;
   open: (id: string) => void; create: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [sort, setSort] = useState('position');
+  const [sortOpen, setSortOpen] = useState(false);
+  const sorted = sort === 'name' ? [...libraries].sort((a,b) => a.name.localeCompare(b.name, i18n.language)) : libraries;
   return <section className="reference-library-index" aria-labelledby="reference-libraries-title">
     <header className="reference-index-heading">
       <h1 id="reference-libraries-title">{t('libraries')} <span className="reference-count">{libraries.length}</span></h1>
+      <button className="icon-button" aria-label={t('sortLibraries')} aria-expanded={sortOpen} onClick={() => setSortOpen(!sortOpen)}><Icon name="filter" /></button>
     </header>
-    <Catalog kind="libraries" items={libraries} layout="list" metadata={metadata} busy={busy} open={open} />
+    {sortOpen && <label className="catalog-order">{t('sortLibraries')}<select value={sort} onChange={event => setSort(event.target.value)}><option value="position">{t('libraryOrder')}</option><option value="name">{t('alphabetical')}</option></select></label>}
+    <Catalog kind="libraries" items={sorted} layout={layout} metadata={metadata} busy={busy} open={open} />
     <button className="reference-fab reference-library-fab" type="button" aria-label={t('createLibrary')} title={t('createLibrary')} disabled={busy} onClick={create}><Icon name="capture" /></button>
   </section>;
 }
 
 /** A library presents its collections as calm navigation rows, not configuration. */
-export function LibraryCollections({ library, collections, busy, open, create, summary }: {
-  library: Library; collections: Collection[]; busy: boolean;
+export function LibraryCollections({ layout, library, collections, busy, open, create, summary }: {
+  layout: 'list' | 'cards'; library: Library; collections: Collection[]; busy: boolean;
   open: (id: string) => void; create: () => void; summary: () => void;
 }) {
   const { t } = useTranslation();
@@ -34,7 +39,7 @@ export function LibraryCollections({ library, collections, busy, open, create, s
       <h1 id="reference-collections-title">{library.name}</h1>
       <p>{t('collections')} · {collections.length}</p>
     </div>
-    <Catalog kind="collections" items={collections} layout="list" busy={busy} open={open} />
+    <Catalog kind="collections" items={collections} layout={layout} busy={busy} open={open} />
     <button type="button" className="reference-summary-link" disabled={busy} onClick={summary}>{t('librarySummary')} <Icon name="chevron" /></button>
     <button className="reference-fab reference-collection-fab" type="button" aria-label={t('createCollection')} title={t('createCollection')} disabled={busy} onClick={create}><Icon name="capture" /></button>
   </section>;

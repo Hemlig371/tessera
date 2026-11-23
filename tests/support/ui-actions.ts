@@ -32,8 +32,7 @@ export async function goToLibraries(page: Page) {
   if (await direct.isVisible()) { await direct.click(); return; }
   const back = page.getByRole('button', { name: 'К списку', exact: true }).filter({ visible: true }).first();
   if (await back.isVisible()) await back.click();
-  await page.locator('.nav-toggle').filter({ visible: true }).first().click();
-  await page.getByRole('button', { name: 'Перейти к каталогу библиотек', exact: true }).filter({ visible: true }).first().click();
+  await openApplicationAction(page, 'Все библиотеки');
 }
 export async function openConstructor(page: Page) {
   const toggle = page.locator('#constructor-toggle');

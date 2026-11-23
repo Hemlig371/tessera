@@ -120,7 +120,11 @@ export function useFormatValue() {
     if (value == null || value === '') return t('unset');
     const config = fieldConfig(field);
     if (['decimal', 'money', 'duration'].includes(field.type)) {
-      try { if (typeof value !== 'string') throw new Error('invalidDecimal'); return formatDecimal(value, i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision) + (field.type === 'money' ? ' ' + (config.currency ?? '') : field.type === 'duration' ? ' ' + t('seconds') : ''); }
+      try { if (typeof value !== 'string') throw new Error('invalidDecimal');
+        const seconds = Number(value);
+        if (field.type === 'duration' && Number.isSafeInteger(seconds) && seconds > 0 && seconds % 60 === 0)
+          return new Intl.NumberFormat(i18n.language, {style:'unit',unit:'minute',unitDisplay:'short'}).format(seconds / 60);
+        return formatDecimal(value, i18n.language, field.type === 'money' ? config.precision ?? 2 : config.precision) + (field.type === 'money' ? ' ' + (config.currency ?? '') : field.type === 'duration' ? ' ' + t('seconds') : ''); }
       catch { return t('errors.invalidDecimal'); }
     }
     if (field.type === 'select' || field.type === 'multiselect') return (Array.isArray(value) ? value : [value]).map(id => config.options?.find(option => option.id === id)?.label ?? t('unavailableChoice')).join(', ') || t('unset');

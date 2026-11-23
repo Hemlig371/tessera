@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Field, LayoutItem, UiDefinition } from '../core/model';
 import { layoutItems, layoutRows } from '../core/ui-definition';
@@ -15,42 +15,29 @@ export function ReferenceRecordFields({ definition, fields, label, render }: {
 }) {
   const byId = new Map(fields.map(field => [field.id, field]));
   const configured = new Map(layoutItems(definition, fields).map(item => [item.field_id, item]));
-  const properties: ReactNode[] = [];
-  const sections: { id: string; title: string; nodes: ReactNode[] }[] = [];
-  function fieldNode(id: string) {
-    const item = configured.get(id)!, field = byId.get(id)!;
-    if (item.collapsed) return <details key={id} className="reference-collapsed-field">
-      <summary>{label(field)}</summary>{render(item)}
-    </details>;
-    return <div className="reference-field" key={id}>{render(item)}</div>;
-  }
+  const sections: {id: string; title?: string; rows: ReactNode[]}[] = [];
   for (const row of layoutRows(definition, fields)) {
-    for (const id of row.field_ids) {
-      const field = byId.get(id)!;
-      const item = configured.get(id)!;
-      const groupName = row.group || item.group;
-      const isSection = !!groupName || longTypes.has(field.type);
-      if (!isSection) {
-        properties.push(<div className="reference-property" key={id}>{fieldNode(id)}</div>);
-        continue;
-      }
-      const title = groupName || label(field);
-      // Consecutive rows in the same named group form a single visual section.
-      let last = sections.at(-1);
-      if (!last || last.title !== title || !groupName) {
-        last = { id: id, title, nodes: [] };
-        sections.push(last);
-      }
-      last.nodes.push(<div className="reference-section-item" key={id}>{fieldNode(id)}</div>);
+    const first = byId.get(row.field_ids[0]!);
+    if (!first) continue;
+    const group = row.group || configured.get(first.id)?.group;
+    const standalone = !group && row.field_ids.length === 1 && longTypes.has(first.type);
+    const title = group || (standalone ? label(first) : undefined);
+    let section = sections.at(-1);
+    if (!section || section.title !== title || standalone) {
+      section = {id: row.id, title, rows: []};
+      sections.push(section);
     }
+    section.rows.push(<div key={row.id} className="layout-row" style={{'--layout-columns': row.columns} as CSSProperties}>
+      {row.field_ids.map(id => {
+        const item = configured.get(id)!, field = byId.get(id)!;
+        return item.collapsed ? <details className="layout-cell" key={id}><summary>{label(field)}</summary>{render(item)}</details>
+          : <div className={'layout-cell' + (standalone ? ' section-value' : '')} key={id}>{render(item)}</div>;
+      })}
+    </div>);
   }
-  return <div className="reference-record-fields">
-    {properties.length > 0 && <div className="reference-property-sheet">{properties}</div>}
-    {sections.map(section => <section className="reference-record-section" key={section.id}>
-      <h2>{section.title}</h2>
-      <div className="reference-section-body">{section.nodes}</div>
-    </section>)}
-  </div>;
+  return <div className="record-sections">{sections.map(section => section.title
+    ? <details key={section.id} className="record-section" open><summary>{section.title}</summary>{section.rows}</details>
+    : <div key={section.id} className="property-sheet">{section.rows}</div>)}</div>;
 }
 
 /** The edit action is first-class; history and destructive actions are

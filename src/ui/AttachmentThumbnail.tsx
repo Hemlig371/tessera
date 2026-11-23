@@ -65,6 +65,6 @@ export function AttachmentThumbnail({ api, id, ownerId }: { api: Repository; id:
     return () => { alive = false; };
   }, [visible, api, id, ownerId]);
   return <span ref={ref} className="attachment-thumbnail">
-    {url && <img src={url} alt="" aria-hidden="true" loading="lazy" width={72} height={72} style={{ objectFit: 'contain' }} />}
+    {url && <img src={url} alt="" aria-hidden="true" loading="lazy" width={72} height={72} />}
   </span>;
 }

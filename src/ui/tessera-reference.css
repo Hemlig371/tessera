@@ -397,3 +397,20 @@
 @media(prefers-reduced-motion:reduce) {
   .tessera-v4 .reference-fab, .tessera-v4 .reference-record-edit { transition:none; }
 }
+
+/* Override the legacy dynamic-thumbnail grid specifically for reference cards. */
+.tessera-v4 .entry:not(.table):has(.reference-record-preview) {
+  display:flex; grid-template-columns:none; grid-template-rows:none;
+}
+.tessera-v4 .entry:not(.table) .reference-record-media .attachment-thumbnail img {
+  width:100%; height:100%; object-fit:cover !important;
+}
+/* The desktop sidebar already offers a home shortcut; the mobile search
+   and overflow remain the only persistent home header actions. */
+@media (max-width:760px) {
+  .tessera-v4[data-workspace="libraries"] .topbar { min-height:75px; margin-bottom:16px; }
+  .tessera-v4[data-workspace="library"] .topbar,
+  .tessera-v4[data-workspace="records"] .topbar { min-height:75px; margin-bottom:15px; }
+  .tessera-v4 .reference-screen-back { order:0; }
+  .tessera-v4 .topbar .tessera-mobile-brand { order:1; }
+}

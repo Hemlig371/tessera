@@ -35,7 +35,7 @@ import { Trash } from './Trash';
 import { RecordHistory } from './RecordHistory';
 import { LibraryStartEditor } from './LibraryStartEditor';
 import { androidLibraryShortcuts, libraryShortcutSupported, pinLibraryShortcut, subscribeLibraryLaunch } from '../platform/external-actions';
-import { LayoutRowsView } from './LayoutRowsView';
+import { ReferenceRecordFields, ReferenceRecordActions } from './ReferenceRecord';
 import { NamedCardLayoutsEditor } from './NamedCardLayoutsEditor';
 import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
 import { useAppearance } from './use-appearance';
@@ -1395,7 +1395,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                 <p className="hybrid-record-meta">{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(selected.updated_at))}</p>
               </div>
             </header>
-            <LayoutRowsView definition={resolveCardLayout(context.layouts.card,
+            <ReferenceRecordFields definition={resolveCardLayout(context.layouts.card,
               ui.scope === 'collection' && trail.length === 0 && collection?.id === context.collection.id && selected.collection_id === context.collection.id
                 ? (profiles.find(profile => profile.id === activeProfileId) ? (JSON.parse(profiles.find(profile => profile.id === activeProfileId)!.config) as UiDefinition).detail_layout_id : undefined)
                 : undefined)} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
@@ -1430,16 +1430,12 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             {context.fields.find(field => field.id === context.collection.primary_field_id)?.type !== 'secret' && <ExternalCalendarActions entry={selected} fields={context.fields} title={String(selected.data[context.collection.primary_field_id] ?? context.collection.name)} busy={busy} />}
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
             {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList compact api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
-            <div className="actions">
-              {context.collection.system_kind === 'inbox' && <button disabled={busy} onClick={() => open('move', selected.id)}>{t('moveFromInbox')}</button>}
-              <button className="tessera-record-edit" disabled={busy} onClick={() => open('entry', selected.id)}><Icon name="edit" />
-                {t('edit')}
-              </button>
-              <button className="tessera-record-secondary tessera-history-button" aria-label={t('recordHistory')} disabled={busy} onClick={() => open('history', selected.id)}><Icon name="clock" /><span>{t('recordHistory')}</span></button>
-              <button className="danger tessera-record-secondary" disabled={busy} onClick={() => remove('record', selected.id)}>
-                {t('delete')}
-              </button>
-            </div>
+            <ReferenceRecordActions disabled={busy}
+              edit={() => open('entry', selected.id)}
+              history={() => open('history', selected.id)}
+              remove={() => remove('record', selected.id)}
+              move={context.collection.system_kind === 'inbox' ? () => open('move', selected.id) : undefined}
+            />
           </section>
         )}
       {ui.editor && (

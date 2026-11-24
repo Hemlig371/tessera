@@ -13,12 +13,13 @@ export async function showList(page: Page) {
 }
 /** Find a visible action, or use the approved compact topbar menu on phones. */
 export async function openApplicationAction(page: Page, label: string) {
-  const direct = page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
-  if (await direct.isVisible()) { await direct.click(); return; }
-  const more = page.getByRole('button', { name: 'Ещё', exact: true });
-  await expect(more).toBeVisible();
-  await more.click();
-  await page.getByRole('menuitem', { name: label, exact: true }).click();
+  // Library and collection names can match commands, e.g. a library named «Оформление».
+  const header = page.locator('.workspace-header');
+  if (!await header.isVisible()) {
+    await page.locator('.detail').getByRole('button', {name: /^(К списку|Back to list)$/}).click();
+  }
+  await header.getByRole('button', {name: /^(Ещё|More options)$/}).click();
+  await header.getByRole('menuitem', {name: label, exact: true}).click();
 }
 export async function goToLibraries(page: Page) {
   // Constructor is an independent destination. Exit it before navigating

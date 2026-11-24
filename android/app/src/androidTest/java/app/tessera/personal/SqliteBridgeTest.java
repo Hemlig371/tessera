@@ -260,6 +260,15 @@ public class SqliteBridgeTest {
             assertArrayEquals(broken, java.nio.file.Files.readAllBytes(recovered.toPath()));
         }
     }
+    private void openMenuItem(ActivityScenario<MainActivity> scenario, String region, String action) throws Exception {
+        String menu = "document.querySelector(" + JSONObject.quote(region + " button[aria-haspopup=menu]") + ")";
+        awaitJs(scenario, "!!" + menu + " && !" + menu + ".disabled");
+        js(scenario, menu + ".click()");
+        String item = "[...document.querySelectorAll(" + JSONObject.quote(region + " [role=menuitem]:not(:disabled)") +
+            ")].find(button=>button.textContent.trim()===" + JSONObject.quote(action) + ")";
+        awaitJs(scenario, "!!(" + item + ")");
+        js(scenario, "(" + item + ").click()");
+    }
     private void openCatalogTarget(ActivityScenario<MainActivity> scenario, String catalog, String label) throws Exception {
         String buttons = "[...document.querySelectorAll('[data-catalog=" + catalog + "] button')]";
         String matches = "b=>b.getAttribute('aria-label')===" + JSONObject.quote(label) + " && !b.disabled";
@@ -276,17 +285,17 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Вторая редакция'))");
             js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Вторая редакция')).click()");
             awaitJs(scenario, "!!document.querySelector('.detail')");
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            openMenuItem(scenario, ".detail", "История записи");
             awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===2");
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack();
             awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelector('.detail #record-title')?.textContent==='Вторая редакция'");
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            openMenuItem(scenario, ".detail", "История записи");
             awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===2");
             js(scenario, "document.querySelector('[data-version-id=\"" + scope.getString("first_version_id") + "\"]').click()");
             awaitJs(scenario, "document.querySelector('.history-snapshot')?.textContent.includes('Текст снимка') && document.querySelector('.history-snapshot').textContent.includes('Конец полного снимка **без усечения**') && !document.querySelector('.history-snapshot script')");
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Восстановить эту версию').click()");
             awaitJs(scenario, "!document.querySelector('[data-editor]') && document.querySelector('.detail #record-title')?.textContent==='Первая редакция'");
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            openMenuItem(scenario, ".detail", "История записи");
             awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===3");
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Очистить историю записи').click()");
             js(scenario, "[...document.querySelectorAll('[data-editor] button')].find(b=>b.textContent==='Подтвердить очистку истории').click()");
@@ -297,7 +306,7 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Первая редакция'))");
             js(scenario, "[...document.querySelectorAll('.entry')].find(b=>b.textContent.includes('Первая редакция')).click()");
             awaitJs(scenario, "!!document.querySelector('.detail')");
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            openMenuItem(scenario, ".detail", "История записи");
             awaitJs(scenario, "document.querySelector('[data-editor] [role=status]')?.textContent==='Сохранённых версий нет.'");
         }
     }
@@ -310,10 +319,9 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Другая запись'))");
             js(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Другая запись')).click()");
             awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Другая запись'");
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='Удалить').click()");
+            openMenuItem(scenario, ".detail", "Удалить");
             awaitJs(scenario, "!document.querySelector('.detail') && !document.querySelector('[data-editor]')");
-            awaitJs(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].some(b=>b.textContent==='Корзина')");
-            js(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].find(b=>b.textContent==='Корзина').click()");
+            openMenuItem(scenario, ".workspace-header", "Корзина");
             String item = "document.querySelector('[data-trash-id=\"" + scope.getString("other_id") + "\"]')";
             awaitJs(scenario, "!!" + item + "?.querySelector('button:not(:disabled)')");
             js(scenario, item + ".querySelector('button').click()");
@@ -322,10 +330,9 @@ public class SqliteBridgeTest {
             awaitJs(scenario, "!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Другая запись'))");
             js(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Другая запись')).click()");
             awaitJs(scenario, "document.querySelector('.detail #record-title')?.textContent==='Другая запись'");
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='Удалить').click()");
+            openMenuItem(scenario, ".detail", "Удалить");
             awaitJs(scenario, "!document.querySelector('.detail') && !document.querySelector('[data-editor]')");
-            awaitJs(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].some(b=>b.textContent==='Корзина')");
-            js(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].find(b=>b.textContent==='Корзина').click()");
+            openMenuItem(scenario, ".workspace-header", "Корзина");
             awaitJs(scenario, "!!" + item + "?.querySelector('button:not(:disabled)')");
             js(scenario, item + ".querySelectorAll('button')[1].click()");
             awaitJs(scenario, "!!document.querySelector('.trash-confirm')");
@@ -339,8 +346,7 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('[data-trash] button')].find(b=>b.textContent==='Сохранить срок хранения').click()");
             awaitJs(scenario, "document.querySelector('[data-trash] fieldset select')?.value==='forever' && !document.querySelector('[data-trash] fieldset select').disabled && document.querySelector('[data-trash] fieldset button').disabled");
             scenario.recreate(); awaitJs(scenario, "document.documentElement.dataset.acceptance === 'passed'", 900);
-            awaitJs(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].some(b=>b.textContent==='Корзина')");
-            js(scenario, "[...document.querySelectorAll('.topbar button:not(:disabled)')].find(b=>b.textContent==='Корзина').click()");
+            openMenuItem(scenario, ".workspace-header", "Корзина");
             awaitJs(scenario, "document.querySelector('[data-trash] fieldset select')?.value==='forever' && !document.querySelector('[data-trash] fieldset select').disabled");
             awaitJs(scenario, "!" + item);
         }
@@ -376,7 +382,7 @@ public class SqliteBridgeTest {
             js(scenario, "[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Android file draft')).click()");
             awaitJs(scenario, "document.querySelector('.detail [data-attachment-id=\"" + id + "\"] .file-state')?.textContent==='Копия на этом устройстве'");
             assertArrayEquals(bytes, java.nio.file.Files.readAllBytes(file.toPath()));
-            js(scenario, "[...document.querySelectorAll('.detail button')].find(b=>b.textContent==='История записи').click()");
+            openMenuItem(scenario, ".detail", "История записи");
             awaitJs(scenario, "document.querySelectorAll('.history-versions button').length===1");
         }
     }

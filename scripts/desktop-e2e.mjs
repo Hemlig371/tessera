@@ -40,6 +40,17 @@ async function clickText(text) {
     await until("!!document.querySelector('#constructor-toggle:not(:disabled)')");
     if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
   }
+  const recordMenu = ['Удалить', 'Перенести в коллекцию', 'История записи'].includes(text);
+  const workspaceMenu = ['+ Во входящие', 'CSV', 'Глобальный поиск', 'Корзина', 'Оформление'].includes(text);
+  if (recordMenu || workspaceMenu) {
+    const trigger = recordMenu ? '.detail .reference-record-more-button' : '.workspace-header .tessera-overflow-trigger';
+    await until(`!!document.querySelector(${JSON.stringify(trigger + ':not(:disabled)')})`);
+    await execute(`document.querySelector(${JSON.stringify(trigger)}).click()`);
+    const item = `[...document.querySelectorAll('[role=menuitem]:not(:disabled)')].find(b=>b.textContent.trim()===${JSON.stringify(text)})`;
+    await until(`!!(${item})`);
+    await execute(`(${item}).click()`);
+    return;
+  }
   const encoded = JSON.stringify(text);
   await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]'))`);
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]')).click();`);
@@ -143,7 +154,7 @@ try {
   await clickText('Представления');
   await execute("const input=document.querySelector('[data-editor] form:last-of-type input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native profile'); input.dispatchEvent(new Event('input',{bubbles:true}));");
   await clickText('Создать представление');
-  await until("!document.querySelector('[data-editor]') && document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
+  await until("!document.querySelector('[data-editor]') && document.querySelector('.structure-tools select option:checked')?.textContent==='Native profile'");
   await clickText('Представления');
   await execute("const select=document.querySelector('[data-editor] select'); select.value=[...select.options].find(option=>option.text==='Native profile').value; select.dispatchEvent(new Event('change',{bubbles:true}));");
   await until("!!document.querySelector('[data-editor] input[type=checkbox]:not(:disabled)')");
@@ -153,7 +164,7 @@ try {
   await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
   await request('DELETE', `/session/${session}`); session=undefined; await start();
   await openLibrary('Native library'); await clickText('Native collection');
-  await until("document.querySelector('.profile-switcher option:checked')?.textContent==='Native profile'");
+  await until("document.querySelector('.reference-view-chips [aria-pressed=true]')?.textContent==='Native profile'");
   await clickText('Пресеты создания'); await input('Native preset');
   await execute("document.querySelector('[data-editor] fieldset input[type=checkbox]').click()");
   await until("!!document.querySelector('[data-editor] input[aria-label=Название]')");
@@ -226,7 +237,7 @@ try {
   await execute("document.querySelector('.entry-scroll').scrollTop=document.querySelector('.entry').getBoundingClientRect().height*219");
   await until("!!document.querySelector('.entry[data-index=\"219\"]')");
   const deepOffset = await execute("return document.querySelector('.entry-scroll').scrollTop");
-  const deepProfile = await execute("return document.querySelector('.profile-switcher select').value");
+  const deepProfile = await execute("return document.querySelector('.reference-view-chips [aria-pressed=true]').textContent");
   await execute("document.querySelector('.entry[data-index=\"219\"]').click()");
   await until("!!document.querySelector('.detail #record-title')");
   const originalDeepTitle = await execute("return document.querySelector('.detail #record-title').textContent");
@@ -245,9 +256,9 @@ try {
   await clickText('К списку');
   await until("document.querySelector('.list-meta')?.textContent==='Загружено записей: 250'");
   await until(`Math.abs(document.querySelector('.entry-scroll').scrollTop-${deepOffset})<1`);
-  assert.equal(await execute("return document.querySelector('.profile-switcher select').value"), deepProfile);
+  assert.equal(await execute("return document.querySelector('.reference-view-chips [aria-pressed=true]').textContent"), deepProfile);
   await clickText('Глобальный поиск');
-  await until("document.querySelector('h1')?.textContent==='Все записи'");
+  await until("document.querySelector('.workspace-identity strong')?.textContent==='Глобальный поиск'");
   await execute("const input=document.querySelector('input[type=search]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Native row');input.dispatchEvent(new Event('input',{bubbles:true}))");
   await clickText('Назад');
   await until("document.querySelector('.list-meta')?.textContent==='Загружено записей: 250'");
@@ -259,12 +270,12 @@ try {
   await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && !document.querySelector('#constructor-toggle').disabled");
   await clickText('Все библиотеки'); await until("!!document.querySelector('[data-catalog=libraries]')");
   await clickText('Открыть библиотеку «Native library»');
-  await until("document.querySelector('.browse-screen h1')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
+  await until("document.querySelector('.workspace-identity strong')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
   await clickText('К коллекциям'); await until("!!document.querySelector('[data-catalog=collections] .catalog-list')");
   await request('DELETE', `/session/${session}`); session = undefined; await start();
   await until("!!document.querySelector('[data-catalog=libraries]') && !document.querySelector('[data-editor]')");
   await clickText('Открыть библиотеку «Native library»');
-  await until("document.querySelector('.browse-screen h1')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
+  await until("document.querySelector('.workspace-identity strong')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
   await clickText('Оформление'); await selectOption('Тема', 'Тёмная');
   await selectOption('Плотность', 'Компактная'); await selectOption('Размер текста', '150%'); await selectOption('Каталог библиотек', 'Список');
   await clickText('Сохранить оформление');

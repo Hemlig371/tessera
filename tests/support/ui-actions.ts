@@ -15,9 +15,9 @@ export async function showList(page: Page) {
 export async function openApplicationAction(page: Page, label: string) {
   // Library and collection names can match commands, e.g. a library named «Оформление».
   const header = page.locator('.workspace-header');
-  if (!await header.isVisible()) {
-    await page.locator('.detail').getByRole('button', {name: /^(К списку|Back to list)$/}).click();
-  }
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
+  const back = page.locator('.detail').getByRole('button', {name: /^(К списку|Back to list)$/});
+  if (await back.isVisible() && !await header.isVisible()) await back.click();
   await header.getByRole('button', {name: /^(Ещё|More options)$/}).click();
   await header.getByRole('menuitem', {name: label, exact: true}).click();
 }

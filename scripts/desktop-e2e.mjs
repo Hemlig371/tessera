@@ -51,7 +51,8 @@ async function clickText(text) {
     await execute(`(${item}).click()`);
     return;
   }
-  const encoded = JSON.stringify(text);
+  const catalogName = await execute(`return [...document.querySelectorAll('[data-catalog=collections] .catalog-copy strong')].some(n=>n.textContent===${JSON.stringify(text)})`);
+  const encoded = JSON.stringify(catalogName ? `Открыть коллекцию «${text}»` : text);
   await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]'))`);
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]')).click();`);
 }
@@ -139,7 +140,7 @@ try {
   assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await openLibrary('Native library');
   await clickText('Native collection');
-  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.matches(':disabled') && !b.closest('[inert]'))");
+  await until("[...document.querySelectorAll('button')].some(b=>b.getAttribute('aria-label')==='+ Новая запись' && !b.matches(':disabled') && !b.closest('[inert]'))");
   assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await clickText('+ Новая запись');
   await until("document.querySelector('[data-editor] input')?.value==='Native draft survives restart'");

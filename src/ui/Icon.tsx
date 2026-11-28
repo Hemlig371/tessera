@@ -1,5 +1,14 @@
 // Small, locally drawn interface symbols. Labels remain on the owning controls.
 const paths = {
+  calendar: 'M3 6h18v15H3zM7 3v5M17 3v5M3 11h18',
+  property: 'M3 4h9l9 9-8 8-10-10zM8 8h.01',
+  document: 'M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 15h5',
+  dining: 'M4 3v6c0 3 6 3 6 0V3M7 3v18M17 3c-3 3-4 9 0 10h2V3h-2zM19 12v9',
+  task: 'M4 4h16v16H4zM7 12l3 3 7-7',
+  layers: 'M2 8l10-5 10 5-10 5zM3 12l9 5 9-5M3 16l9 5 9-5',
+  wallet: 'M4 6l13-3v4M3 7h18v13H3zM15 12h6v4h-6z',
+  picture: 'M3 4h18v16H3zM4 17l5-5 4 3 3-5 5 6M8 8h.1',
+  contacts: 'M15 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0M4 21v-2c0-6 16-6 16 0v2M18 5q5 3 1 6',
   menu: 'M4 6h16M4 12h16M4 18h16',
   libraries: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   collection: 'M5 3h14v18H5zM9 3v18M12 8h4M12 12h4',
@@ -22,4 +31,14 @@ const paths = {
 } as const;
 export function Icon({ name }: { name: keyof typeof paths }) {
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
+}
+
+const glyphs: Record<string, keyof typeof paths> = {
+  '🍴':'dining', '☑':'task', '▱':'layers', '✎':'document',
+  '▣':'wallet', '▧':'picture', '♧':'contacts', '⊞':'libraries',
+};
+export function LibraryGlyph({symbol}: {symbol?: string}) {
+  if (!symbol || symbol === '◇') return <Icon name="collection"/>;
+  const name = glyphs[symbol];
+  return name ? <Icon name={name}/> : <span aria-hidden="true">{symbol}</span>;
 }

@@ -3,7 +3,7 @@ import { QueryTotalsEditor } from './QueryTotalsEditor';
 import { modeFields } from '../core/mode-options';
 import type { SummaryMeasure } from '../core/query-summary';
 import { LayoutRowsEditor } from './LayoutRowsEditor';
-import { LayoutRowsView } from './LayoutRowsView';
+import { FieldSections } from './FieldSections';
 import { HybridPreviewField } from './HybridPreviewField';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -159,6 +159,7 @@ export function LayoutEditor({
       filters: old.filters?.map((f, i) => (i === index ? { ...f, ...value } : f)) ?? [],
     }));
   }
+  const [panel, setPanel] = useState<'fields' | 'preview' | 'properties'>('preview');
   return (
     <form
       className="layout-editor"
@@ -167,13 +168,17 @@ export function LayoutEditor({
         save({ ...definition, fields: items, ...(allowQuickActions && kind !== 'form' ? { quick_actions: actions } : {}), ...(kind === 'list' ? { list, totals } : { rows: rows.filter(row => row.field_ids.length) }) });
       }}
     >
-      <div className="hybrid-designer">
+      <nav className="designer-modes" aria-label={t('constructor')}>
+        {(['fields','preview','properties'] as const).map(section => <button key={section} type="button" aria-pressed={panel === section}
+          onClick={() => setPanel(section)}>{t(({fields:'hybridFieldsPanel',preview:'layoutLivePreview',properties:'hybridPropertiesPanel'})[section])}</button>)}
+      </nav>
+      <div className="hybrid-designer" data-panel={panel}>
         <aside className="hybrid-palette" aria-label={t('hybridFieldsPanel')}>
           <div className="hybrid-panel-heading"><h2>{t('hybridFieldsPanel')}</h2><small>{fields.length}</small></div>
           <p>{t('hybridFieldsHint')}</p>
           <div className="hybrid-field-palette">
             {fields.map(field => <button type="button" key={field.id} aria-pressed={selectedId === field.id}
-              className={selectedId === field.id ? 'chosen' : ''} disabled={busy} onClick={() => selectField(field.id)}>
+              className={selectedId === field.id ? 'chosen' : ''} disabled={busy} onClick={() => {selectField(field.id); setPanel('properties');}}>
               <span className="hybrid-field-symbol" aria-hidden="true">{['image','file'].includes(field.type) ? '▧' : ['formula','aggregate'].includes(field.type) ? '∑' : '≡'}</span>
               <span>{field.name}<small>{t(`types.${field.type}`)}</small></span>
             </button>)}
@@ -195,7 +200,7 @@ export function LayoutEditor({
               <div className="hybrid-record-banner"><small>{t('hybridSampleRecord')}</small><strong>{useRecordPreview && previewRecord && typeof previewRecord[fields[0]?.id ?? ''] === 'string'
                   ? String(previewRecord[fields[0]!.id]) : fields[0]?.name ?? t('brand')}</strong><span>{t('hybridRecordSubtitle')}</span></div>
               {kind !== 'list'
-                ? <LayoutRowsView definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
+                ? <FieldSections label={field => field.name} definition={{ ...definition, fields: items, rows: rows.filter(row => row.field_ids.length) }} fields={fields}
                     render={item => {
                       const field = fields.find(f => f.id === item.field_id)!;
                       return <HybridPreviewField field={field} value={previewValue(field)} selected={selectedId === field.id}

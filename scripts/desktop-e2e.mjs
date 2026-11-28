@@ -41,7 +41,7 @@ async function clickText(text) {
     if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
   }
   const recordMenu = ['Удалить', 'Перенести в коллекцию', 'История записи'].includes(text);
-  const workspaceMenu = ['+ Во входящие', 'CSV', 'Глобальный поиск', 'Корзина', 'Оформление'].includes(text);
+  const workspaceMenu = ['+ Во входящие', 'CSV', 'Глобальный поиск', 'Корзина', 'Оформление', 'Конструктор', 'Все библиотеки'].includes(text);
   if (recordMenu || workspaceMenu) {
     const trigger = recordMenu ? '.detail .reference-record-more-button' : '.workspace-header .tessera-overflow-trigger';
     await until(`!!document.querySelector(${JSON.stringify(trigger + ':not(:disabled)')})`);

@@ -403,7 +403,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
   const compact = appearance.density === 'compact';
   const rowHeight = ui.scope === 'collection' && layouts.list.list?.mode !== 'table' && !ui.constructorOpen
-    ? appearance.font_scale * (compact ? 66 : 82)
+    ? appearance.font_scale * (listFields.some(field => field.type === 'image') ? (compact ? 94 : 104) : (compact ? 66 : 82))
     : appearance.font_scale * (
     ui.scope === 'collection'
       ? Math.max(
@@ -1265,7 +1265,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                   const f = context.fields.find((field) => field.id === item.field_id)!;
                   return (
                     <dl key={f.id}>
-                      <dt><Icon name={f.type === 'date' ? 'calendar' : f.type === 'duration' ? 'clock' : f.type === 'multiselect' ? 'contacts' : 'property'}/>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
+                      <dt><Icon name={f.type === 'date' ? 'calendar' : f.type === 'duration' ? 'clock' : f.type === 'multiselect' ? 'contacts' : /^(приоритет|priority)$/i.test(f.name) ? 'flag' : /^(порции|servings)$/i.test(f.name) ? 'dining' : 'property'}/>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
                       <dd>
                         {['relation', 'backlink'].includes(f.type) ? (
                           <RelationBlock
@@ -1292,10 +1292,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                               }, false);
                               return written;
                             }} />
-                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
+                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" data-tone={/^(высокий|high|urgent|critical|критический)$/i.test(fieldConfig(f).options?.find(option => option.id === selected.data[f.id])?.label ?? "") ? "urgent" : undefined} aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
                           const value = event.currentTarget.value || null;
                           void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'set', value}, selected.hlc); }, false);
-                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="choice-values">{(fieldConfig(f).options ?? []).filter(option => {
+                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="choice-values" data-initials={(fieldConfig(f).options ?? []).filter(option => Array.isArray(selected.data[f.id]) && (selected.data[f.id] as unknown[]).includes(option.id)).every(option => Array.from(option.label).length === 1)}>{(fieldConfig(f).options ?? []).filter(option => {
                           const values = selected.data[f.id]; return Array.isArray(values) && values.includes(option.id);
                         }).map((option,index) => <span key={option.id} data-color={index % 4}>{option.label}</span>)}{!Array.isArray(selected.data[f.id]) || !(selected.data[f.id] as unknown[]).length ? t('unset') : null}</span> : format(f, selected.data[f.id])}
                       </dd>

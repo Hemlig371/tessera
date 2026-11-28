@@ -56,7 +56,7 @@ async function clickText(text) {
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]')).click();`);
 }
 async function openLibrary(name) {
-  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.matches(':disabled') && !b.closest('[inert]'))`;
+  const selector = `[...document.querySelectorAll('[data-catalog=libraries] .catalog-item')].find(b=>b.querySelector('.catalog-copy strong')?.textContent===${JSON.stringify(name)} && !b.matches(':disabled') && !b.closest('[inert]'))`;
   await until(`!!(${selector})`); await execute(`(${selector}).click()`);
 }
 async function input(text) {
@@ -70,9 +70,9 @@ async function input(text) {
 async function start() {
   const result = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: resolve('src-tauri/target/debug/tessera') } } } });
   session = result.sessionId;
-  await until("!!document.querySelector('aside') || !!document.querySelector('[data-testid=database-create]')");
+  await until("!!document.querySelector('[data-catalog=libraries]') || !!document.querySelector('[data-testid=database-create]')");
   if (await execute("return !!document.querySelector('[data-testid=database-create]')")) await execute("document.querySelector('[data-testid=database-create]').click()");
-  await until("!!document.querySelector('aside')");
+  await until("!!document.querySelector('[data-catalog=libraries]')");
 }
 try {
   driver.on('error', e => { throw e; });

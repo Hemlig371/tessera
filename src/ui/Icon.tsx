@@ -1,5 +1,8 @@
 // Small, locally drawn interface symbols. Labels remain on the owning controls.
 const paths = {
+  flag: 'M5 21V4l6-1 7 3v9l-7-3-6 1',
+  checklist: 'M9 5h12M9 12h12M9 19h12M3 5h2M3 12h2M3 19h2',
+  attachment: 'M8 13l7-7a4 4 0 0 1 6 6L11 22a6 6 0 0 1-8-8L14 3',
   calendar: 'M3 6h18v15H3zM7 3v5M17 3v5M3 11h18',
   property: 'M3 4h9l9 9-8 8-10-10zM8 8h.01',
   document: 'M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 15h5',

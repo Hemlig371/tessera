@@ -1,6 +1,8 @@
 {
   "addChecklistItem": "Add item",
   "checklistItem": "New item",
+  "recordCount_few": "{{count}} records",
+  "recordCount_many": "{{count}} records",
   "recordCount_one": "{{count}} record",
   "recordCount_other": "{{count}} records",
   "recordCount": "Records: {{count}}",

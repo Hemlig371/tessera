@@ -1,3 +1,4 @@
+import { SettingsHome } from './SettingsHome';
 import { libraryNavigation } from '../core/library-navigation';
 import { freezeDateSelection } from '../core/date-selection';
 import type { CollectionProjection } from '../core/collection-projection';
@@ -1309,41 +1310,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
-          {ui.editor === 'settings' && <section className="settings-page" aria-label={t('globalSettings')}>
-
-            <section className="settings-section">
-              <h2>{t('hybridSettingsSync')}</h2>
-              <p>{t('hybridSettingsSyncHint')}</p>
-              <div className="global-settings-links">
-                {nativeMailSyncSupported() && <button className="settings-link" disabled={busy} onClick={() => open('mail-sync')}>
-                  <Icon name="inbox" /><span><strong>{t('mailSyncTitle')}</strong><small>{t('hybridSettingsSyncDescription')}</small></span><Icon name="arrow" />
-                </button>}
-                {!nativeMailSyncSupported() && <p className="screen-hint">{t('hybridSettingsNativeOnly')}</p>}
-              </div>
-            </section>
-            <section className="settings-section">
-              <h2>{t('hybridSettingsAppearance')}</h2>
-              <div className="global-settings-links">
-                <button disabled={busy || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span>{t('deviceAppearance')}</span><Icon name="arrow" /></button>
-              </div>
-              <label className="settings-language">{t('language')}
-                <select value={i18n.language} onChange={event => { void i18n.changeLanguage(event.target.value); }}>
-                  <option value="ru">{t('languageRussian')}</option><option value="en">{t('languageEnglish')}</option>
-                </select>
-              </label>
-            </section>
-            <section className="settings-section">
-              <h2>{t('hybridSettingsStorage')}</h2>
-              <div className="global-settings-links">
-                {openArchive && <button disabled={busy} onClick={openArchive}><Icon name="archive" /><span>{t('databaseArchive')}</span><Icon name="arrow" /></button>}
-                <button disabled={busy} onClick={() => open('file-settings')}><Icon name="archive" /><span>{t('fileSettings')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => open('large-attachments')}><Icon name="archive" /><span>{t('largeAttachmentsTitle')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span>{t('trash')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => open('diagnostics')}><Icon name="tools" /><span>{t('diagnosticsTitle')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => open('history-clear')}><Icon name="clock" /><span>{t('clearAllHistory')}</span><Icon name="arrow" /></button>
-              </div>
-            </section>
-          </section>}
+          {ui.editor === 'settings' && <SettingsHome busy={busy} appearanceReady={appearanceReady}
+            mail={nativeMailSyncSupported()} open={open} archive={openArchive}
+            trash={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }} />}
           {ui.editor === 'mail-sync' && <AndroidMailSyncSettings api={api} cancel={close} />}
           {ui.editor === 'diagnostics' && <DiagnosticsPanel api={api} busy={busy} />}
           {ui.editor === 'large-attachments' && <LargeAttachments api={api} busy={busy} />}

@@ -1,3 +1,4 @@
+import { SettingsHome } from './SettingsHome';
 import { libraryNavigation } from '../core/library-navigation';
 import { freezeDateSelection } from '../core/date-selection';
 import type { CollectionProjection } from '../core/collection-projection';
@@ -15,7 +16,7 @@ import { SecretValue } from './TypedFieldInput';
 import { CalculatedValue } from './CalculatedValue';
 import { isCalculated } from '../core/calculated-fields';
 import { QuickActions } from './QuickActions';
-import { LibraryIndex, LibraryCollections, ReferenceRecordPreview } from './ReferenceWorkspace';
+import { LibraryIndex, LibraryCollections, EntryCard } from './LibraryScreens';
 import { CollectionControls } from './CollectionControls';
 import { StructureWorkspace } from './StructureWorkspace';
 import { Icon } from './Icon';
@@ -36,7 +37,8 @@ import { Trash } from './Trash';
 import { RecordHistory } from './RecordHistory';
 import { LibraryStartEditor } from './LibraryStartEditor';
 import { androidLibraryShortcuts, libraryShortcutSupported, pinLibraryShortcut, subscribeLibraryLaunch } from '../platform/external-actions';
-import { ReferenceRecordFields, ReferenceRecordActions } from './ReferenceRecord';
+import { FieldSections } from './FieldSections';
+import { RecordActions } from './RecordActions';
 import { NamedCardLayoutsEditor } from './NamedCardLayoutsEditor';
 import { DeviceAppearanceEditor } from './DeviceAppearanceEditor';
 import { useAppearance } from './use-appearance';
@@ -401,7 +403,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     listFields = listItems.map((item) => fields.find((f) => f.id === item.field_id)!);
   const compact = appearance.density === 'compact';
   const rowHeight = ui.scope === 'collection' && layouts.list.list?.mode !== 'table' && !ui.constructorOpen
-    ? appearance.font_scale * (compact ? 66 : 82)
+    ? appearance.font_scale * (listFields.some(field => field.type === 'image') ? (compact ? 94 : 104) : (compact ? 66 : 82))
     : appearance.font_scale * (
     ui.scope === 'collection'
       ? Math.max(
@@ -417,6 +419,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     count: page.items.length,
     getScrollElement: () => scroll.current,
     estimateSize: () => rowHeight,
+    gap: ui.scope === 'collection' && listFields.some(field => field.type === 'image') ? 7 : 0,
     overscan: 5,
     getItemKey: (index) => page.items[index]!.id,
   });
@@ -921,6 +924,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     query.addEventListener('change', resize);
     return () => query.removeEventListener('change', resize);
   }, []);
+  const favorite = context?.layouts.card.quick_actions?.find(action =>
+    action.control === 'toggle' && context.fields.some(field => field.id === action.field_id &&
+      field.type === 'boolean' && ['избранное','favorite','favourite'].includes(field.name.trim().toLowerCase())));
   const splitRecord = wide && browsing && !!selected && !ui.editor && !ui.constructorOpen;
   const browseHidden = !!ui.editor || (!!selected && !splitRecord);
   const identity = JSON.parse((collection ?? library)?.config ?? '{}') as { icon?: string; color?: string };
@@ -936,82 +942,6 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }
   return (
     <div className={'app tessera-workspace' + (splitRecord ? ' split-record' : '') + (ui.navOpen ? ' nav-open' : '') + (ui.editor ? ' editor-open' : '') + (selected ? ' record-open' : '')} data-workspace={ui.editor ? 'editor' : selected ? 'record' : ui.constructorOpen ? 'constructor' : ui.screen}>
-      <aside className="sidebar">
-        <button className="sidebar-close" onClick={() => useUi.setState({ navOpen: false })}>{t('closeNavigation')}</button>
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true"><Icon name="libraries" /></span>
-          <div>
-            <b>{t('brand')}</b>
-            <small>{t('tagline')}</small>
-          </div>
-        </div>
-        <div className="hybrid-nav-global">
-          <button className={ui.screen === 'libraries' ? 'active' : ''} aria-label={t('hybridSidebarLibraries')} disabled={disabled} onClick={goHome} aria-current={ui.screen === 'libraries' ? 'page' : undefined}><Icon name="libraries" />{t('allLibraries')}</button>
-          <button disabled={disabled} className={collection?.system_kind === 'inbox' ? 'active' : ''} aria-current={collection?.system_kind === 'inbox' ? 'page' : undefined} onClick={() => showInbox()}><Icon name="inbox" />{t('inbox')}</button>
-        </div>
-        <div className="nav-heading">{t('libraries')}</div>
-        <nav aria-label={t('libraries')}>
-          {libraries.map((l) => {
-            const a = JSON.parse(l.config) as { icon?: string; color?: string };
-            return (
-              <div className="library" key={l.id}>
-                <button
-                  className={l.id === ui.libraryId ? 'active library-button' : 'library-button'}
-                  aria-current={l.id === ui.libraryId && !ui.collectionId ? 'page' : undefined}
-                  disabled={disabled}
-                  title={l.name}
-                  onClick={() => { void openLibrary(l.id); }}
-                >
-                  <span className="nav-item-icon" aria-hidden="true" style={{ backgroundColor: a.color ? `color-mix(in srgb, ${a.color} 20%, var(--panel))` : undefined }}>
-                    {a.icon && a.icon !== '◇' ? a.icon : <Icon name="collection" />}
-                  </span>
-                  <span className="nav-name">{l.name}</span>
-                </button>
-                {l.id === ui.libraryId && (
-                  <div className="collections">
-                    {collections
-                      .filter((c) => c.library_id === l.id)
-                      .map((c) => {
-                        const appearance = JSON.parse(c.config) as { icon?: string; color?: string };
-                        return (
-                          <button
-                            key={c.id}
-                            aria-label={c.name}
-                            title={c.name}
-                            disabled={disabled}
-                            className={c.id === ui.collectionId ? 'active' : ''}
-                            aria-current={c.id === ui.collectionId ? 'page' : undefined}
-                            onClick={() => {
-                              rememberBrowse(); clearRecordContext();
-                              ui.select(l.id, c.id);
-                              setSaved(false);
-                            }}
-                          >
-                            <span className="nav-item-icon" aria-hidden="true" style={{ backgroundColor: appearance.color ? `color-mix(in srgb, ${appearance.color} 20%, var(--panel))` : undefined }}>
-                              {appearance.icon && appearance.icon !== '◇' ? appearance.icon : <Icon name="libraries" />}
-                            </span>
-                            <span className="nav-name">{c.name}</span>
-                          </button>
-                        );
-                      })}
-                    <button className="quiet" disabled={disabled} onClick={() => open('collection')}>
-                      + {t('newCollection')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-        <button className="quiet" disabled={disabled} onClick={() => open('library')}>
-          + {t('newLibrary')}
-        </button>
-        <footer>
-          <button type="button" id="constructor-toggle" className="hybrid-sidebar-settings tessera-constructor-link" disabled={disabled} aria-pressed={ui.constructorOpen} onClick={toggleConstructor}><Icon name="tools" />{ui.constructorOpen ? t('finishConstructor') : t('constructor')}</button>
-          <button className="hybrid-sidebar-settings" disabled={disabled} onClick={() => openGlobalSearch(true)}><Icon name="clock" />{t('recentRecords')}</button>
-          <button type="button" className="hybrid-sidebar-settings" aria-label={t('hybridSidebarSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" />{t('globalSettings')}</button>
-        </footer>
-      </aside>
       <main className="workspace-main">
         {!ui.editor && (!selected || splitRecord) && <WorkspaceHeader
           title={ui.constructorOpen ? t('constructor') : ui.screen === 'libraries' ? t('brand') : ui.scope === 'all' ? t(recentMode ? 'recentRecords' : 'globalSearch') : collection?.system_kind ? t('inbox') : collection?.name ?? library?.name ?? t('brand')}
@@ -1214,11 +1144,10 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                           }}
                         >
                           {collectionMode && layouts.list.list?.mode !== 'table'
-                            ? <ReferenceRecordPreview
+                            ? <EntryCard
                                 api={api} row={row}
                                 fields={listFields}
-                                primaryId={collection!.primary_field_id} locale={i18n.language}
-                                label={field => field.name}
+                                primaryId={collection!.primary_field_id}
                                 group={groupField ? (isCalculated(groupField.type) ? <CalculatedValue field={groupField} value={row.computed?.[groupField.id]} /> : format(groupField, row.data[groupField.id])) : undefined}
                                 renderValue={field => isCalculated(field.type)
                                   ? <CalculatedValue field={field} value={row.computed?.[field.id]} />
@@ -1298,17 +1227,16 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
               <button className="icon-button tessera-record-back" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
-              <span className="tessera-record-location">{context.collection.name}</span>
-            <ReferenceRecordActions disabled={busy}
+              <span className="record-location"><strong>{context.collection.name}</strong><small>{libraries.find(item => item.id === context.collection.library_id)?.name}</small></span>
+            {favorite && <QuickActions entry={selected} fields={context.fields} actions={[favorite]} busy={busy}
+              execute={(id, mutation) => run(async () => { await api.quickAction(selected.id,id,mutation,selected.hlc); }, false)}/>}
+            <RecordActions disabled={busy}
               edit={() => open('entry', selected.id)}
               history={() => open('history', selected.id)}
               remove={() => remove('record', selected.id)}
               move={context.collection.system_kind === 'inbox' ? () => open('move', selected.id) : undefined}
             />
-              <div className="tessera-record-utilities">
-                <button className="icon-button" aria-label={t('globalSearch')} title={t('globalSearch')} disabled={disabled} onClick={() => openGlobalSearch()}><Icon name="search" /></button>
-                <button className="icon-button" aria-label={t('globalSettings')} title={t('globalSettings')} disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /></button>
-              </div>
+
             </div>
             {context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0) && <RecordCover api={api} ownerId={selected.id} id={fileIds(selected.data[context.fields.find(field => field.type === 'image' && fileIds(selected.data[field.id]).length > 0)!.id])[0]!} />}
             <header className="dialog-heading">
@@ -1327,17 +1255,17 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                   </button>
                 )}
                 <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
-                <p className="record-updated">{new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(selected.updated_at))}</p>
+
               </div>
             </header>
-            <ReferenceRecordFields key={selected.id} definition={resolveCardLayout(context.layouts.card,
+            <FieldSections key={selected.id} definition={resolveCardLayout(context.layouts.card,
               ui.scope === 'collection' && trail.length === 0 && collection?.id === context.collection.id && selected.collection_id === context.collection.id
                 ? (profiles.find(profile => profile.id === activeProfileId) ? (JSON.parse(profiles.find(profile => profile.id === activeProfileId)!.config) as UiDefinition).detail_layout_id : undefined)
                 : undefined)} fields={context.fields} label={field => context.collection.system_kind === 'inbox' ? t(field.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
                   const f = context.fields.find((field) => field.id === item.field_id)!;
                   return (
                     <dl key={f.id}>
-                      <dt>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
+                      <dt><Icon name={f.type === 'date' ? 'calendar' : f.type === 'duration' ? 'clock' : f.type === 'multiselect' ? 'contacts' : /^(приоритет|priority)$/i.test(f.name) ? 'flag' : /^(порции|servings)$/i.test(f.name) ? 'dining' : 'property'}/>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
                       <dd>
                         {['relation', 'backlink'].includes(f.type) ? (
                           <RelationBlock
@@ -1364,15 +1292,17 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                               }, false);
                               return written;
                             }} />
-                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
+                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" data-tone={/^(высокий|high|urgent|critical|критический)$/i.test(fieldConfig(f).options?.find(option => option.id === selected.data[f.id])?.label ?? "") ? "urgent" : undefined} aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
                           const value = event.currentTarget.value || null;
                           void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'set', value}, selected.hlc); }, false);
-                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="tessera-select-value">{format(f, selected.data[f.id])}</span> : format(f, selected.data[f.id])}
+                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="choice-values" data-initials={(fieldConfig(f).options ?? []).filter(option => Array.isArray(selected.data[f.id]) && (selected.data[f.id] as unknown[]).includes(option.id)).every(option => Array.from(option.label).length === 1)}>{(fieldConfig(f).options ?? []).filter(option => {
+                          const values = selected.data[f.id]; return Array.isArray(values) && values.includes(option.id);
+                        }).map((option,index) => <span key={option.id} data-color={index % 4}>{option.label}</span>)}{!Array.isArray(selected.data[f.id]) || !(selected.data[f.id] as unknown[]).length ? t('unset') : null}</span> : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );
                 }} />
-            <QuickActions entry={selected} fields={context.fields} actions={context.layouts.card.quick_actions} busy={busy} execute={(fieldId, mutation) => run(async () => { await api.quickAction(selected.id, fieldId, mutation, selected.hlc); }, false)} />
+            <QuickActions entry={selected} fields={context.fields} actions={context.layouts.card.quick_actions?.filter(action => action !== favorite)} busy={busy} execute={(fieldId, mutation) => run(async () => { await api.quickAction(selected.id, fieldId, mutation, selected.hlc); }, false)} />
             {context.fields.find(field => field.id === context.collection.primary_field_id)?.type !== 'secret' && <ExternalCalendarActions entry={selected} fields={context.fields} title={String(selected.data[context.collection.primary_field_id] ?? context.collection.name)} busy={busy} />}
             {context.inboxOriginal != null && <details><summary>{t('inboxOriginal')}</summary><pre className="original-content">{context.inboxOriginal}</pre></details>}
             {!!context.unmappedAttachments.length && <section aria-label={t('retainedAttachments')}><h2>{t('retainedAttachments')}</h2><AttachmentList compact api={api} ownerId={selected.id} ids={context.unmappedAttachments} busy={busy} /></section>}
@@ -1383,41 +1313,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         <EditorPage title={title} close={close} busy={busy}>
           {error && <ErrorMessage code={error} />}
           {draftRecoveryPath && !ui.editingId && (ui.editor === 'entry' || ui.editor === 'quick-entry') && <p role="status" data-draft-recovery={draftRecoveryPath}>{t('draftRecovered')}</p>}
-          {ui.editor === 'settings' && <section className="global-settings hybrid-settings-hub" aria-label={t('globalSettings')}>
-            <p className="screen-hint">{t('globalSettingsHint')}</p>
-            <section className="hybrid-settings-group">
-              <h2>{t('hybridSettingsSync')}</h2>
-              <p>{t('hybridSettingsSyncHint')}</p>
-              <div className="global-settings-links">
-                {nativeMailSyncSupported() && <button className="hybrid-settings-feature" disabled={busy} onClick={() => open('mail-sync')}>
-                  <Icon name="inbox" /><span><strong>{t('mailSyncTitle')}</strong><small>{t('hybridSettingsSyncDescription')}</small></span><Icon name="arrow" />
-                </button>}
-                {!nativeMailSyncSupported() && <p className="screen-hint">{t('hybridSettingsNativeOnly')}</p>}
-              </div>
-            </section>
-            <section className="hybrid-settings-group">
-              <h2>{t('hybridSettingsAppearance')}</h2>
-              <div className="global-settings-links">
-                <button disabled={busy || !appearanceReady} onClick={() => open('appearance')}><Icon name="appearance" /><span>{t('deviceAppearance')}</span><Icon name="arrow" /></button>
-              </div>
-              <label className="hybrid-settings-language">{t('language')}
-                <select value={i18n.language} onChange={event => { void i18n.changeLanguage(event.target.value); }}>
-                  <option value="ru">{t('languageRussian')}</option><option value="en">{t('languageEnglish')}</option>
-                </select>
-              </label>
-            </section>
-            <section className="hybrid-settings-group">
-              <h2>{t('hybridSettingsStorage')}</h2>
-              <div className="global-settings-links">
-                {openArchive && <button disabled={busy} onClick={openArchive}><Icon name="archive" /><span>{t('databaseArchive')}</span><Icon name="arrow" /></button>}
-                <button disabled={busy} onClick={() => open('file-settings')}><Icon name="archive" /><span>{t('fileSettings')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => open('large-attachments')}><Icon name="archive" /><span>{t('largeAttachmentsTitle')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }}><Icon name="trash" /><span>{t('trash')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => open('diagnostics')}><Icon name="tools" /><span>{t('diagnosticsTitle')}</span><Icon name="arrow" /></button>
-                <button disabled={busy} onClick={() => open('history-clear')}><Icon name="clock" /><span>{t('clearAllHistory')}</span><Icon name="arrow" /></button>
-              </div>
-            </section>
-          </section>}
+          {ui.editor === 'settings' && <SettingsHome busy={busy} appearanceReady={appearanceReady}
+            mail={nativeMailSyncSupported()} open={open} archive={openArchive}
+            trash={() => { void run(async () => { await api.cleanTrash(); open('trash'); }, false); }} />}
           {ui.editor === 'mail-sync' && <AndroidMailSyncSettings api={api} cancel={close} />}
           {ui.editor === 'diagnostics' && <DiagnosticsPanel api={api} busy={busy} />}
           {ui.editor === 'large-attachments' && <LargeAttachments api={api} busy={busy} />}
@@ -1607,7 +1505,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
       )}
         </div>
         {!ui.constructorOpen && !ui.editor && !selected && ui.screen === 'libraries' && <nav className="tessera-bottom-nav" aria-label={t('globalNavigation')}>
-          <button aria-current="page" disabled={disabled} onClick={goHome}><Icon name="libraries" /><span>{t('libraries')}</span></button>
+          <button aria-current="page" disabled={disabled} onClick={goHome}><Icon name="layers" /><span>{t('libraries')}</span></button>
           <button disabled={disabled} onClick={() => openGlobalSearch(true)}><Icon name="clock" /><span>{t('recentRecords')}</span></button>
           <button disabled={disabled} onClick={() => open('settings')}><Icon name="settings" /><span>{t('globalSettings')}</span></button>
         </nav>}

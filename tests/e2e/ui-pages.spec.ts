@@ -4,7 +4,7 @@ import { test, expect } from '../support/e2e-test';
 test('record and editor pages keep list position, relation trail, unsaved edits and creation drafts', async ({ page }) => {
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1280, height: 900 }); await page.goto('/');
-  await expect(page.locator('aside')).toBeVisible();
+  await expect(page.locator('.tessera-bottom-nav')).toBeVisible();
   await openApplicationAction(page, 'Оформление');
   await page.getByRole('combobox', { name: 'Размер текста', exact: true }).selectOption('1.5');
   await page.getByRole('combobox', { name: 'Плотность', exact: true }).selectOption('compact');

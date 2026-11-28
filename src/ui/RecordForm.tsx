@@ -1,4 +1,4 @@
-import { LayoutRowsView } from './LayoutRowsView';
+import { FieldSections } from './FieldSections';
 import { relationIds } from '../core/relations';
 import { AttachmentList, fileSource, useFileSize } from './AttachmentList';
 import { fileIds, isFile } from '../core/attachments';
@@ -114,7 +114,7 @@ export function RecordForm({
     change?.(next);
   }
   return (
-    <form className="hybrid-record-form"
+    <form className="record-form"
       onInvalidCapture={event => {
         let element = event.target as HTMLElement | null;
         while (element) { if (element instanceof HTMLDetailsElement) element.open = true; element = element.parentElement; }
@@ -129,7 +129,7 @@ export function RecordForm({
     >
       {fileError && <ErrorMessage code={fileError} />}
       {uploading && <p role="status">{t('attachmentCopyProgress', { size: formatSize(copied) })}</p>}
-      <LayoutRowsView definition={layout} fields={fields} label={field => collection.system_kind === 'inbox' ? t(field.id === collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
+      <FieldSections definition={layout} fields={fields} label={field => collection.system_kind === 'inbox' ? t(field.id === collection.incoming_field_id ? 'inboxContent' : 'attachments') : field.name} render={item => {
             const field = fields.find((f) => f.id === item.field_id)!;
             const displayField = collection.system_kind === 'inbox' ? (field.id === collection.incoming_field_id ? { ...field, name: t('inboxContent'), type: 'markdown' } : { ...field, name: t('attachments') }) : field;
             const config = formConfig(field, item),

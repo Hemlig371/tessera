@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Icon } from './Icon';
+import { Icon, LibraryGlyph } from './Icon';
 import { TopbarOverflow, type OverflowAction } from './TopbarOverflow';
 
 interface Props {
@@ -20,7 +20,7 @@ export function WorkspaceHeader({ title, subtitle, icon, color, back, backLabel,
   return <header className="workspace-header">
     {back && <button className="icon-button" aria-label={backLabel} disabled={disabled} onClick={back}><Icon name="back" /></button>}
     <span className={'workspace-mark' + (!back ? ' brand-symbol' : '')} aria-hidden="true" style={{color}}>
-      {icon && icon !== '◇' ? icon : <Icon name={back ? 'collection' : 'libraries'} />}
+      {back ? <LibraryGlyph symbol={icon}/> : <Icon name="libraries"/>}
     </span>
     <div className="workspace-identity"><strong>{title}</strong>{subtitle && <small>{subtitle}</small>}</div>
     {search && <button className="icon-button" aria-label={t('globalSearch')} disabled={disabled} onClick={search}><Icon name="search" /></button>}

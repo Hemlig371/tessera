@@ -41,7 +41,7 @@ async function clickText(text) {
     if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
   }
   const recordMenu = ['Удалить', 'Перенести в коллекцию', 'История записи'].includes(text);
-  const workspaceMenu = ['+ Во входящие', 'CSV', 'Глобальный поиск', 'Корзина', 'Оформление'].includes(text);
+  const workspaceMenu = ['+ Во входящие', 'CSV', 'Глобальный поиск', 'Корзина', 'Оформление', 'Конструктор', 'Все библиотеки'].includes(text);
   if (recordMenu || workspaceMenu) {
     const trigger = recordMenu ? '.detail .reference-record-more-button' : '.workspace-header .tessera-overflow-trigger';
     await until(`!!document.querySelector(${JSON.stringify(trigger + ':not(:disabled)')})`);
@@ -51,12 +51,13 @@ async function clickText(text) {
     await execute(`(${item}).click()`);
     return;
   }
-  const encoded = JSON.stringify(text);
+  const catalogName = await execute(`return [...document.querySelectorAll('[data-catalog=collections] .catalog-copy strong')].some(n=>n.textContent===${JSON.stringify(text)})`);
+  const encoded = JSON.stringify(catalogName ? `Открыть коллекцию «${text}»` : text);
   await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]'))`);
   await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]')).click();`);
 }
 async function openLibrary(name) {
-  const selector = `[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(name)}) && !b.matches(':disabled') && !b.closest('[inert]'))`;
+  const selector = `[...document.querySelectorAll('[data-catalog=libraries] .catalog-item')].find(b=>b.querySelector('.catalog-copy strong')?.textContent===${JSON.stringify(name)} && !b.matches(':disabled') && !b.closest('[inert]'))`;
   await until(`!!(${selector})`); await execute(`(${selector}).click()`);
 }
 async function input(text) {
@@ -70,9 +71,9 @@ async function input(text) {
 async function start() {
   const result = await request('POST', '/session', { capabilities: { alwaysMatch: { 'tauri:options': { application: resolve('src-tauri/target/debug/tessera') } } } });
   session = result.sessionId;
-  await until("!!document.querySelector('aside') || !!document.querySelector('[data-testid=database-create]')");
+  await until("!!document.querySelector('[data-catalog=libraries]') || !!document.querySelector('[data-testid=database-create]')");
   if (await execute("return !!document.querySelector('[data-testid=database-create]')")) await execute("document.querySelector('[data-testid=database-create]').click()");
-  await until("!!document.querySelector('aside')");
+  await until("!!document.querySelector('[data-catalog=libraries]')");
 }
 try {
   driver.on('error', e => { throw e; });
@@ -139,7 +140,7 @@ try {
   assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await openLibrary('Native library');
   await clickText('Native collection');
-  await until("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Новая запись' && !b.matches(':disabled') && !b.closest('[inert]'))");
+  await until("[...document.querySelectorAll('button')].some(b=>b.getAttribute('aria-label')==='+ Новая запись' && !b.matches(':disabled') && !b.closest('[inert]'))");
   assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await clickText('+ Новая запись');
   await until("document.querySelector('[data-editor] input')?.value==='Native draft survives restart'");

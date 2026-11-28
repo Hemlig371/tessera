@@ -12,7 +12,7 @@ import { layoutScenario } from './layout-scenario';
 // Dedicated acceptance APK entry. Production Vite config never references this file.
 import { createRoot } from 'react-dom/client';
 import '../../src/ui/i18n';
-import '../../src/ui/style.css';
+import '../../src/ui/tessera.css';
 import { App } from '../../src/ui/App';
 import { openAndroidDatabase } from '../../src/platform/android-database';
 import { migrate } from '../../src/core/migrate';

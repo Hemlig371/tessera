@@ -1,43 +1,58 @@
 import { expect, test } from '../support/e2e-test';
 
-test('Tessera v4 visual contract: adaptive libraries, collection and record form', async ({ page }) => {
-  test.setTimeout(90000);
-  await page.setViewportSize({ width: 390, height: 844 });
+test('reference libraries, recipes and project can be read and edited across window sizes', async ({ page }) => {
+  test.setTimeout(150000);
+  await page.setViewportSize({width:390,height:844});
   await page.goto('/');
-  await expect(page.locator('[data-catalog="libraries"]')).toBeVisible();
-  const fixture = await page.request.post('/__test-sqlite', { data: { op: 'navigation-seed', params: ['Tessera v4 · UI QA'] } });
-  expect(fixture.ok(), await fixture.text()).toBe(true);
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
+  await page.evaluate(async () => {
+    // Execute the image fixture inside Vite so attachment URLs and SQLite use the normal UI ports.
+    const load = (path: string) => import(path);
+    const {Repository} = await load('/src/core/repository.ts') as typeof import('../../src/core/repository');
+    const {openDatabase} = await load('/tests/support/open-e2e.ts') as typeof import('../support/open-e2e');
+    const {openBinaryFiles} = await load('/tests/support/binary-files-e2e.ts') as typeof import('../support/binary-files-e2e');
+    const {seedReferenceExamples} = await load('/src/acceptance/reference-examples.ts') as typeof import('../../src/acceptance/reference-examples');
+    const db = await openDatabase();
+    try {
+      const api = await Repository.open(db,openBinaryFiles());
+      const nutrition = await api.createLibrary('Питание',{icon:'🍴',color:'#53875e'});
+      const projects = await api.createLibrary('Проекты и задачи',{icon:'☑',color:'#7662a4'});
+      for (const [name, icon, color] of [
+        ['База знаний','▱','#477ea9'],['Заметки','✎','#9c743b'],['Личные финансы','▣','#528578'],
+        ['Медиаархив','▧','#77609e'],['Контакты и события','♧','#527ba4'],['Каталог типов полей','⊞','#658547'],
+      ] as const) await api.createLibrary(name,{icon,color});
+      await seedReferenceExamples(api,nutrition.id,projects.id);
+    } finally { await db.close(); }
+  });
   await page.reload();
-  await expect(page.locator('[data-catalog="libraries"] .catalog-item').first()).toBeVisible();
-  await expect(page.locator('.tessera-bottom-nav')).toBeVisible();
-  await page.screenshot({ path: 'test-results/tessera-v4-libraries-phone.png', fullPage: true });
-  await page.getByRole('button', { name: 'Открыть библиотеку «Tessera v4 · UI QA»' }).click();
-  await page.getByRole('button', { name: 'Открыть коллекцию «Материалы»' }).click();
-  await expect(page.locator('.entry').first()).toBeVisible();
-  await page.screenshot({ path: 'test-results/tessera-v4-collection-phone.png', fullPage: true });
-  await page.locator('.entry').first().click();
-  await expect(page.locator('.tessera-record-topline')).toBeVisible();
-  await expect(page.locator('.detail #record-title')).toBeVisible();
-  await page.screenshot({ path: 'test-results/tessera-v4-record-phone.png', fullPage: true });
-  await page.locator('.detail').getByRole('button', { name: 'Редактировать' }).click();
-  await expect(page.locator('[data-editor] .hybrid-record-form')).toBeVisible();
-  await page.screenshot({ path: 'test-results/tessera-v4-editor-phone.png', fullPage: true });
-  await page.locator('.hybrid-record-form').getByRole('button', { name: 'Отмена' }).click();
-  await expect(page.locator('.detail')).toBeVisible();
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.locator('aside.sidebar')).toBeVisible();
-  await page.screenshot({ path: 'test-results/tessera-v4-record-desktop.png', fullPage: true });
-  for (const width of [320, 390, 760, 1280]) {
-    await page.setViewportSize({ width, height: 844 });
-    const measure = await page.evaluate(() => ({
-      viewport: window.innerWidth,
-      scrollWidth: document.documentElement.scrollWidth,
-      protruding: [...document.querySelectorAll('body *')].map(element => ({
-        tag: element.tagName.toLowerCase(),
-        cls: element.getAttribute('class')?.slice(0,90) ?? '',
-        right: Math.round(element.getBoundingClientRect().right),
-      })).filter(item => item.right > window.innerWidth + 1).slice(0,8),
-    }));
-    expect(measure.scrollWidth, JSON.stringify(measure)).toBeLessThanOrEqual(measure.viewport);
+  const nutrition = page.getByRole('button',{name:'Открыть библиотеку «Питание»',exact:true});
+  await expect(nutrition.locator('small')).toContainText('5');
+  await page.screenshot({path:'test-results/tessera-v4-libraries-phone.png'});
+  await nutrition.click();
+  await expect(page.locator('.entry img').first()).toBeVisible();
+  await page.screenshot({path:'test-results/tessera-v4-collection-phone.png'});
+  await page.getByRole('button',{name:/Овсяная каша с ягодами/}).first().click();
+  await expect(page.locator('.detail .tessera-record-cover')).toBeVisible();
+  await page.screenshot({path:'test-results/tessera-v4-record-phone.png'});
+  await page.getByRole('button',{name:'Редактировать',exact:true}).click();
+  await expect(page.locator('.record-form')).toBeVisible();
+  await page.screenshot({path:'test-results/tessera-v4-editor-phone.png'});
+  await page.getByRole('button',{name:'Отмена',exact:true}).click();
+  for (const width of [320,390,760,800,1280]) {
+    await page.setViewportSize({width,height:844});
+    await expect(page.locator('.detail #record-title')).toHaveText('Овсяная каша с ягодами');
+    await expect(page.locator('.split-record')).toHaveCount(width >= 780 ? 1 : 0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
+  await page.screenshot({path:'test-results/tessera-v4-record-desktop.png'});
+  await page.reload();
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'Открыть библиотеку «Проекты и задачи»'}).click();
+  await page.getByRole('button',{name:/Обновление Tessera v4.0/}).first().click();
+  await expect(page.locator('.detail .tessera-record-cover')).toBeVisible();
+  const task = page.getByRole('checkbox',{name:'Тестирование'});
+  await expect(task).not.toBeChecked();
+  await page.screenshot({path:'test-results/tessera-v4-project-phone.png'});
+  await task.check();
+  await expect(task).toBeChecked();
 });

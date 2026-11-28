@@ -2,7 +2,7 @@ name: Tessera QA packages (isolated test data)
 
 on:
   push:
-    branches: [main]
+    branches: [main, redesign/reference-shell]
   workflow_dispatch:
 
 permissions:

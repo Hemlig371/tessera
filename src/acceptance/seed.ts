@@ -10,7 +10,7 @@ import { createNotesLibrary } from '../../tests/fixtures/notes';
 // Only reachable from import.meta.env.MODE === 'qa' on an uninitialized, isolated database.
 // Never seed a regular install, an imported database, or a previously initialized QA database.
 export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
-  const nutrition = await createNutritionFixture(api, '01 · Питание (QA)');
+  const nutrition = await createNutritionFixture(api, 'Питание');
   const extraProduct = await api.saveEntry(nutrition.products.id, {
     [nutrition.products.primary_field_id]: 'Яблоко',
     ...Object.fromEntries(nutrition.nutrients.map(n => [n.source.id, n.source.name.startsWith('Ккал') ? '52' : '0.2'])),
@@ -24,7 +24,7 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     [nutrition.grams.id]: '150', [nutrition.done.id]: false,
   });
 
-  const projects = await createProjectsLibrary(api, '02 · Проекты и задачи (QA)');
+  const projects = await createProjectsLibrary(api, 'Проекты и задачи');
   const project = await api.saveEntry(projects.projects.id, { [projects.projects.primary_field_id]: 'Релиз Tessera' });
   const choices = ['Запланировано', 'В работе', 'Готово'].map(label => ({ id: crypto.randomUUID(), label }));
   const stage = await api.createField(projects.tasks.id, 'Этап Kanban', 'select', { options: choices });
@@ -54,8 +54,8 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     fields: [taskTitle], list: { mode: 'tree', mode_field: projects.parent.id },
   });
 
-  const knowledge = await createKnowledgeFixture(api, '03 · База знаний (QA)');
-  const notes = await createNotesLibrary(api, '04 · Заметки (QA)', '2026-11-22');
+  const knowledge = await createKnowledgeFixture(api, 'База знаний');
+  const notes = await createNotesLibrary(api, 'Заметки', '2026-11-22');
   const topic = await api.saveEntry(notes.topics.id, { [notes.topics.primary_field_id]: 'Приёмка' });
   for (let n = 1; n <= 6; n++) await api.saveEntry(notes.notes.id, {
     [notes.notes.primary_field_id]: 'Заметка ' + n,
@@ -63,7 +63,7 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     [notes.topic.id]: topic.id, [notes.date.id]: '2026-11-22',
   });
 
-  const finance = await api.createLibrary('05 · Личные финансы (QA)');
+  const finance = await api.createLibrary('Личные финансы');
   const accounts = await api.createCollection(finance.id, 'Счета', 'Название');
   const categories = await api.createCollection(finance.id, 'Категории', 'Название');
   const operations = await api.createCollection(finance.id, 'Операции', 'Название');
@@ -85,7 +85,7 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     totals: [{ operation: 'sum', field_id: amount.id }, { operation: 'count' }],
   });
 
-  const media = await api.createLibrary('06 · Медиаархив (QA)');
+  const media = await api.createLibrary('Медиаархив');
   const albums = await api.createCollection(media.id, 'Альбомы', 'Название');
   const materials = await api.createCollection(media.id, 'Материалы', 'Название');
   const album = await api.saveEntry(albums.id, { [albums.primary_field_id]: 'Примеры' });
@@ -105,7 +105,7 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     [albumRef.id]: album.id, [image.id]: [photo.id], [file.id]: [document.id],
   }, owner);
 
-  const contacts = await api.createLibrary('07 · Контакты и события (QA)');
+  const contacts = await api.createLibrary('Контакты и события');
   const people = await api.createCollection(contacts.id, 'Контакты', 'Имя');
   const events = await api.createCollection(contacts.id, 'События', 'Название');
   const phone = await api.createField(people.id, 'Телефон', 'phone');
@@ -127,7 +127,7 @@ export async function seedAcceptanceLibraries(api: Repository): Promise<void> {
     list: { mode: 'calendar', mode_field: when.id },
   });
 
-  const catalog = await api.createLibrary('08 · Каталог типов полей (QA)');
+  const catalog = await api.createLibrary('Каталог типов полей');
   const values = await api.createCollection(catalog.id, 'Значения полей', 'Название');
   const linked = await api.createCollection(catalog.id, 'Связанные элементы', 'Название');
   const create = (name: string, type: string, config = {}) => api.createField(values.id, name, type, config);

@@ -34,7 +34,7 @@ export function CollectionControls({ collection, library, fields, filter, onFilt
       </select>
     </label></div>}
     {profiles.length > 0 && <div className="reference-view-chips" role="group" aria-label={t('displayProfile')}>
-      {profiles.map(profile => <button key={profile.id} type="button" disabled={busy}
+      {profiles.map(profile => <button key={profile.id} value={profile.id} type="button" disabled={busy}
         className={!profileId ? profile.id === collection.default_profile_id ? 'active' : '' : profile.id === profileId ? 'active' : ''}
         aria-pressed={(!profileId && profile.id === collection.default_profile_id) || profile.id === profileId}
         onClick={() => onProfile(profile.id)}>

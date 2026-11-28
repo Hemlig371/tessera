@@ -1,23 +1,23 @@
 import { useTranslation } from 'react-i18next';
 import type { Collection, Library } from '../core/model';
-import { Icon } from './Icon';
+import { Icon, LibraryGlyph } from './Icon';
 
-export function Catalog({ kind, items, layout = 'cards', busy, open, metadata = {} }: {
+export function Catalog({kind, items, layout = 'list', busy, open, metadata = {}}: {
   kind: 'libraries' | 'collections'; items: (Library | Collection)[]; layout?: 'list' | 'cards';
   busy: boolean; open: (id: string) => void; metadata?: Record<string, string>;
 }) {
-  const { t } = useTranslation();
+  const {t} = useTranslation();
   return <section data-catalog={kind} aria-label={t(kind)}>
-    {!items.length && <div className="empty"><span aria-hidden="true">▦</span><h2>{t(kind === 'libraries' ? 'emptyLibraries' : 'emptyCollections')}</h2>
+    {items.length === 0 && <div className="empty"><h2>{t(kind === 'libraries' ? 'emptyLibraries' : 'emptyCollections')}</h2>
       <p>{t(kind === 'libraries' ? 'emptyLibrariesHint' : 'emptyCollectionsHint')}</p></div>}
-    <div className={`catalog catalog-${layout}`}>
-      {items.map(item => {
-        const appearance = JSON.parse(item.config) as { icon?: string; color?: string };
-        return <button className="catalog-item" key={item.id} disabled={busy} aria-label={t(kind === 'libraries' ? 'openLibrary' : 'openCollection', { name: item.name })} onClick={() => open(item.id)}>
-          <span className="catalog-icon" aria-hidden="true" style={{ backgroundColor: appearance.color ? `color-mix(in srgb, ${appearance.color} 20%, var(--surface))` : undefined }}>{appearance.icon && appearance.icon !== '◇' ? appearance.icon : <Icon name={kind === 'libraries' ? 'collection' : 'libraries'} />}</span>
-          <span className="tessera-catalog-copy"><strong>{item.name}</strong>{(metadata[item.id] || kind === 'libraries') && <small>{metadata[item.id] ?? t('collections')}</small>}</span><Icon name="chevron" />
-        </button>;
-      })}
-    </div>
+    <ul className={'catalog catalog-' + layout} data-layout={layout}>{items.map(item => {
+      const {icon, color} = JSON.parse(item.config) as {icon?: string; color?: string};
+      return <li key={item.id}><button className="catalog-item" disabled={busy} onClick={() => open(item.id)}
+        aria-label={t(kind === 'libraries' ? 'openLibrary' : 'openCollection', {name:item.name})}>
+        <span className="library-glyph" style={{color}}><LibraryGlyph symbol={icon}/></span>
+        <span className="catalog-copy"><strong>{item.name}</strong>{metadata[item.id] && <small><Icon name="document"/>{metadata[item.id]}</small>}</span>
+        <Icon name="chevron"/>
+      </button></li>;
+    })}</ul>
   </section>;
 }

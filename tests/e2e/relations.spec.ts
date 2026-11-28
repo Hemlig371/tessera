@@ -12,7 +12,8 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await page.getByRole('button', { name: 'Создать', exact: true }).click();
   async function navigate(name: string) {
     await goToLibraries(page);
-    await page.getByRole('button', { name: `Открыть библиотеку «${name}»`, exact: true }).click();
+    await page.getByRole('button', { name: 'Открыть библиотеку «Связи»', exact: true }).click();
+    await page.getByRole('button', { name: `Открыть коллекцию «${name}»`, exact: true }).click();
   }
   async function newCollection(name: string) {
     await page.getByRole('button', { name: 'Создать коллекцию', exact: true }).click();
@@ -69,7 +70,8 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Создана из проекта');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(block.getByRole('button', { name: /Создана из проекта/ })).toBeVisible();
-  await page.locator('.detail').getByRole('button', { name: 'Удалить', exact: true }).click();
+  await page.locator('.detail').getByRole('button', { name: 'Ещё', exact: true }).click();
+  await page.locator('.detail').getByRole('menuitem', { name: 'Удалить', exact: true }).click();
   await navigate('Задачи');
   await showList(page); await page.locator('.entry').filter({ hasText: 'Задача разработки' }).click();
   await expect(page.locator('.detail').getByLabel('Проект', { exact: true })).toContainText('Удалено');

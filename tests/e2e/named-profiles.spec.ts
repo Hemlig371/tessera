@@ -16,9 +16,10 @@ test('mobile profiles keep common records, independent layouts and a persistent 
     await page.getByRole('button', { name: 'Открыть коллекцию «Заметки»', exact: true }).click();
   };
   await page.reload(); await navigate();
-  const selector = page.getByRole('combobox', { name: 'Представление', exact: true });
+  const selector = page.getByRole('group', { name: 'Представление', exact: true });
+  const profile = (name: string) => selector.getByRole('button', {name, exact:true});
   await expect(page.locator('.entry')).toHaveCount(2);
-  await selector.selectOption({ label: 'Только Бета' }); await expect(page.locator('.entry')).toHaveCount(1);
+  await profile('Только Бета').click(); await expect(page.locator('.entry')).toHaveCount(1);
   await expect(page.locator('.entry')).toContainText('Бета');
   await openConstructor(page); await page.getByRole('button', { name: 'Список', exact: true }).click();
   await page.getByRole('button', { name: 'Настройки списка', exact: true }).click();
@@ -26,7 +27,7 @@ test('mobile profiles keep common records, independent layouts and a persistent 
   await page.getByRole('button', { name: 'Сохранить настройку', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await finishConstructor(page);
-  await selector.selectOption({ label: 'Все' }); await expect(page.locator('.entry')).toHaveCount(2);
+  await profile('Все').click(); await expect(page.locator('.entry')).toHaveCount(2);
   await expect(page.locator('.entry').first()).toContainText('Длинный текст первой заметки');
   await openConstructor(page); await page.getByRole('button', { name: 'Представления', exact: true }).click();
   await page.getByRole('combobox', { name: 'Настраиваемое представление' }).selectOption({ label: 'Только Бета' });
@@ -36,12 +37,12 @@ test('mobile profiles keep common records, independent layouts and a persistent 
   await properties.getByRole('button', { name: 'Сохранить представление', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Настраиваемое представление' })).toContainText('Выбранные');
   await page.locator('[data-editor]').press('Escape'); await expect(page.locator('[data-editor]')).toHaveCount(0);
-  await page.reload(); await navigate(); await expect(selector.locator('option:checked')).toHaveText('Выбранные');
+  await page.reload(); await navigate(); await expect(profile('Выбранные')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('.entry')).toHaveCount(1);
   await openConstructor(page); await page.getByRole('button', { name: 'Представления', exact: true }).click();
   await page.locator('[data-editor]').locator('form').last().getByRole('textbox', { name: 'Название представления' }).fill('Копия');
   await page.getByRole('button', { name: 'Создать представление', exact: true }).click();
-  await expect(page.locator('[data-editor]')).toHaveCount(0); await expect(selector.locator('option:checked')).toHaveText('Копия');
+  await expect(page.locator('[data-editor]')).toHaveCount(0); await finishConstructor(page); await expect(profile('Копия')).toHaveAttribute('aria-pressed','true');
   await openConstructor(page); await page.getByRole('button', { name: 'Представления', exact: true }).click();
   await page.getByRole('combobox', { name: 'Настраиваемое представление' }).selectOption({ label: 'Копия' });
   await page.getByRole('button', { name: 'Удалить представление', exact: true }).click();

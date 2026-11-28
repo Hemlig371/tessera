@@ -1,4 +1,18 @@
 {
+  "starToggle": "Use a star for the quick toggle",
+  "choiceDisplay": "Choice display",
+  "choiceLabels": "Labels",
+  "choiceInitials": "Initials",
+  "choiceTone": "Option color",
+  "choiceToneDefault": "Default",
+  "choiceTones": {
+    "green": "Green",
+    "amber": "Amber",
+    "rose": "Pink",
+    "red": "Red",
+    "cyan": "Teal",
+    "violet": "Violet"
+  },
   "addChecklistItem": "Add item",
   "checklistItem": "New item",
   "recordCount_few": "{{count}} records",

@@ -1,4 +1,18 @@
 {
+  "starToggle": "Использовать звезду для быстрого переключения",
+  "choiceDisplay": "Оформление вариантов",
+  "choiceLabels": "Подписи",
+  "choiceInitials": "Инициалы",
+  "choiceTone": "Цвет варианта",
+  "choiceToneDefault": "По умолчанию",
+  "choiceTones": {
+    "green": "Зелёный",
+    "amber": "Янтарный",
+    "rose": "Розовый",
+    "red": "Красный",
+    "cyan": "Бирюзовый",
+    "violet": "Сиреневый"
+  },
   "addChecklistItem": "Добавить пункт",
   "checklistItem": "Новый пункт",
   "recordCount_one": "{{count}} запись",

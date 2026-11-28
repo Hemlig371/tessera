@@ -2,12 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Icon } from './Icon';
 import { useTranslation } from 'react-i18next';
 import { FIELD_TYPES, type Collection, type Field, type FieldConfig, type JsonValue } from '../core/model';
-import { fieldConfig, isText } from '../core/validation';
+import { isText } from '../core/validation';
 import type { Repository } from '../core/repository';
 import type { RelationSource } from '../core/model';
 import { ErrorMessage, errorKey } from './common';
 import { RelationInput } from './RelationInput';
 import { FieldInput } from './common';
+import { choiceConfig, choiceTones, type ChoiceConfig } from './choice-appearance';
 import { FormulaEditor } from './FormulaEditor';
 export function FieldsEditor({
   api,
@@ -129,7 +130,7 @@ function FieldEditor({
   cancel: () => void;
 }) {
   const { t } = useTranslation();
-  const config = field ? fieldConfig(field) : {};
+  const config = field ? choiceConfig(field) : {};
   const [name, setName] = useState(field?.name ?? ''),
     [type, setType] = useState(field?.type ?? 'text');
   const [required, setRequired] = useState(config.required ?? false),
@@ -144,7 +145,9 @@ function FieldEditor({
     [multiple, setMultiple] = useState(config.multiple ?? false),
     [source, setSource] = useState(config.source_field_id ?? '');
   const [position, setPosition] = useState(field?.position ?? count);
-  const [options, setOptions] = useState(config.options ?? []), [precision, setPrecision] = useState(config.precision ?? (field?.type === 'money' ? 2 : 5)),
+  const [starToggle, setStarToggle] = useState(config.toggle_display === 'star');
+  const [choiceDisplay, setChoiceDisplay] = useState(config.choice_display);
+  const [options, setOptions] = useState<NonNullable<ChoiceConfig['options']>>(config.options ?? []), [precision, setPrecision] = useState(config.precision ?? (field?.type === 'money' ? 2 : 5)),
     [currency, setCurrency] = useState(config.currency ?? (field?.type === 'money' ? '₽' : '')), [widget, setWidget] = useState<FieldConfig['widget']>(config.widget ?? 'input'),
     [step, setStep] = useState(config.step ?? '1'), [decimalMin, setDecimalMin] = useState(config.decimal_min ?? ''),
     [decimalMax, setDecimalMax] = useState(config.decimal_max ?? ''), [barcodeLabel, setBarcodeLabel] = useState(config.barcode_label ?? '');
@@ -173,10 +176,11 @@ function FieldEditor({
             ...(hasDefault && !['secret','backlink','formula','aggregate','file','image'].includes(type) ? { default: value } : {}),
             ...(type === 'integer' && min !== '' ? { min: Number(min) } : {}),
             ...(type === 'integer' && max !== '' ? { max: Number(max) } : {}),
-            ...(['select', 'multiselect'].includes(type) ? { options } : {}),
+            ...(['select', 'multiselect'].includes(type) ? { options, ...(type === 'multiselect' && choiceDisplay ? { choice_display: choiceDisplay } : {}) } : {}),
             ...(['decimal', 'money'].includes(type) || (calculated && resultType === 'decimal') ? { precision } : {}),
             ...(type === 'money' || (calculated && resultType === 'decimal' && currency) ? { currency } : {}),
             ...(calculated ? { formula, result_type: resultType } : {}),
+            ...(type === 'boolean' && starToggle ? { toggle_display: 'star' } : {}),
             ...(numeric || type === 'boolean' ? { widget, ...(numeric ? { step } : {}) } : {}),
             ...(['decimal', 'money', 'duration'].includes(type) ? { ...(decimalMin ? { decimal_min: decimalMin.replace(',', '.') } : {}), ...(decimalMax ? { decimal_max: decimalMax.replace(',', '.') } : {}) } : {}),
             ...(type === 'barcode' ? { barcode_label: barcodeLabel } : {}),
@@ -223,7 +227,14 @@ function FieldEditor({
       {calculated && <><FormulaEditor api={api} collectionId={collectionId} value={formula} resultType={resultType} change={setFormula} disabled={busy} />
         <label>{t('formulaResultType')}<select value={resultType} disabled={busy} onChange={event => setResultType(event.target.value as FieldConfig['result_type'])}>{['decimal', 'text', 'boolean', 'date', 'local_datetime'].map(value => <option key={value} value={value}>{t('types.' + value)}</option>)}</select></label></>}
       {['select', 'multiselect'].includes(type) && <fieldset disabled={busy}><legend>{t('choiceOptions')}</legend>
+        {type === 'multiselect' && <label>{t('choiceDisplay')}<select value={choiceDisplay ?? ''} onChange={event => setChoiceDisplay(event.target.value === 'initials' ? 'initials' : undefined)}>
+          <option value="">{t('choiceLabels')}</option><option value="initials">{t('choiceInitials')}</option>
+        </select></label>}
         {options.map((option, index) => <div className="choice-option" key={option.id}><label>{t('optionLabel', { number: index + 1 })}<input required maxLength={200} value={option.label} onChange={event => setOptions(old => old.map(item => item.id === option.id ? { ...item, label: event.target.value } : item))} /></label>
+          <label>{t('choiceTone')}<select value={option.tone ?? ''} onChange={event => {
+            const tone = choiceTones.find(value => value === event.target.value);
+            setOptions(old => old.map(item => item.id !== option.id ? item : { id: item.id, label: item.label, ...(item.archived === undefined ? {} : { archived: item.archived }), ...(tone ? { tone } : {}) }));
+          }}><option value="">{t('choiceToneDefault')}</option>{choiceTones.map(tone => <option key={tone} value={tone}>{t('choiceTones.' + tone)}</option>)}</select></label>
           <label className="check"><input type="checkbox" checked={option.archived ?? false} onChange={event => setOptions(old => old.map(item => item.id === option.id ? { ...item, archived: event.target.checked } : item))} />{t('archivedChoice')}</label>
           <button type="button" disabled={index === 0} aria-label={t('moveOptionUp', { number: index + 1 })} onClick={() => setOptions(old => { const next = [...old]; [next[index - 1], next[index]] = [next[index]!, next[index - 1]!]; return next; })}>↑</button>
         </div>)}<button type="button" onClick={() => setOptions(old => [...old, { id: crypto.randomUUID(), label: '' }])}>{t('addOption')}</button>
@@ -231,6 +242,7 @@ function FieldEditor({
       {(numeric || type === 'boolean') && <label>{t('fieldWidget')}<select value={widget} disabled={busy} onChange={event => setWidget(event.target.value as FieldConfig['widget'])}>
         {(type === 'boolean' ? ['input', 'switch'] : ['input', 'counter', 'rating', 'progress', 'slider']).map(value => <option key={value} value={value}>{t('widgets.' + value)}</option>)}
       </select></label>}
+      {type === 'boolean' && <label className="check"><input type="checkbox" checked={starToggle} disabled={busy} onChange={event => setStarToggle(event.target.checked)} />{t('starToggle')}</label>}
       {numeric && <label>{t('numberStep')}<input inputMode="decimal" value={step} disabled={busy} onChange={event => setStep(event.target.value.replace(',', '.'))} /></label>}
       {(['decimal', 'money'].includes(type) || (calculated && resultType === 'decimal')) && <label>{t('displayPrecision')}<select value={precision} disabled={busy} onChange={event => setPrecision(Number(event.target.value))}>{[0, 1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{value}</option>)}</select></label>}
       {(type === 'money' || (calculated && resultType === 'decimal')) && <label>{t('currencySymbol')}<input maxLength={16} value={currency} disabled={busy} onChange={event => setCurrency(event.target.value)} /></label>}

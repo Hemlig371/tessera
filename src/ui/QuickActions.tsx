@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { canonical, type Entry, type Field, type JsonValue } from '../core/model';
-import { fieldConfig } from '../core/validation';
+import { choiceConfig } from './choice-appearance';
 import { quickControls, quickValue, type QuickActionDefinition, type QuickMutation } from '../core/quick-actions';
 import { useFormatValue } from './common';
 
@@ -17,7 +17,7 @@ export function QuickActions({ entry, fields, actions, busy, execute }: {
   </div>;
 }
 function QuickField({ entry, field, action, busy, execute }: { entry: Entry; field: Field; action: QuickActionDefinition; busy: boolean; execute: (mutation: QuickMutation) => Promise<void> }) {
-  const { t } = useTranslation(), format = useFormatValue(), config = fieldConfig(field), value = entry.data[field.id];
+  const { t } = useTranslation(), format = useFormatValue(), config = choiceConfig(field), value = entry.data[field.id];
   const pending = useRef(false), [saving, setSaving] = useState(false), [draft, setDraft] = useState(value == null ? '0' : String(value));
   const disabled = busy || saving;
   function canIncrement(direction: 1 | -1) { try { quickValue(field, value, { kind: 'increment', direction }); return true; } catch { return false; } }
@@ -30,7 +30,7 @@ function QuickField({ entry, field, action, busy, execute }: { entry: Entry; fie
     const next: JsonValue = field.type === 'integer' ? Number(draft) : draft;
     if (canonical(next) !== canonical(value ?? null)) void submit({ kind: 'set', value: next });
   }
-  if (action.control === 'toggle' && ['избранное','favorite','favourite'].includes(field.name.trim().toLowerCase())) {
+  if (action.control === 'toggle' && config.toggle_display === 'star') {
     return <button className="favorite-action" aria-label={field.name} aria-pressed={value === true} disabled={disabled}
       onClick={() => void submit({kind:'toggle'})}>{value === true ? '★' : '☆'}</button>;
   }

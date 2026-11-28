@@ -39,17 +39,19 @@ export function ExternalCalendarActions({ entry, fields, title, busy }: { entry:
     finally { setWorking(false); }
   }
 
-  return <section className="external-calendar-actions" aria-label={t('calendarActions')}>
-    <label>{t('calendarDateField')}
+  if (!android && !desktop) return null;
+  return <details className="external-calendar-actions">
+    <summary>{t('calendarActions')}</summary>
+    {dates.length > 1 && <label>{t('calendarDateField')}
       <select disabled={busy || working} value={chosen.id} onChange={e => setFieldId(e.target.value)}>
         {dates.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
       </select>
-    </label>
+    </label>}
     <div className="actions">
       <button type="button" disabled={busy || working} onClick={() => { void perform(false); }}>{android ? t('calendarAdd') : t('calendarExport')}</button>
       {android && <button type="button" disabled={busy || working} onClick={() => { void perform(true); }}>{t('reminderCreate')}</button>}
     </div>
     {saved && <small role="status">{t('calendarExported')}</small>}
     {error && <p role="alert">{t('errors.' + error, { defaultValue: error === 'reminderUnavailable' ? t('reminderFallback') : error === 'calendarOpenFailed' ? t('calendarOpenFailed') : t('calendarUnavailable') })}</p>}
-  </section>;
+  </details>;
 }

@@ -20,6 +20,8 @@ import { LibraryIndex, LibraryCollections, EntryCard } from './LibraryScreens';
 import { CollectionControls } from './CollectionControls';
 import { StructureWorkspace } from './StructureWorkspace';
 import { Icon } from './Icon';
+import { choiceConfig } from './choice-appearance';
+import { RecordChoices } from './RecordChoices';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { AttachmentSettings } from './AttachmentSettings';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
@@ -926,7 +928,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
   }, []);
   const favorite = context?.layouts.card.quick_actions?.find(action =>
     action.control === 'toggle' && context.fields.some(field => field.id === action.field_id &&
-      field.type === 'boolean' && ['избранное','favorite','favourite'].includes(field.name.trim().toLowerCase())));
+      field.type === 'boolean' && choiceConfig(field).toggle_display === 'star'));
   const splitRecord = wide && browsing && !!selected && !ui.editor && !ui.constructorOpen;
   const browseHidden = !!ui.editor || (!!selected && !splitRecord);
   const identity = JSON.parse((collection ?? library)?.config ?? '{}') as { icon?: string; color?: string };
@@ -1224,7 +1226,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
         {selected && context && !ui.editor && (
           <section className="detail record-page" role="region" aria-labelledby="record-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); backRecord(); } }}>
             <div className="tessera-record-topline">
-              <button className="icon-button tessera-record-back" title={t('backToEntries')} aria-label={t('backToEntries')} disabled={busy} onClick={() => { selectionRequest.current++; setSelected(null); setContext(null); setTrail([]); }}>
+              <button className="icon-button tessera-record-back" title={t(trail.length ? 'backToRecord' : 'backToEntries')} aria-label={t(trail.length ? 'backToRecord' : 'backToEntries')} disabled={busy} onClick={backRecord}>
                 <Icon name="back" /><span className="visually-hidden">{t('backToEntries')}</span>
               </button>
               <span className="record-location"><strong>{context.collection.name}</strong><small>{libraries.find(item => item.id === context.collection.library_id)?.name}</small></span>
@@ -1242,18 +1244,6 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <header className="dialog-heading">
               <div>
 
-                {!!trail.length && (
-                  <button
-                    disabled={busy}
-                    onClick={() => {
-                      const id = trail.at(-1)!;
-                      setTrail((old) => old.slice(0, -1));
-                      void selectEntry(id);
-                    }}
-                  >
-                    {t('backToRecord')}
-                  </button>
-                )}
                 <h1 id="record-title" ref={cardHeading} tabIndex={-1}>{context.collection.system_kind === 'inbox' ? splitInboxMarkdown(String(selected.data[context.collection.primary_field_id] ?? '')).title : String(selected.data[context.collection.primary_field_id] ?? '')}</h1>
 
               </div>
@@ -1265,7 +1255,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                   const f = context.fields.find((field) => field.id === item.field_id)!;
                   return (
                     <dl key={f.id}>
-                      <dt><Icon name={f.type === 'date' ? 'calendar' : f.type === 'duration' ? 'clock' : f.type === 'multiselect' ? 'contacts' : /^(приоритет|priority)$/i.test(f.name) ? 'flag' : /^(порции|servings)$/i.test(f.name) ? 'dining' : 'property'}/>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
+                      <dt><Icon name={f.type === 'date' ? 'calendar' : f.type === 'duration' ? 'clock' : (['relation', 'backlink'].includes(f.type) || choiceConfig(f).choice_display === 'initials') ? 'contacts' : 'property'}/>{context.collection.system_kind === 'inbox' ? t(f.id === context.collection.incoming_field_id ? 'inboxContent' : 'attachments') : f.name}</dt>
                       <dd>
                         {['relation', 'backlink'].includes(f.type) ? (
                           <RelationBlock
@@ -1292,12 +1282,11 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                               }, false);
                               return written;
                             }} />
-                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" data-tone={/^(высокий|high|urgent|critical|критический)$/i.test(fieldConfig(f).options?.find(option => option.id === selected.data[f.id])?.label ?? "") ? "urgent" : undefined} aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
-                          const value = event.currentTarget.value || null;
-                          void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'set', value}, selected.hlc); }, false);
-                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="choice-values" data-initials={(fieldConfig(f).options ?? []).filter(option => Array.isArray(selected.data[f.id]) && (selected.data[f.id] as unknown[]).includes(option.id)).every(option => Array.from(option.label).length === 1)}>{(fieldConfig(f).options ?? []).filter(option => {
-                          const values = selected.data[f.id]; return Array.isArray(values) && values.includes(option.id);
-                        }).map((option,index) => <span key={option.id} data-color={index % 4}>{option.label}</span>)}{!Array.isArray(selected.data[f.id]) || !(selected.data[f.id] as unknown[]).length ? t('unset') : null}</span> : format(f, selected.data[f.id])}
+                        ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : (f.type === 'select' || f.type === 'multiselect') ? (
+                          <RecordChoices field={f} value={selected.data[f.id]} disabled={busy} change={value => {
+                            void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'set', value}, selected.hlc); }, false);
+                          }} />
+                        ) : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );

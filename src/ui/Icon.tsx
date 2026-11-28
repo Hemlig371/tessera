@@ -21,23 +21,24 @@ const paths = {
   trash: 'M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',
   tools: 'M5 4v6M5 14v6M12 4v11M12 19v1M19 4v1M19 9v11M2 10h6M9 15h6M16 9h6',
   archive: 'M3 4h18v5H3zM5 9v12h14V9M9 13h6M12 13v5M10 16l2 2 2-2',
-  settings: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z',
+  settings: 'm10 3-.6 2.5-2 .9-2.2-1.3-2.1 2.1 1.3 2.2-.9 2L1 12l.6 2.5 2.5.6.9 2-1.3 2.2 2.1 2.1 2.2-1.3 2 .9.6 2.5h3l.6-2.5 2-.9 2.2 1.3 2.1-2.1-1.3-2.2.9-2 2.5-.6V12l-2.5-.6-.9-2 1.3-2.2-2.1-2.1-2.2 1.3-2-.9L14 3zM15 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  leaf: 'M4 20C7 6 13 6 21 3c0 9-5 16-13 15m-4 2 12-11',
   appearance: 'M12 3a9 9 0 1 0 0 18V3zM12 3a9 9 0 0 1 0 18M16 7l2 2M16 12h5M16 17l2-2',
   arrow: 'M5 12h14M14 7l5 5-5 5',
   chevron: 'M9 5l7 7-7 7',
   clock: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM12 7v5l3 2',
   edit: 'M4 20l4-.8L19 8a2 2 0 0 0-3-3L5 16zM14 7l3 3',
   more: 'M12 5v.01M12 12v.01M12 19v.01',
-  filter: 'M4 7h16M7 12h10M10 17h4',
+  filter: 'M3 5h18l-7 8v5l-4 2v-7z',
   check: 'M4 12l5 5 11-11',
   back: 'M19 12H5M10 7l-5 5 5 5',
 } as const;
 export function Icon({ name }: { name: keyof typeof paths }) {
-  return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
+  return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={name === 'more' ? 3 : 1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
 }
 
 const glyphs: Record<string, keyof typeof paths> = {
-  '🍴':'dining', '☑':'task', '▱':'layers', '✎':'document',
+  '🍃':'leaf', '🍴':'dining', '☑':'task', '▱':'layers', '✎':'document',
   '▣':'wallet', '▧':'picture', '♧':'contacts', '⊞':'libraries',
 };
 export function LibraryGlyph({symbol}: {symbol?: string}) {

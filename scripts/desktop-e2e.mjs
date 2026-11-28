@@ -21,42 +21,57 @@ async function until(script) {
   while (Date.now() < deadline) { if (await execute('return ' + script)) return; await delay(150); }
   throw new Error('UI timeout: ' + script + '\n' + await execute('return document.body.innerText'));
 }
+const visibleButton = "b => !b.matches(':disabled') && !b.closest('[inert]') && b.getClientRects().length > 0";
+const constructorVisible = "!!document.querySelector('.constructor-banner')";
 async function leaveConstructor() {
-  // Tessera v4 leaves schema editing when record values are created/edited.
-  // Native E2E must follow the same explicit, conditional UX route rather than
-  // assume the designer remains open after every Save.
-  const active = await execute("return document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='true'");
-  if (!active) return;
-  await until("!!document.querySelector('.constructor-banner button:not(:disabled)')");
-  await execute("document.querySelector('.constructor-banner button:not(:disabled)').click()");
-  await until("document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='false'");
+  if (!await execute('return ' + constructorVisible)) return;
+  await clickText('Готово, к данным');
+  await until('!' + constructorVisible);
 }
 async function clickText(text) {
-  if (text === 'Закрыть' && await execute("return !!document.querySelector('[data-editor]')")) { await clickText('Назад'); return; }
-  if (['+ Новая запись','Варианты создания','CSV','Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text) && await execute("return [...document.querySelectorAll('button')].some(button=>button.getAttribute('aria-label')==='К списку')")) await clickText('К списку');
+  if (text === 'Закрыть' && await execute("return !!document.querySelector('[data-editor]')")) {
+    await clickText('Назад');
+    return;
+  }
+  const structureActions = ['Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'];
+  if (['+ Новая запись','Варианты создания','CSV', ...structureActions].includes(text) &&
+      await execute("return !!document.querySelector('.detail .tessera-record-back')")) await clickText('К списку');
   if (['+ Новая запись','Варианты создания','CSV','+ Во входящие','Все библиотеки','Глобальный поиск'].includes(text)) await leaveConstructor();
-  if (text === '+ Быстрая запись') { await clickText('Варианты создания'); await clickText('Быстрая запись'); return; }
-  if (['Настройки библиотеки','Стартовый экран библиотеки','Настройки коллекции','Поля','Форма','Карточка','Список','Быстрая форма','Пресеты создания','Представления'].includes(text)) {
-    await until("!!document.querySelector('#constructor-toggle:not(:disabled)')");
-    if (!await execute("return document.querySelector('#constructor-toggle').getAttribute('aria-pressed')==='true'")) await clickText('Конструктор');
+  if (text === '+ Быстрая запись') {
+    await clickText('Варианты создания');
+    await clickText('Быстрая запись');
+    return;
+  }
+  if (structureActions.includes(text) && !await execute('return ' + constructorVisible)) {
+    await clickText('Конструктор');
+    await until(constructorVisible);
   }
   const recordMenu = ['Удалить', 'Перенести в коллекцию', 'История записи'].includes(text);
   const workspaceMenu = ['+ Во входящие', 'CSV', 'Глобальный поиск', 'Корзина', 'Оформление', 'Конструктор', 'Все библиотеки'].includes(text);
+  const encoded = JSON.stringify(text);
+  const matchingButton = `[...document.querySelectorAll('button')].filter(${visibleButton}).find(b=>b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded})`;
+  if (workspaceMenu && text === 'Глобальный поиск' && await execute(`return !!(${matchingButton})`)) {
+    await execute(`(${matchingButton}).click()`);
+    return;
+  }
   if (recordMenu || workspaceMenu) {
     const trigger = recordMenu ? '.detail .reference-record-more-button' : '.workspace-header .tessera-overflow-trigger';
-    await until(`!!document.querySelector(${JSON.stringify(trigger + ':not(:disabled)')})`);
-    await execute(`document.querySelector(${JSON.stringify(trigger)}).click()`);
-    const item = `[...document.querySelectorAll('[role=menuitem]:not(:disabled)')].find(b=>b.textContent.trim()===${JSON.stringify(text)})`;
+    const visibleTrigger = `[...document.querySelectorAll(${JSON.stringify(trigger)})].find(${visibleButton})`;
+    await until(`!!(${visibleTrigger})`);
+    await execute(`(${visibleTrigger}).click()`);
+    const item = `[...document.querySelectorAll('[role=menuitem]')].filter(${visibleButton}).find(b=>b.textContent.trim()===${encoded})`;
     await until(`!!(${item})`);
     await execute(`(${item}).click()`);
     return;
   }
-  const catalogName = await execute(`return [...document.querySelectorAll('[data-catalog=collections] .catalog-copy strong')].some(n=>n.textContent===${JSON.stringify(text)})`);
-  const encoded = JSON.stringify(catalogName ? `Открыть коллекцию «${text}»` : text);
-  await until(`[...document.querySelectorAll('button')].some(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]'))`);
-  await execute(`[...document.querySelectorAll('button')].find(b=>(b.textContent.trim()===${encoded} || b.getAttribute('aria-label')===${encoded}) && !b.matches(':disabled') && !b.closest('[inert]')).click();`);
+  await until(`!!(${matchingButton})`);
+  await execute(`(${matchingButton}).click()`);
 }
 async function openLibrary(name) {
+  if (!await execute("return !!document.querySelector('[data-catalog=libraries]')")) {
+    if (await execute("return !!document.querySelector('.detail .tessera-record-back')")) await clickText('К списку');
+    await clickText('Все библиотеки');
+  }
   const selector = `[...document.querySelectorAll('[data-catalog=libraries] .catalog-item')].find(b=>b.querySelector('.catalog-copy strong')?.textContent===${JSON.stringify(name)} && !b.matches(':disabled') && !b.closest('[inert]'))`;
   await until(`!!(${selector})`); await execute(`(${selector}).click()`);
 }
@@ -82,13 +97,13 @@ try {
     catch (e) { if (n > 100) throw e; await delay(200); }
   }
   await start();
-  await clickText('+ Новая библиотека'); await input('Native library'); await clickText('Создать');
-  await clickText('+ Новая коллекция'); await input('Native collection'); await clickText('Создать');
+  await clickText('Создать библиотеку'); await input('Native library'); await clickText('Создать');
+  await clickText('Создать коллекцию'); await input('Native collection'); await clickText('Создать');
   await clickText('+ Новая запись'); await input('Native persistent entry'); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   assert.equal(await execute("return document.querySelector('[role=status]').textContent"), 'Запись сохранена');
   await leaveConstructor();
-  await until("document.querySelector('#constructor-toggle')?.getAttribute('aria-pressed')==='false' && ![...document.querySelectorAll('button')].some(button=>button.textContent==='Поля' && !button.closest('[inert]'))");
+  await until('!' + constructorVisible);
   const csvPath = join(directory, 'native-export.csv');
   const bridgeResult = await request('POST', `/session/${session}/execute/async`, {
     script: `const done=arguments[arguments.length-1]; (async()=>{
@@ -103,7 +118,7 @@ try {
   await request('DELETE', `/session/${session}`); session = undefined;
   await start();
   await openLibrary('Native library');
-  await clickText('Native collection');
+  await clickText('Открыть коллекцию «Native collection»');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native persistent entry'))");
   await clickText('+ Во входящие'); await input('Native Inbox transfer'); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
@@ -122,7 +137,7 @@ try {
   await request('DELETE', `/session/${session}`); session = undefined;
   await start();
   await openLibrary('Native library');
-  await clickText('Native collection');
+  await clickText('Открыть коллекцию «Native collection»');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native Inbox transfer'))");
   await clickText('+ Быстрая запись'); await input('Native quick entry'); await clickText('Сохранить');
   await until("[...document.querySelectorAll('.entry')].some(b=>b.textContent.includes('Native quick entry'))");
@@ -139,7 +154,7 @@ try {
   await start();
   assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await openLibrary('Native library');
-  await clickText('Native collection');
+  await clickText('Открыть коллекцию «Native collection»');
   await until("[...document.querySelectorAll('button')].some(b=>b.getAttribute('aria-label')==='+ Новая запись' && !b.matches(':disabled') && !b.closest('[inert]'))");
   assert.equal(await execute("return !!document.querySelector('[data-editor]')"),false);
   await clickText('+ Новая запись');
@@ -164,7 +179,7 @@ try {
   await until("!!document.querySelector('[data-editor] input[type=checkbox]:disabled:checked')");
   await clickText('Закрыть'); await until("!document.querySelector('[data-editor]')");
   await request('DELETE', `/session/${session}`); session=undefined; await start();
-  await openLibrary('Native library'); await clickText('Native collection');
+  await openLibrary('Native library'); await clickText('Открыть коллекцию «Native collection»');
   await until("document.querySelector('.reference-view-chips [aria-pressed=true]')?.textContent==='Native profile'");
   await clickText('Пресеты создания'); await input('Native preset');
   await execute("document.querySelector('[data-editor] fieldset input[type=checkbox]').click()");
@@ -177,7 +192,7 @@ try {
   await clickText('+ Новая запись'); await until("document.querySelector('[data-editor] input')?.value==='Native preset entry'");
   await clickText('Сохранить'); await until("!document.querySelector('[data-editor]')");
   await request('DELETE', `/session/${session}`); session=undefined; await start();
-  await openLibrary('Native library'); await clickText('Native collection');
+  await openLibrary('Native library'); await clickText('Открыть коллекцию «Native collection»');
   await until("[...document.querySelectorAll('.entry')].some(row=>row.textContent.includes('Native preset entry'))");
   await clickText('Поля'); await clickText('+ Новое поле'); await input('Native Markdown');
   await selectOption('Тип поля', 'Markdown'); await clickText('Сохранить поле');
@@ -210,8 +225,8 @@ try {
     script: "const done=arguments[arguments.length-1]; window.__TAURI_INTERNALS__.invoke('external_open_url',{url:'javascript:alert(1)'}).then(()=>done('unexpected'),error=>done(String(error)));", args: [],
   });
   assert.equal(guarded,'invalidUrl');
-  await openLibrary('Native library'); await clickText('Native collection');
-  await clickText('+ Новая коллекция'); await input('Native CSV'); await clickText('Создать');
+  await clickText('Все библиотеки'); await openLibrary('Native library');
+  await clickText('Создать коллекцию'); await input('Native CSV'); await clickText('Создать');
   await clickText('CSV');
   await execute(`const source=new DataTransfer(); source.items.add(new File(['Название\\n'+Array.from({length:5000},(_,i)=>'CSV '+i).join('\\n')],'cancel.csv',{type:'text/csv'})); const field=document.querySelector('input[type=file]'); field.files=source.files; field.dispatchEvent(new Event('change',{bubbles:true}));`);
   await until("document.querySelector('[data-editor] [role=status]')?.textContent==='Прочитано строк: 5000'");
@@ -268,7 +283,7 @@ try {
   await selectOption('Стартовый экран библиотеки', 'Выбранная коллекция');
   await selectOption('Выбранная коллекция', 'Native CSV');
   await selectOption('Каталог коллекций', 'Список');
-  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && !document.querySelector('#constructor-toggle').disabled");
+  await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && !!document.querySelector('.constructor-banner button:not(:disabled)')");
   await clickText('Все библиотеки'); await until("!!document.querySelector('[data-catalog=libraries]')");
   await clickText('Открыть библиотеку «Native library»');
   await until("document.querySelector('.workspace-identity strong')?.textContent==='Native CSV' && !!document.querySelector('.entry')");
@@ -284,7 +299,7 @@ try {
   await request('DELETE', `/session/${session}`); session = undefined; await start();
   await until("document.documentElement.dataset.theme==='dark' && document.documentElement.dataset.density==='compact' && !!document.querySelector('[data-catalog=libraries] .catalog-list')");
   assert.equal(await execute("return getComputedStyle(document.documentElement).fontSize"),'22.5px');
-  await openLibrary('Native library'); await clickText('Native collection'); await clickText('Форма');
+  await openLibrary('Native library'); await clickText('Открыть коллекцию «Native collection»'); await clickText('Форма');
   await until("!!document.querySelector('.row-designer select')");
   await execute("const columns=document.querySelector('.row-designer select');columns.value='3';columns.dispatchEvent(new Event('change',{bubbles:true}));");
   await clickText('Сохранить настройку'); await until("!document.querySelector('[data-editor]')");
@@ -340,8 +355,11 @@ try {
   await clickText('Сохранить'); await until("!document.querySelector('[data-editor]') && [...document.querySelectorAll('.entry:not(:disabled)')].some(b=>b.textContent.includes('Native attachment draft'))");
   await execute("[...document.querySelectorAll('.entry:not(:disabled)')].find(b=>b.textContent.includes('Native attachment draft')).click()");
   await until(`document.querySelector('.detail [data-attachment-id="${attachmentId}"] .file-state')?.textContent==='Копия на этом устройстве'`);
-  await until("!!document.querySelector('.detail [data-testid=attachment-preview]:not(:disabled)')");
-  await execute("document.querySelector('.detail [data-testid=attachment-preview]').click()");
+  const imageAttachment = "document.querySelector('.detail [data-testid=attachment-preview]')?.closest('[data-attachment-id]')";
+  await until(`!!(${imageAttachment})?.querySelector('.tessera-attachment-more:not(:disabled)')`);
+  await execute(`(${imageAttachment}).querySelector('.tessera-attachment-more').click()`);
+  await until(`[...document.querySelectorAll('.detail [data-testid=attachment-preview]')].some(${visibleButton})`);
+  await execute(`[...document.querySelectorAll('.detail [data-testid=attachment-preview]')].find(${visibleButton}).click()`);
   await until("document.querySelector('.detail [data-testid=attachment-image]')?.complete && document.querySelector('.detail [data-testid=attachment-image]')?.naturalWidth>0 && document.querySelector('.detail [data-testid=attachment-image]')?.src.startsWith('blob:')");
   const binaryExport = join(directory, 'Native — документ.bin');
   assert.equal(await request('POST', `/session/${session}/execute/async`, { script: `const done=arguments[arguments.length-1];(async()=>{const invoke=window.__TAURI_INTERNALS__.invoke,facts=await invoke('binary_inspect',{id:'${attachmentId}'});await invoke('binary_export',{id:'${attachmentId}',path:${JSON.stringify(binaryExport)},...facts});})().then(()=>done('ok'),error=>done(String(error)));`, args: [] }), 'ok');

@@ -29,7 +29,7 @@ export function FieldSections({ definition, fields, label, render }: {
           : <div key={id} className="layout-cell">{render(item)}</div>;
       })}
     </div>);
-    return title ? <details key={rows[0]!.id} className="field-block" data-standalone={standalone} open>
+    return title ? <details key={rows[0]!.id} className="field-block" data-standalone={standalone} data-kind={standalone ? byId.get(rows[0]!.field_ids[0]!)?.type : undefined} open>
       <summary><Icon name={standalone ? (["file","image"].includes(byId.get(rows[0]!.field_ids[0]!)!.type) ? "attachment" : byId.get(rows[0]!.field_ids[0]!)!.type === "markdown" ? "checklist" : "document") : "collection"}/>{title}</summary>{content}
     </details> : <section className="properties" key={rows[0]!.id}>{content}</section>;
   })}</div>;

@@ -1,7 +1,7 @@
 import { useState, type ReactNode, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Collection, EntryListItem, Field, Library } from '../core/model';
-import { fieldConfig } from '../core/validation';
+import { choiceConfig, choiceTone } from './choice-appearance';
 import { fileIds } from '../core/attachments';
 import type { Repository } from '../core/repository';
 import { Catalog } from './Catalog';
@@ -51,17 +51,17 @@ export function EntryCard({api,row,fields,primaryId,group,renderValue}: {
   const {t} = useTranslation();
   const image = fields.find(f => f.type === 'image' && fileIds(row.data[f.id]).length);
   const visible = fields.filter(f => f.id !== primaryId && !['secret','image','file'].includes(f.type) && (row.data[f.id] != null || row.computed?.[f.id] != null));
-  const category = visible.find(f => ['select','multiselect'].includes(f.type));
-  const time = visible.find(f => ['duration','date','time'].includes(f.type));
-  const excerpt = visible.find(f => f !== category && f !== time);
+  const metadata = visible.filter(field => ['select', 'multiselect', 'duration', 'date', 'time'].includes(field.type));
+  const excerpts = visible.filter(field => !metadata.includes(field));
   return <span className="entry-card">
     {image && <AttachmentThumbnail api={api} ownerId={row.id} id={fileIds(row.data[image.id])[0]!}/>}
     <span className="entry-copy"><strong className="entry-primary">{row.title || t('unset')}</strong>
-      {(group || category || time) && <span className="card-meta">{group}
-        {category && <span className="tag" data-color={fieldConfig(category).options?.findIndex(option => option.id === row.data[category.id])}>{renderValue(category)}</span>}
-        {time && <span><Icon name="clock"/>{renderValue(time)}</span>}
+      {(group || metadata.length > 0) && <span className="card-meta">{group}
+        {metadata.map(field => field.type === 'select' || field.type === 'multiselect'
+          ? <span key={field.id} className="tag" data-tone={choiceTone(choiceConfig(field).options?.find(option => option.id === row.data[field.id]))}>{renderValue(field)}</span>
+          : <span key={field.id}><Icon name={field.type === 'date' ? 'calendar' : 'clock'}/>{renderValue(field)}</span>)}
       </span>}
-      {excerpt && <small>{renderValue(excerpt)}</small>}
+      {excerpts.map(field => <small key={field.id}>{renderValue(field)}</small>)}
     </span>
   </span>;
 }

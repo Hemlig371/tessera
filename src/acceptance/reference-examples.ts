@@ -1,4 +1,5 @@
 import type { Repository } from '../core/repository';
+import type { ChoiceConfig } from '../ui/choice-appearance';
 import type { UiDefinition } from '../core/model';
 
 const artwork = import.meta.glob<string>('./artwork/*.webp', { import: 'default', eager: true });
@@ -23,7 +24,8 @@ const recipes = [
 export async function seedReferenceExamples(api: Repository, nutrition: string, projects: string) {
   const collection = await api.createCollection(nutrition, 'Рецепты', 'Название');
   await api.updateCollection(collection.id, {appearance:{icon:'🍃',color:'#3d8647'}});
-  const options = ['Завтрак', 'Основное', 'Салат', 'Десерт'].map(label => ({label, id:crypto.randomUUID()}));
+  const options = ([['Завтрак', 'green'], ['Основное', 'amber'], ['Салат', 'green'], ['Десерт', 'rose']] as const)
+    .map(([label, tone]) => ({label, tone, id:crypto.randomUUID()}));
   const field = (name: string, type: string, config = {}) => api.createField(collection.id, name, type, config);
   const photo = await field('Фото', 'image');
   const category = await field('Категория', 'select', {options});
@@ -32,7 +34,7 @@ export async function seedReferenceExamples(api: Repository, nutrition: string, 
   const excerpt = await field('Состав', 'text');
   const ingredients = await field('Ингредиенты', 'markdown');
   const steps = await field('Приготовление', 'markdown');
-  const star = await field('Избранное', 'boolean');
+  const star = await field('Избранное', 'boolean', {toggle_display:'star'} satisfies ChoiceConfig);
   const fields = await api.listFields(collection.id);
   const publicIds = [photo.id,category.id,time.id,excerpt.id,collection.primary_field_id];
   const list: UiDefinition = {fields:fields.map(f => ({field_id:f.id,visible:publicIds.includes(f.id)})), list:{mode:'rows'},
@@ -63,24 +65,30 @@ export async function seedReferenceExamples(api: Repository, nutrition: string, 
   const release = await api.createCollection(projects,'Обновления','Название');
   const statuses = ['В работе','Готово'].map(label=>({id:crypto.randomUUID(),label}));
   const status = await api.createField(release.id,'Статус','select',{options:statuses});
-  const priority = await api.createField(release.id,'Приоритет','select',{options:[{id:crypto.randomUUID(),label:'Высокий'},{id:crypto.randomUUID(),label:'Обычный'}]});
+  const priorities: ChoiceConfig = {options:[{id:crypto.randomUUID(),label:'Высокий',tone:'red'},{id:crypto.randomUUID(),label:'Обычный'}]};
+  const priority = await api.createField(release.id,'Приоритет','select',priorities);
   const due = await api.createField(release.id,'Срок','date');
-  const people = ['А','К'].map(label => ({id:crypto.randomUUID(),label}));
-  const participants = await api.createField(release.id,'Участники','multiselect',{options:people});
+  const people = ([['Анна', 'cyan'], ['Кирилл', 'violet']] as const).map(([label, tone]) => ({id:crypto.randomUUID(),label,tone}));
+  const participantChoices: ChoiceConfig = {options:people, choice_display:'initials'};
+  const participants = await api.createField(release.id,'Участники','multiselect',participantChoices);
   const description = await api.createField(release.id,'Описание','multiline');
   const tasks = await api.createField(release.id,'Подзадачи','markdown');
   const image = await api.createField(release.id,'Обложка','image');
-  const files = await api.createField(release.id,'Вложения','file');
+  const files = await api.createField(release.id,'Вложения','file',{multiple:true});
+  const taskStarConfig: ChoiceConfig = {toggle_display:'star'};
+  const taskStar = await api.createField(release.id,'Избранное','boolean',taskStarConfig);
   const owner = crypto.randomUUID();
+  const cover = await attachCover(api,release.id,owner,'mountains');
+  const imageAttachment = await attachCover(api,release.id,owner,'mountains');
   const bytes = new TextEncoder().encode('# План релиза\n\n- Проверка интерфейса\n- Подготовка сборок');
   const document = await api.stageAttachment(release.id,owner,{name:'план-v4.md',mime:'text/markdown',size:bytes.length,read:async (offset,length)=>bytes.slice(offset,offset+length)});
   await api.saveNewEntry(release.id,{[release.primary_field_id]:'Обновление Tessera v4.0',[status.id]:statuses[0]!.id,
     [priority.id]:JSON.parse(priority.config).options[0].id,[due.id]:'2025-01-28',
     [description.id]:'Завершить переработку интерфейса, провести тестирование и подготовить релиз v4.0.',
     [participants.id]:people.map(person=>person.id),
-    [tasks.id]:'- [x] Новый дизайн основных экранов\n- [x] Адаптация для Android\n- [ ] Тестирование\n- [ ] Подготовка релиза',[image.id]:[await attachCover(api,release.id,owner,'mountains')],[files.id]:[document.id]},owner);
+    [tasks.id]:'- [x] Новый дизайн основных экранов\n- [x] Адаптация для Android\n- [ ] Тестирование\n- [ ] Подготовка релиза',[image.id]:[cover],[files.id]:[imageAttachment,document.id]},owner);
   await api.saveUiConfig(release.id,'card',{fields:(await api.listFields(release.id)).map(f=>({
-    field_id:f.id,visible:f.id!==release.primary_field_id && f.id!==image.id
-  }))});
+    field_id:f.id,visible:![release.primary_field_id,image.id,taskStar.id].includes(f.id)
+  })),quick_actions:[{field_id:taskStar.id,control:'toggle'}]});
   await api.saveLibraryNavigation(projects,{start:{kind:'collection',collection_id:release.id},collections_layout:'list'});
 }

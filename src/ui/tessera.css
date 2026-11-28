@@ -202,3 +202,15 @@ small,.screen-hint {color:var(--muted)}
 .browse-screen.screen-inactive {display:block!important;position:absolute;inset:0;block-size:0;overflow:hidden;visibility:hidden;pointer-events:none}
 .entry-scroll {scroll-padding-bottom:4rem}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.settings-page,.settings-section,.editor-page,.editor-heading,.structure-tools {min-width:0;overflow-wrap:anywhere}
+.settings-page {grid-template-columns:minmax(0,1fr)}
+.settings-row span {min-width:0}
+.editor-page button {max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.catalog-item {min-height:4.05rem}
+.entry-copy strong {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.2}
+.tag[data-color="1"] {background:#f8ead6;color:#684b22}
+.tag[data-color="3"] {background:#fae3ef;color:#923361}
+.choice-values {display:flex;flex-wrap:wrap;gap:.35rem}
+.choice-values span {border-radius:1rem;padding:.2rem .58rem;background:var(--accent-soft);color:var(--accent)}
+.choice-values [data-color="0"] {background:#d3eff1;color:#285457}
+.choice-values [data-color="1"] {background:#ece1f6;color:#55426d}

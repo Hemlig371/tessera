@@ -1,6 +1,7 @@
 import { useState, type ReactNode, type ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Collection, EntryListItem, Field, Library } from '../core/model';
+import { fieldConfig } from '../core/validation';
 import { fileIds } from '../core/attachments';
 import type { Repository } from '../core/repository';
 import { Catalog } from './Catalog';
@@ -57,7 +58,7 @@ export function EntryCard({api,row,fields,primaryId,group,renderValue}: {
     {image && <AttachmentThumbnail api={api} ownerId={row.id} id={fileIds(row.data[image.id])[0]!}/>}
     <span className="entry-copy"><strong className="entry-primary">{row.title || t('unset')}</strong>
       {(group || category || time) && <span className="card-meta">{group}
-        {category && <span className="tag">{renderValue(category)}</span>}
+        {category && <span className="tag" data-color={fieldConfig(category).options?.findIndex(option => option.id === row.data[category.id])}>{renderValue(category)}</span>}
         {time && <span><Icon name="clock"/>{renderValue(time)}</span>}
       </span>}
       {excerpt && <small>{renderValue(excerpt)}</small>}

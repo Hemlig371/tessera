@@ -100,5 +100,7 @@ test('settings retry unread metadata, keep a loading profile distinct from a mis
     await page.locator('[data-editor] .editor-heading button').click();
     await expect(page.locator('[data-editor]')).toHaveCount(0); expect(await snapshot()).toEqual(before);
   } finally { files.release(); }
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const protruding = await page.evaluate(() => [...document.querySelectorAll('body *')]
+    .filter(el => el.getBoundingClientRect().right > innerWidth + 1).map(el => el.tagName + '.' + el.className).slice(0,12));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), protruding.join(', ')).toBe(true);
 });

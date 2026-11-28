@@ -11,7 +11,13 @@ interface Props {
 export function RecordChecklist({source, disabled, save}: Props) {
   const {t} = useTranslation();
   const [draft, setDraft] = useState<string | null>(null);
-  const lines = source.split(/(\r?\n)/);
+  const [pending, setPending] = useState<string | null>(null);
+  async function toggle(text: string) {
+    setPending(text);
+    try { await save(text); }
+    finally { setPending(null); }
+  }
+  const lines = (pending ?? source).split(/(\r?\n)/);
   const items = lines.flatMap((line, index) => {
     const match = /^([-*+]\s+\[)([ xX])(\]\s+)(.+)$/.exec(line);
     if (!match) return [];
@@ -29,10 +35,10 @@ export function RecordChecklist({source, disabled, save}: Props) {
   }
   return <div className="record-checklist">
     {items.map(item => <label key={item.index}>
-      <input type="checkbox" checked={item.checked} disabled={disabled} onChange={() => {
+      <input type="checkbox" checked={item.checked} disabled={disabled || pending !== null} onChange={() => {
         const next = [...lines];
         next[item.index] = item.prefix + (item.checked ? ' ' : 'x') + item.tail;
-        void save(next.join(''));
+        void toggle(next.join(''));
       }} /><span>{item.label}</span>
     </label>)}
     {draft === null ? <button className="checklist-add" disabled={disabled} onClick={() => setDraft('')}>+ {t('addChecklistItem')}</button>

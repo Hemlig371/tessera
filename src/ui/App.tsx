@@ -419,6 +419,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
     count: page.items.length,
     getScrollElement: () => scroll.current,
     estimateSize: () => rowHeight,
+    gap: ui.scope === 'collection' && listFields.some(field => field.type === 'image') ? 7 : 0,
     overscan: 5,
     getItemKey: (index) => page.items[index]!.id,
   });
@@ -1294,7 +1295,9 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
                         ) : isCalculated(f.type) ? <CalculatedValue field={f} value={selected.computed?.[f.id]} /> : f.type === 'secret' ? <SecretValue key={selected.id + f.id} value={selected.data[f.id]} /> : f.type === 'boolean' ? <input type="checkbox" checked={selected.data[f.id] === true} disabled={busy} aria-label={f.name} onChange={() => void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'toggle'}, selected.hlc); }, false)} /> : f.type === 'select' ? <select className="property-choice" aria-label={f.name} disabled={busy} value={String(selected.data[f.id] ?? '')} onChange={event => {
                           const value = event.currentTarget.value || null;
                           void run(async () => { await api.quickAction(selected.id, f.id, {kind: 'set', value}, selected.hlc); }, false);
-                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="tessera-select-value">{format(f, selected.data[f.id])}</span> : format(f, selected.data[f.id])}
+                        }}><option value="">{t('unset')}</option>{(fieldConfig(f).options ?? []).filter(option => !option.archived || option.id === selected.data[f.id]).map(option => <option value={option.id} key={option.id}>{option.label}</option>)}</select> : ['select', 'multiselect'].includes(f.type) ? <span className="choice-values">{(fieldConfig(f).options ?? []).filter(option => {
+                          const values = selected.data[f.id]; return Array.isArray(values) && values.includes(option.id);
+                        }).map((option,index) => <span key={option.id} data-color={index % 4}>{option.label}</span>)}{!Array.isArray(selected.data[f.id]) || !(selected.data[f.id] as unknown[]).length ? t('unset') : null}</span> : format(f, selected.data[f.id])}
                       </dd>
                     </dl>
                   );

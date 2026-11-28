@@ -72,6 +72,7 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
   await expect(block.getByRole('button', { name: /Создана из проекта/ })).toBeVisible();
   await page.locator('.detail').getByRole('button', { name: 'Ещё', exact: true }).click();
   await page.locator('.detail').getByRole('menuitem', { name: 'Удалить', exact: true }).click();
+  await expect(page.locator('.detail')).toHaveCount(0);
   await navigate('Задачи');
   await showList(page); await page.locator('.entry').filter({ hasText: 'Задача разработки' }).click();
   await expect(page.locator('.detail').getByLabel('Проект', { exact: true })).toContainText('Удалено');
@@ -86,12 +87,12 @@ test('mobile single/multiple relations, reverse card, linked creation, cancel an
 test('relation target selector pages backwards and searches in SQLite', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto('/');
-  await expect(page.locator('aside')).toBeVisible();
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   const response = await page.request.post('/__test-sqlite', { data: { op: 'relation-page-seed' } });
   expect(response.ok(), await response.text()).toBe(true);
   await page.reload();
-  await page.getByRole('button', { name: 'Связи этапа 3', exact: true }).click();
-  await page.getByRole('button', { name: 'Задачи', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть библиотеку «Связи этапа 3»', exact: true }).click();
+  await page.getByRole('button', { name: 'Открыть коллекцию «Задачи»', exact: true }).click();
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Выбрана после страницы');
   const picker = page.getByRole('group', { name: 'Проект', exact: true });

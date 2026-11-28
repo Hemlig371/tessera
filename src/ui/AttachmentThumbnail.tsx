@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from './Icon';
 import type { Repository } from '../core/repository';
 
 /** Regenerable, in-process thumbnail cache: never user content in web storage or SQLite. */
@@ -65,6 +66,6 @@ export function AttachmentThumbnail({ api, id, ownerId }: { api: Repository; id:
     return () => { alive = false; };
   }, [visible, api, id, ownerId]);
   return <span ref={ref} className="attachment-thumbnail">
-    {url && <img src={url} alt="" aria-hidden="true" loading="lazy" width={72} height={72} />}
+    {url ? <img src={url} alt="" aria-hidden="true" loading="lazy" width={72} height={72} /> : <Icon name="document" />}
   </span>;
 }

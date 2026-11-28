@@ -50,7 +50,8 @@ test('profile date conditions persist and change the common record query', async
   await edit();
   await page.getByRole('combobox', { name: 'Период', exact: true }).selectOption('today');
   await save();
-  const profile = await page.getByRole('combobox', { name: 'Представление', exact: true }).inputValue();
+  const activeProfile = page.getByRole('group', { name: 'Представление', exact: true }).getByRole('button', {pressed:true});
+  const profile = await activeProfile.getAttribute('value');
   const response = await page.request.post('/__test-sqlite', { data: { op: 'query', sql: 'SELECT config FROM display_profiles WHERE id=?', params: [profile] } });
   expect(response.ok(), await response.text()).toBe(true);
   const saved = (await response.json()).value as { config: string }[];

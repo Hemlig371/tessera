@@ -2,8 +2,8 @@ import {useEffect, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Icon} from './Icon';
 
-export function RecordActions({ disabled, edit, history, remove, move }: {
-  disabled: boolean; edit: () => void; history: () => void; remove: () => void; move?: () => void;
+export function RecordActions({ disabled, edit, history, remove, move, search, settings }: {
+  disabled: boolean; edit: () => void; history: () => void; remove: () => void; move?: () => void; search: () => void; settings: () => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -28,6 +28,8 @@ export function RecordActions({ disabled, edit, history, remove, move }: {
     {open && <div className="reference-record-more-menu" role="menu" aria-label={t('moreActions')}>
       {move && <button role="menuitem" type="button" disabled={disabled} onClick={() => action(move)}>{t('moveFromInbox')}</button>}
       <button role="menuitem" type="button" disabled={disabled} onClick={() => action(history)}><Icon name="clock" />{t('recordHistory')}</button>
+      <button role="menuitem" type="button" disabled={disabled} onClick={() => action(search)}><Icon name="search" />{t('globalSearch')}</button>
+      <button role="menuitem" type="button" disabled={disabled} onClick={() => action(settings)}><Icon name="settings" />{t('globalSettings')}</button>
       <button role="menuitem" type="button" className="danger" disabled={disabled} onClick={() => action(remove)}><Icon name="trash" />{t('delete')}</button>
     </div>}
     <button className="tessera-record-edit reference-record-edit" type="button" disabled={disabled} onClick={edit} aria-label={t('edit')}><Icon name="edit" /><span>{t('edit')}</span></button>

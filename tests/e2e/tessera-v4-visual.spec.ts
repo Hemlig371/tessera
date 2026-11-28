@@ -68,10 +68,11 @@ test('reference libraries, recipes and project can be read and edited across win
   await expect(task).toBeChecked();
 
   const button = (name: string) => page.getByRole('button', {name, exact:true});
-  const close = () => page.locator('.editor-heading button').click();
+  const close = async () => {
+    await page.locator('.editor-heading button').click();
+    await expect(page.locator('[data-editor]')).toHaveCount(0);
+  };
   const take = async (name: string) => {
-    const scope = page.locator('[data-editor]');
-    if (await scope.count()) await expect(scope).toBeVisible();
     for (const [size, width] of [['phone',390],['desktop',1280]] as const) {
       await page.setViewportSize({width,height:844});
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -139,6 +140,8 @@ test('reference libraries, recipes and project can be read and edited across win
   await page.getByRole('combobox',{name:'Тема',exact:true}).selectOption('dark');
   await button('Сохранить оформление').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await expect(page.locator('[data-editor]')).toHaveCount(0);
+  await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await take('dark-libraries');
   await page.getByRole('button',{name:'Открыть библиотеку «Проекты и задачи»'}).click();
   await page.getByRole('button',{name:/Обновление Tessera v4.0/}).first().click();

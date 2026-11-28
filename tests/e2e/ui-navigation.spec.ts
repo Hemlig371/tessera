@@ -11,6 +11,9 @@ async function seed(page: Page, name: string) {
 async function openLibrary(page: Page, name: string) {
   await page.getByRole('button', { name: `Открыть библиотеку «${name}»`, exact: true }).click();
 }
+function profileChip(page: Page, id: string) {
+  return page.getByRole('group', { name: 'Представление', exact: true }).locator(`button[value="${id}"]`);
+}
 async function settings(page: Page) {
   const toggle = page.locator('#constructor-toggle');
   if (await toggle.getAttribute('aria-pressed') !== 'true') await openApplicationAction(page, 'Конструктор');
@@ -49,11 +52,11 @@ test('mobile catalogs, record Back, configured profile and deleted start fallbac
   await expect(page.locator('[data-catalog=collections] .catalog-list')).toBeVisible();
   await goToLibraries(page);
   await openLibrary(page, name);
-  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);
+  await expect(profileChip(page,scope.profile_id)).toHaveAttribute('aria-pressed','true');
   await page.reload(); await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await openLibrary(page, name);
-  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);
+  await expect(profileChip(page,scope.profile_id)).toHaveAttribute('aria-pressed','true');
   await goToLibraries(page);
   const deleted = await page.request.post('/__test-sqlite', { data: { op: 'navigation-delete-profile', params: [scope.profile_id] } });
   expect(deleted.ok(), await deleted.text()).toBe(true);
@@ -62,7 +65,7 @@ test('mobile catalogs, record Back, configured profile and deleted start fallbac
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await openApplicationAction(page, 'Входящие');
-  await expect(page.getByRole('heading', { name: 'Входящие', exact: true })).toBeVisible();
+  await expect(page.locator('.workspace-identity strong')).toHaveText('Входящие');
   await expect(page.getByRole('button', { name: 'К библиотекам', exact: true })).toBeEnabled();
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
@@ -73,7 +76,7 @@ test('global search returns to the deep profile; last section and creation draft
   test.setTimeout(90000); await page.setViewportSize({ width: 1280, height: 900 });
   const name = 'Навигация: контекст (dev/CI)', scope = await seed(page, name);
   await openLibrary(page, name); await page.getByRole('button', { name: 'Открыть коллекцию «Материалы»', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Представление', exact: true }).selectOption(scope.profile_id);
+  await profileChip(page,scope.profile_id).click();
   await expect(page.locator('.entry').first()).toContainText('Материал 001');
   for (const count of [200, 250]) {
     await page.getByRole('button', { name: 'Показать ещё', exact: true }).click();
@@ -82,18 +85,18 @@ test('global search returns to the deep profile; last section and creation draft
   const scroller = page.locator('.entry-scroll'), height = (await page.locator('.entry').first().boundingBox())!.height;
   await scroller.evaluate((element, top) => { element.scrollTop = top; }, height * 219);
   const offset = await scroller.evaluate(element => element.scrollTop);
-  await page.getByRole('button', { name: 'Глобальный поиск', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Все записи', exact: true })).toBeVisible();
+  await openApplicationAction(page,'Глобальный поиск');
+  await expect(page.locator('.workspace-identity strong')).toHaveText('Глобальный поиск');
   await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('Материал 221');
   await expect(page.locator('.entry').first()).toContainText('Материал 221');
   await page.getByRole('button', { name: 'Назад', exact: true }).click();
   await expect(page.getByText('Загружено записей: 250', { exact: true })).toBeVisible();
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(offset);
-  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);
+  await expect(profileChip(page,scope.profile_id)).toHaveAttribute('aria-pressed','true');
   await page.locator('.entry').filter({ hasText: 'Материал 220' }).click();
   await page.locator('.detail').getByRole('button', { name: /Материал 221/ }).click();
   await expect(page.locator('.detail #record-title')).toHaveText('Материал 221');
-  await page.getByRole('button', { name: 'Глобальный поиск', exact: true }).click();
+  await openApplicationAction(page,'Глобальный поиск');
   await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('Материал 010');
   await expect(page.locator('.entry').first()).toContainText('Материал 010');
   await page.getByRole('button', { name: 'Назад', exact: true }).click();
@@ -112,7 +115,7 @@ test('global search returns to the deep profile; last section and creation draft
   await goToLibraries(page); await page.reload();
   await expect(page.locator('[data-catalog=libraries]')).toBeVisible();
   await openLibrary(page, name);
-  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(scope.profile_id);
+  await expect(profileChip(page,scope.profile_id)).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await expect(page.locator('[data-editor]').getByRole('textbox', { name: 'Название', exact: true })).toHaveValue('Черновик навигации');

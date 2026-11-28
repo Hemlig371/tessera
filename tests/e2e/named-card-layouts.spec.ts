@@ -42,13 +42,13 @@ test('named record layouts are view-specific and leave shared record history unt
   await page.locator('[data-editor]').press('Escape');
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Готово, к данным' }).click();
-  const profile = page.getByRole('combobox', { name: 'Представление', exact: true });
-  await profile.selectOption({ label: 'Только Бета' });
+  const profiles = page.getByRole('group', { name: 'Представление', exact: true });
+  await profiles.getByRole('button', { name: 'Только Бета', exact:true }).click();
   await page.locator('.entry').first().click();
   await expect(page.locator('.detail')).toContainText('Бета');
   await expect(page.locator('.detail')).not.toContainText('Вторая заметка');
   await showList(page);
-  await profile.selectOption({ label: 'Все' });
+  await profiles.getByRole('button', { name: 'Все', exact:true }).click();
   await page.locator('.entry').first().click();
   await expect(page.locator('.detail')).toContainText('Длинный текст первой заметки');
   expect(await snapshot('records')).toEqual(before);

@@ -15,14 +15,16 @@ test('builder isolates schema tools, preserves collection context and uses back 
   await expect(mode).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Готово, к данным' }).click();
   await expect(mode).toHaveAttribute('aria-pressed', 'false');
-  for (const name of ['Поля','Форма','Карточка','Список','Представления','Настройки коллекции','Пресеты создания']) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  for (const name of ['Поля','Форма','Карточка','Представления','Настройки коллекции','Пресеты создания']) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  await expect(page.locator('.structure-workspace')).toHaveCount(0);
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();
   await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Черновик конструктора');
   await page.locator('form').getByRole('button', { name: 'Закрыть', exact: true }).click();
   await expect(page.locator('[data-editor]')).toHaveCount(0);
   const snapshot = async () => (await (await page.request.post('/__test-sqlite', { data: { op: 'query', sql: "SELECT (SELECT count(*) FROM records) AS records,(SELECT count(*) FROM record_versions) AS versions,(SELECT count(*) FROM change_log) AS changes,(SELECT value FROM local_settings WHERE key='hlc') AS hlc" } })).json()).value as unknown;
   const before = await snapshot();
-  const profile = await page.getByRole('combobox', { name: 'Представление', exact: true }).inputValue();
+  const activeProfile = page.getByRole('group', { name: 'Представление', exact: true }).getByRole('button', {pressed:true});
+  const profile = await activeProfile.getAttribute('value');
   await showList(page); await page.getByRole('searchbox', { name: 'Поиск', exact: true }).fill('контекст');
   await openConstructor(page);
   await expect(page.getByRole('heading', { name: 'Предпросмотр записей', exact: true })).toBeVisible();
@@ -35,7 +37,7 @@ test('builder isolates schema tools, preserves collection context and uses back 
   await page.evaluate(() => window.dispatchEvent(new Event('tessera-back')));
   await expect(mode).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByRole('searchbox', { name: 'Поиск', exact: true })).toHaveValue('контекст');
-  await expect(page.getByRole('combobox', { name: 'Представление', exact: true })).toHaveValue(profile);
+  await expect(activeProfile).toHaveAttribute('value', profile!);
   expect(await snapshot()).toEqual(before);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await showList(page); await page.getByRole('button', { name: '+ Новая запись', exact: true }).click();

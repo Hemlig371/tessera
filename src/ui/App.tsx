@@ -949,7 +949,7 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
           title={ui.constructorOpen ? t('constructor') : ui.screen === 'libraries' ? t('brand') : ui.scope === 'all' ? t(recentMode ? 'recentRecords' : 'globalSearch') : collection?.system_kind ? t('inbox') : collection?.name ?? library?.name ?? t('brand')}
           subtitle={ui.constructorOpen ? (collection?.name ?? library?.name) : browsing && ui.scope === 'collection' && rowsReady ? (page.next ? t('loadedCount', {count: page.items.length}) : t('recordCount', {count: page.items.length})) : undefined}
           icon={identity.icon} color={identity.color}
-          back={ui.screen !== 'libraries' ? () => { clearRecordContext(); backSection(); } : undefined}
+          back={ui.screen !== 'libraries' ? () => { if (!ui.searchOrigin) clearRecordContext(); backSection(); } : undefined}
           backLabel={t(ui.searchOrigin ? 'backScreen' : ui.screen === 'records' && library && !collection?.system_kind ? 'backToCollections' : 'backToLibraries')}
           search={ui.screen === 'libraries' ? () => openGlobalSearch() : undefined}
           disabled={disabled} registerClose={registerOverflowMenuClose} menu={[
@@ -1235,6 +1235,8 @@ export function App({ api, drafts, suspended = false, openArchive }: { api: Repo
             <RecordActions disabled={busy}
               edit={() => open('entry', selected.id)}
               history={() => open('history', selected.id)}
+              search={() => openGlobalSearch()}
+              settings={() => open('settings')}
               remove={() => remove('record', selected.id)}
               move={context.collection.system_kind === 'inbox' ? () => open('move', selected.id) : undefined}
             />
